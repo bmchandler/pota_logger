@@ -50,7 +50,13 @@ Session-level values:
 - **UTC date:** carried forward. It's set when it changes, and each entry's
   timestamp combines it with that entry's HHMM time.
 - **Station callsign:** the operator's own call. It's shown in a top status
-  area and recorded on each entry (ADIF `STATION_CALLSIGN`).
+  area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
+  settings modal.
+
+## Settings
+
+- A settings modal holds app-wide settings, starting with the station
+  callsign. Future settings go there too.
 
 ## Entry behavior
 
@@ -73,7 +79,15 @@ Session-level values:
 ## Storage
 
 - CSV files only. No SQLite.
-- One CSV file per UTC date.
+- Stored in a `data/` folder under the project.
+- One CSV file per UTC date, named by date (e.g. `data/2026-09-24.csv`).
+- Column names use the same shorthand and order as the entry fields:
+  `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, TIME`, then
+  `STATION_CALLSIGN`.
+- Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
+  PARK `US-1234`, PWR `60`, TIME `1953`.
+- Dates and times are UTC everywhere, in both storage and entry. An entry's
+  full timestamp is its file's date plus its TIME.
 - Files should stay readable and editable by hand.
 - If a hand edit breaks loading, show an error naming the offending file and
   row number.
@@ -86,6 +100,4 @@ Session-level values:
 
 ## Open questions
 
-- Where the CSV log directory lives, and how it's configured.
-- Where the station callsign is configured.
-- CSV column names and timestamp format.
+- Where settings are saved.
