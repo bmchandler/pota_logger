@@ -1,4 +1,5 @@
 import tomllib
+from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -33,14 +34,15 @@ class PotaLoggerApp(App):
         Binding("f2", "open_settings", "Settings"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, settings_path: Path = SETTINGS_PATH) -> None:
         super().__init__()
+        self.settings_path = settings_path
         self.settings_error: str | None = None
         try:
-            self.settings = load_settings()
+            self.settings = load_settings(settings_path)
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
-            self.settings_error = f"Couldn't read {SETTINGS_PATH}: {error}"
+            self.settings_error = f"Couldn't read {settings_path}: {error}"
 
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)
@@ -79,7 +81,7 @@ class PotaLoggerApp(App):
         if settings is None:
             return
         self.settings = settings
-        save_settings(settings)
+        save_settings(settings, self.settings_path)
         self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
 
 
