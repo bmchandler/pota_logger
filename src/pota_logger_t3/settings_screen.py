@@ -1,0 +1,66 @@
+from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, Input, Label
+
+from pota_logger_t3.settings import Settings
+
+
+class SettingsScreen(ModalScreen[Settings | None]):
+    """Edit app settings. Dismisses with new Settings, or None if cancelled."""
+
+    DEFAULT_CSS = """
+    SettingsScreen {
+        align: center middle;
+    }
+    SettingsScreen > Vertical {
+        width: 44;
+        height: auto;
+        padding: 1 2;
+        border: thick $primary;
+        background: $surface;
+    }
+    SettingsScreen #settings-title {
+        text-style: bold;
+        padding-bottom: 1;
+    }
+    SettingsScreen #settings-buttons {
+        height: auto;
+        align-horizontal: right;
+        padding-top: 1;
+    }
+    SettingsScreen Button {
+        margin-left: 1;
+    }
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, settings: Settings) -> None:
+        super().__init__()
+        self.settings = settings
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Label("Settings", id="settings-title")
+            yield Label("Station callsign")
+            yield Input(value=self.settings.station_callsign, id="station-callsign-input")
+            with Horizontal(id="settings-buttons"):
+                yield Button("Cancel", id="cancel")
+                yield Button("Save", id="save", variant="primary")
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.action_save()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "save":
+            self.action_save()
+        else:
+            self.action_cancel()
+
+    def action_save(self) -> None:
+        callsign = self.query_one("#station-callsign-input", Input).value.strip().upper()
+        self.dismiss(Settings(station_callsign=callsign))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)

@@ -35,9 +35,13 @@ class StatusBar(Horizontal):
         self.station_callsign = station_callsign
 
     def compose(self) -> ComposeResult:
-        yield Static(self.station_callsign, id="station-callsign")
+        yield Static(self.station_callsign or "NOCALL", id="station-callsign")
         yield Static(id="local-clock")
         yield Static(id="utc-clock")
+
+    def set_station_callsign(self, station_callsign: str) -> None:
+        self.station_callsign = station_callsign
+        self.query_one("#station-callsign", Static).update(station_callsign or "NOCALL")
 
     def on_mount(self) -> None:
         self.update_clocks()
