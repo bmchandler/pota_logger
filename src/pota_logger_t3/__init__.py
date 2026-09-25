@@ -1,5 +1,7 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Static
+
+from pota_logger_t3.status_bar import StatusBar
 
 
 class PotaLoggerApp(App):
@@ -8,7 +10,7 @@ class PotaLoggerApp(App):
     BINDINGS = [("q", "quit", "Quit")]
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield StatusBar(station_callsign="NOCALL")
         yield Static("Hello, POTA!")
         yield Footer()
 
