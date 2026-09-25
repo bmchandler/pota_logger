@@ -28,7 +28,10 @@ class PotaLoggerApp(App):
     """
 
     # Redeclares Textual's built-in ctrl+q so it shows in the footer.
-    BINDINGS = [Binding("ctrl+q", "quit", "Quit", priority=True)]
+    BINDINGS = [
+        Binding("ctrl+q", "quit", "Quit", priority=True),
+        Binding("f2", "open_settings", "Settings"),
+    ]
 
     def __init__(self) -> None:
         super().__init__()
@@ -64,7 +67,13 @@ class PotaLoggerApp(App):
         if event.button.id == "quit":
             self.exit()
         elif event.button.id == "settings":
-            self.push_screen(SettingsScreen(self.settings), self.apply_settings)
+            self.action_open_settings()
+
+    def action_open_settings(self) -> None:
+        # App bindings stay live under a modal, so don't stack a second one.
+        if isinstance(self.screen, SettingsScreen):
+            return
+        self.push_screen(SettingsScreen(self.settings), self.apply_settings)
 
     def apply_settings(self, settings: Settings | None) -> None:
         if settings is None:
