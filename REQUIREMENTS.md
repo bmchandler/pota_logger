@@ -57,6 +57,7 @@ Session-level values:
 
 - A settings modal holds app-wide settings, starting with the station
   callsign. Future settings go there too.
+- Settings are saved in `data/settings.toml`.
 
 ## Entry behavior
 
@@ -80,7 +81,8 @@ Session-level values:
 
 - CSV files only. No SQLite.
 - Stored in a `data/` folder under the project.
-- One CSV file per UTC date, named by date (e.g. `data/2026-09-24.csv`).
+- One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
+- `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the entry fields:
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, TIME`, then
   `STATION_CALLSIGN`.
@@ -97,7 +99,3 @@ Session-level values:
 - ADIF, aimed at QRZ.com import. Field details (e.g. `SIG`/`SIG_INFO` vs
   `POTA_REF`, and station and operator fields) are worked out when export is
   built.
-
-## Open questions
-
-- Where settings are saved.
