@@ -65,6 +65,11 @@ class PotaLoggerApp(App):
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
 
+    def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
+        table = self.query_one("#log-table", DataTable)
+        table.add_row(*event.values.values())
+        table.scroll_end(animate=False)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "quit":
             self.exit()

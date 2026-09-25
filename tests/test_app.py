@@ -49,6 +49,101 @@ async def test_fields_fit_longest_expected_values(app):
             assert field.content_region.width >= len(value) + 1, name
 
 
+# Entering a record
+
+ENTRY = {
+    "FREQ": "14.074.5",
+    "MODE": "USB",
+    "CALL": "W1ABC",
+    "PARK": "1234",
+    "ST": "NJ",
+    "SNT": "59",
+    "RCD": "57",
+    "PWR": "60W",
+    "TIME": "1953",
+}
+
+
+def fill(app, values: dict[str, str]) -> None:
+    for name, value in values.items():
+        app.query_one(f"#field-{name.lower()}", Input).value = value
+
+
+def field_values(app) -> dict[str, str]:
+    return {name: app.query_one(f"#field-{name.lower()}", Input).value for name, _, _ in FIELDS}
+
+
+def table_rows(app) -> list[list[str]]:
+    table = app.query_one("#log-table", DataTable)
+    return [[str(cell) for cell in table.get_row_at(i)] for i in range(table.row_count)]
+
+
+async def test_mode_starts_as_ssb(app):
+    async with app.run_test():
+        assert app.query_one("#field-mode", Input).value == "SSB"
+
+
+async def test_enter_adds_row_in_field_order(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        assert table_rows(app) == [list(ENTRY.values())]
+
+
+async def test_typed_entry_with_tab_between_fields(app):
+    async with app.run_test() as pilot:
+        # Tabbing into MODE selects the SSB default, so typing replaces it.
+        for value in ENTRY.values():
+            await pilot.press(*value, "tab")
+        await pilot.press("shift+tab", "enter")  # back onto TIME, then Enter
+        assert table_rows(app) == [list(ENTRY.values())]
+
+
+async def test_enter_works_from_any_field(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        app.query_one("#field-call", Input).focus()
+        await pilot.press("enter")
+        assert len(table_rows(app)) == 1
+
+
+async def test_entry_values_are_trimmed(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "  W1ABC "})
+        await pilot.press("enter")
+        assert table_rows(app)[0][2] == "W1ABC"
+
+
+async def test_after_entry_fields_reset_except_power(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        app.query_one("#field-time", Input).focus()
+        await pilot.press("enter")
+        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W"}
+        assert field_values(app) == expected
+        assert app.focused.id == "field-freq"
+
+
+async def test_entries_append_in_entered_order(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"TIME": "2000"})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"TIME": "1900"})
+        await pilot.press("enter")
+        assert [row[-1] for row in table_rows(app)] == ["2000", "1900"]
+
+
+async def test_missing_fields_block_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "", "TIME": " "})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-call"
+        assert [n.message for n in app._notifications] == ["Missing: CALL, TIME"]
+        # Nothing was cleared.
+        assert field_values(app)["FREQ"] == "14.074.5"
+
+
 # Quitting
 
 
