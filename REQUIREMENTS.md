@@ -35,7 +35,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 
 | Field | Entered as | Stored as | Displayed as | Notes |
 |---|---|---|---|---|
-| FREQ | Dotted MHz.kHz.Hz: `14`, `14.1`, `14.123`, `14.123.4`, `14.123.456`; or bare Hz from 7 digits: `28312456` | Integer Hz | Always in full: `14.000.000`, `14.123.400` | Never carried forward. kHz and Hz parts are left-aligned (`14.1` is `14.100.000`). 4–6 bare digits are rejected as ambiguous. |
+| FREQ | Always MHz, shorthand allowed: `14`, `14.1`, `14.0745`, `14.074.5`, `14074`, `28312456` | Integer Hz | Always in full: `14.000.000`, `14.074.500` | Never carried forward. Missing digits are filled with zeros. After a dot, up to 6 fractional MHz digits, optionally with a second dot after the 3 kHz digits (`14.1` is `14.100.000`; `14.0745` and `14.074.5` are `14.074.500`). Bare digits group from the right: 1–3 digits are MHz (`14`), 4–6 end in kHz (`14074` is `14.074.000`), 7+ end in kHz and Hz (`14074123` is `14.074.123`). |
 | MODE | `SSB`, `USB`, `LSB`, `CW` | Text | Same | Defaults to `SSB` on each new entry. USB/LSB are for non-standard sideband near band edges. |
 | CALL | Free text, e.g. `W1ABC`, `VE3/W1ABC` | Uppercase text | Same | International and slash calls allowed. |
 | PARK | `1234` or `JP-1234` | Full reference, e.g. `US-1234` | Bare number for US, full reference otherwise | Bare number means `US-`. One park per entry. |

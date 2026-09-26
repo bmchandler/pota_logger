@@ -153,20 +153,29 @@ async def test_freq_shown_in_full_in_table(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"FREQ": "14"})
         await pilot.press("enter")
+        fill(app, ENTRY | {"FREQ": "14074"})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"FREQ": "14.0745"})
+        await pilot.press("enter")
         fill(app, ENTRY | {"FREQ": "28312456"})
         await pilot.press("enter")
-        assert [row[0] for row in table_rows(app)] == ["14.000.000", "28.312.456"]
+        assert [row[0] for row in table_rows(app)] == [
+            "14.000.000",
+            "14.074.000",
+            "14.074.500",
+            "28.312.456",
+        ]
 
 
 async def test_invalid_freq_blocks_entry(app):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"FREQ": "14074"})
+        fill(app, ENTRY | {"FREQ": "14.07.45"})
         app.query_one("#field-time", Input).focus()
         await pilot.press("enter")
         assert table_rows(app) == []
         assert app.focused.id == "field-freq"
         assert len(app._notifications) == 1
-        assert "14074" in next(iter(app._notifications)).message
+        assert "14.07.45" in next(iter(app._notifications)).message
         # Nothing was cleared.
         assert field_values(app)["CALL"] == "W1ABC"
 
