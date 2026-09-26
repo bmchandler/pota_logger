@@ -69,7 +69,13 @@ ENTRY = {
 ENTRY_ROW = list(
     (
         ENTRY
-        | {"FREQ": "14.074.500", "PWR": "60W", "DATE": "2026.09.25", "TIME": "19:53"}
+        | {
+            "FREQ": "14.074.500",
+            "PARK": "US-1234",
+            "PWR": "60W",
+            "DATE": "2026.09.25",
+            "TIME": "19:53",
+        }
     ).values()
 )
 
@@ -122,6 +128,42 @@ async def test_entry_values_are_trimmed(app):
         fill(app, ENTRY | {"CALL": "  W1ABC "})
         await pilot.press("enter")
         assert table_rows(app)[0][2] == "W1ABC"
+
+
+async def test_call_any_case_shown_uppercase(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "w1abc"})
+        await pilot.press("enter")
+        assert table_rows(app)[0][2] == "W1ABC"
+
+
+async def test_park_bare_number_shown_as_us(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "1234"})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"PARK": "JP-1234"})
+        await pilot.press("enter")
+        assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234"]
+
+
+async def test_three_digit_report_requires_cw(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"MODE": "USB", "SNT": "599"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-snt"
+        assert [n.message for n in app._notifications] == [
+            "SNT '599' needs MODE CW for a 3-digit report"
+        ]
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
+async def test_three_digit_report_allowed_on_cw(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"MODE": "CW", "SNT": "599", "RCD": "579"})
+        await pilot.press("enter")
+        assert [row[5] for row in table_rows(app)] == ["599"]
+        assert [row[6] for row in table_rows(app)] == ["579"]
 
 
 async def test_after_entry_fields_reset_except_power_and_date(app):
@@ -316,7 +358,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
+            "14.150.000", "SSB", "W1AAA", "US-464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

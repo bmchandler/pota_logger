@@ -6,6 +6,7 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
+from pota_logger_t3.callsigns import parse_callsign
 from pota_logger_t3.dates import parse_date, parse_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
@@ -33,11 +34,15 @@ INPUT_EXTRA_WIDTH = 5
 PARSERS = {
     "FREQ": parse_freq,
     "MODE": parse_mode,
+    "CALL": parse_callsign,
     "ST": parse_state,
     "PWR": parse_power,
     "DATE": parse_date,
     "TIME": parse_time,
 }
+
+# SNT/RCD may only be a 3-digit report (e.g. 599) when MODE is CW.
+THREE_DIGIT_REPORT_MODE = "CW"
 
 # Fields that may be left blank.
 OPTIONAL = {"ST"}
@@ -113,6 +118,15 @@ class EntryForm(Horizontal):
                 self.notify(str(error), severity="warning")
                 self.field(name).focus()
                 return
+        if parsed["MODE"] != THREE_DIGIT_REPORT_MODE:
+            for name in ("SNT", "RCD"):
+                if len(values[name]) == 3:
+                    self.notify(
+                        f"{name} {values[name]!r} needs MODE CW for a 3-digit report",
+                        severity="warning",
+                    )
+                    self.field(name).focus()
+                    return
         self.post_message(self.Submitted(values | parsed))
         self.clear_for_next_entry()
 

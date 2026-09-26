@@ -9,6 +9,7 @@ from textual.widgets import Button, DataTable, Footer
 from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.entry_form import FIELDS, EntryForm
 from pota_logger_t3.freq import format_freq
+from pota_logger_t3.parks import format_park
 from pota_logger_t3.power import format_power
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
@@ -19,6 +20,7 @@ from pota_logger_t3.status_bar import StatusBar
 # wider than the entered text.
 FORMATTERS = {
     "FREQ": format_freq,
+    "PARK": format_park,
     "PWR": format_power,
     "DATE": format_date,
     "TIME": format_time,
