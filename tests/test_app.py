@@ -143,7 +143,9 @@ async def test_park_bare_number_shown_as_us(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"PARK": "JP-1234"})
         await pilot.press("enter")
-        assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234"]
+        fill(app, ENTRY | {"PARK": "jp234"})
+        await pilot.press("enter")
+        assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234", "JP-234"]
 
 
 async def test_three_digit_report_requires_cw(app):
