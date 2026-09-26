@@ -1,0 +1,45 @@
+# POTA Logger T3
+
+Textual TUI logbook for hunting POTA parks, managed with uv (Python 3.13).
+REQUIREMENTS.md is the source of truth for scope and field rules; keep it
+updated in the same change whenever a rule changes.
+
+## Commands
+
+- Run the app: `uv run pota-logger-t3`
+- Run tests: `uv run pytest`
+- Install the callsign guard git hooks (once per clone):
+  `uv run python -m pota_logger_t3.callsign_guard install`
+
+## How we work
+
+- Build in small "horizontal" steps: only what the current request needs.
+  Don't scaffold ahead or add functions before a step uses them.
+- Add or update tests alongside each change.
+- Never run `git commit` on your own. Stage the change, draft a commit
+  message, and wait for the user to try the app and review the code.
+- Commit messages: short subject line, a body with details when useful,
+  then the Co-Authored-By trailer. The first commit in a repo is always
+  `Initial Commit`.
+- When a request is ambiguous (especially about UI behavior), ask instead
+  of guessing.
+
+## Privacy
+
+- Never put the operator's real station callsign in tracked files, tests,
+  examples, or commit messages. Use made-up calls like `W1TST` or `W1ABC`.
+- The real callsign lives only in `data/settings.toml`; `data/` is
+  git-ignored. The callsign guard hooks are a backup, not the main rule.
+
+## Code notes
+
+- Each entry field with rules has a small module with `parse_*` (raises
+  ValueError with a message shown to the operator) and, if displayed
+  differently, `format_*`: freq.py, modes.py, states.py, power.py, dates.py.
+- `entry_form.py` holds `FIELDS` (name, placeholder, longest value),
+  `PARSERS`, `OPTIONAL`, `DEFAULTS`, and `CARRY_FORWARD`. `__init__.py`
+  holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.
+- Log table columns use fixed widths: Textual's DataTable doesn't redraw
+  rows already drawn when an auto-width column widens.
+- Tests never touch the real `data/`: use the `settings_path` / `app`
+  fixtures in tests/conftest.py, which point at a temp dir.
