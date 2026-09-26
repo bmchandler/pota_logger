@@ -7,6 +7,7 @@ from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer
 
 from pota_logger_t3.entry_form import FIELDS, EntryForm
+from pota_logger_t3.freq import format_freq
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.status_bar import StatusBar
@@ -67,7 +68,8 @@ class PotaLoggerApp(App):
 
     def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
         table = self.query_one("#log-table", DataTable)
-        table.add_row(*event.values.values())
+        values = event.values | {"FREQ": format_freq(event.values["FREQ"])}
+        table.add_row(*values.values())
         table.scroll_end(animate=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

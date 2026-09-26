@@ -40,9 +40,10 @@ async def test_fields_fit_longest_expected_values(app):
         "SNT": "599",
         "RCD": "599",
         "PWR": "100W",
+        "DATE": "20260925",
         "TIME": "1953",
     }
-    async with app.run_test(size=(100, 24)):
+    async with app.run_test(size=(120, 24)):
         for name, value in longest.items():
             field = app.query_one(f"#field-{name.lower()}", Input)
             # +1 for the cursor
@@ -60,8 +61,12 @@ ENTRY = {
     "SNT": "59",
     "RCD": "57",
     "PWR": "60W",
+    "DATE": "20260925",
     "TIME": "1953",
 }
+
+# ENTRY as it appears in the log table.
+ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500"}).values())
 
 
 def fill(app, values: dict[str, str]) -> None:
@@ -87,7 +92,7 @@ async def test_enter_adds_row_in_field_order(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY)
         await pilot.press("enter")
-        assert table_rows(app) == [list(ENTRY.values())]
+        assert table_rows(app) == [ENTRY_ROW]
 
 
 async def test_typed_entry_with_tab_between_fields(app):
@@ -96,7 +101,7 @@ async def test_typed_entry_with_tab_between_fields(app):
         for value in ENTRY.values():
             await pilot.press(*value, "tab")
         await pilot.press("shift+tab", "enter")  # back onto TIME, then Enter
-        assert table_rows(app) == [list(ENTRY.values())]
+        assert table_rows(app) == [ENTRY_ROW]
 
 
 async def test_enter_works_from_any_field(app):
@@ -114,12 +119,12 @@ async def test_entry_values_are_trimmed(app):
         assert table_rows(app)[0][2] == "W1ABC"
 
 
-async def test_after_entry_fields_reset_except_power(app):
+async def test_after_entry_fields_reset_except_power_and_date(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY)
         app.query_one("#field-time", Input).focus()
         await pilot.press("enter")
-        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W"}
+        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W", "DATE": "20260925"}
         assert field_values(app) == expected
         assert app.focused.id == "field-freq"
 
@@ -142,6 +147,34 @@ async def test_missing_fields_block_entry(app):
         assert [n.message for n in app._notifications] == ["Missing: CALL, TIME"]
         # Nothing was cleared.
         assert field_values(app)["FREQ"] == "14.074.5"
+
+
+async def test_freq_shown_in_full_in_table(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "14"})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"FREQ": "28312456"})
+        await pilot.press("enter")
+        assert [row[0] for row in table_rows(app)] == ["14.000.000", "28.312.456"]
+
+
+async def test_invalid_freq_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "14074"})
+        app.query_one("#field-time", Input).focus()
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-freq"
+        assert len(app._notifications) == 1
+        assert "14074" in next(iter(app._notifications)).message
+        # Nothing was cleared.
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
+async def test_date_column_before_time(app):
+    async with app.run_test():
+        names = [name for name, _, _ in FIELDS]
+        assert names.index("DATE") == names.index("TIME") - 1
 
 
 # Quitting

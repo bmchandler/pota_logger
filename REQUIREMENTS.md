@@ -35,7 +35,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 
 | Field | Entered as | Stored as | Displayed as | Notes |
 |---|---|---|---|---|
-| FREQ | `14.074`, `14.074.5`, `14.074.55` (MHz.kHz.sub-kHz) | Integer Hz | Trailing zeros trimmed: `14.074`, `14.074.5`, `14.074.55` | Never carried forward. |
+| FREQ | Dotted MHz.kHz.Hz: `14`, `14.1`, `14.123`, `14.123.4`, `14.123.456`; or bare Hz from 7 digits: `28312456` | Integer Hz | Always in full: `14.000.000`, `14.123.400` | Never carried forward. kHz and Hz parts are left-aligned (`14.1` is `14.100.000`). 4–6 bare digits are rejected as ambiguous. |
 | MODE | `SSB`, `USB`, `LSB`, `CW` | Text | Same | Defaults to `SSB` on each new entry. USB/LSB are for non-standard sideband near band edges. |
 | CALL | Free text, e.g. `W1ABC`, `VE3/W1ABC` | Uppercase text | Same | International and slash calls allowed. |
 | PARK | `1234` or `JP-1234` | Full reference, e.g. `US-1234` | Bare number for US, full reference otherwise | Bare number means `US-`. One park per entry. |
@@ -43,12 +43,11 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. |
 | RCD | `59` / `599` | Text | Same | |
 | PWR | `60W` or `60` | Integer watts | `60W` | Carried forward. |
+| DATE | `20260925` (YYYYMMDD) | Part of the entry's UTC timestamp | `20260925` | Carried forward. |
 | TIME | `1953` (HHMM) | Part of the entry's UTC timestamp | `1953` | Entered last. |
 
-Session-level values:
+Session-level value:
 
-- **UTC date:** carried forward. It's set when it changes, and each entry's
-  timestamp combines it with that entry's HHMM time.
 - **Station callsign:** the operator's own call. It's shown in a top status
   area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
   settings modal.
@@ -63,7 +62,7 @@ Session-level values:
 
 - Fields can be filled and edited in any order before an entry is saved.
 - An entry can't be saved until every required field is filled in and valid.
-- Only UTC date and power carry forward to the next entry. Everything else is
+- Only DATE and PWR carry forward to the next entry. Everything else is
   entered fresh each time (MODE resets to `SSB`).
 - Multi-park activations: each park is a separate entry.
 - Warn, but don't block, when an entry's time is earlier than the previous
@@ -84,12 +83,13 @@ Session-level values:
 - One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
 - `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the entry fields:
-  `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, TIME`, then
+  `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME`, then
   `STATION_CALLSIGN`.
 - Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
-  PARK `US-1234`, PWR `60`, TIME `1953`.
+  PARK `US-1234`, PWR `60`, DATE `20260925`, TIME `1953`.
 - Dates and times are UTC everywhere, in both storage and entry. An entry's
-  full timestamp is its file's date plus its TIME.
+  full timestamp is its DATE plus its TIME, and it's stored in the file named
+  for its DATE.
 - Files should stay readable and editable by hand.
 - If a hand edit breaks loading, show an error naming the offending file and
   row number.

@@ -3,6 +3,8 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
+from pota_logger_t3.freq import parse_freq
+
 # (name, placeholder, width) in paper-log entry order.
 # Widths are longest expected value + 1 cursor cell + 4 cells of border and padding.
 FIELDS = [
@@ -14,6 +16,7 @@ FIELDS = [
     ("SNT", "59", 8),
     ("RCD", "59", 8),
     ("PWR", "60W", 9),
+    ("DATE", "20260925", 13),
     ("TIME", "1953", 9),
 ]
 
@@ -21,7 +24,7 @@ FIELDS = [
 DEFAULTS = {"MODE": "SSB"}
 
 # Fields that keep their value for the next entry.
-CARRY_FORWARD = {"PWR"}
+CARRY_FORWARD = {"PWR", "DATE"}
 
 
 class EntryForm(Horizontal):
@@ -44,9 +47,12 @@ class EntryForm(Horizontal):
     """
 
     class Submitted(Message):
-        """Posted when Enter is pressed with every field filled in."""
+        """Posted when Enter is pressed with every field filled in and valid.
 
-        def __init__(self, values: dict[str, str]) -> None:
+        FREQ is in Hz; everything else is the trimmed text as entered.
+        """
+
+        def __init__(self, values: dict[str, str | int]) -> None:
             super().__init__()
             self.values = values
 
@@ -75,7 +81,13 @@ class EntryForm(Horizontal):
             self.notify(f"Missing: {', '.join(missing)}", severity="warning")
             self.field(missing[0]).focus()
             return
-        self.post_message(self.Submitted(values))
+        try:
+            freq_hz = parse_freq(values["FREQ"])
+        except ValueError as error:
+            self.notify(str(error), severity="warning")
+            self.field("FREQ").focus()
+            return
+        self.post_message(self.Submitted(values | {"FREQ": freq_hz}))
         self.clear_for_next_entry()
 
     def clear_for_next_entry(self) -> None:
