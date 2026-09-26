@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 
 
 def parse_date(text: str) -> date:
@@ -18,3 +18,22 @@ def parse_date(text: str) -> date:
 def format_date(value: date) -> str:
     """Format a date for display: 2026-09-23 -> 2026.09.23."""
     return value.strftime("%Y.%m.%d")
+
+
+def parse_time(text: str) -> time:
+    """Parse a UTC time entered as 24-hour HHMM: 2123 -> 21:23.
+
+    Raises ValueError with a message suitable for showing the operator.
+    """
+    text = text.strip()
+    if len(text) != 4 or not text.isdigit():
+        raise ValueError(f"TIME {text!r} should be HHMM, like 2123")
+    try:
+        return time(int(text[:2]), int(text[2:]))
+    except ValueError:
+        raise ValueError(f"TIME {text!r} isn't a real time (0000 to 2359)") from None
+
+
+def format_time(value: time) -> str:
+    """Format a time for display: 21:23."""
+    return value.strftime("%H:%M")

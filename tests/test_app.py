@@ -66,7 +66,7 @@ ENTRY = {
 }
 
 # ENTRY as it appears in the log table.
-ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500", "DATE": "2026.09.25"}).values())
+ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500", "DATE": "2026.09.25", "TIME": "19:53"}).values())
 
 
 def fill(app, values: dict[str, str]) -> None:
@@ -135,7 +135,7 @@ async def test_entries_append_in_entered_order(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"TIME": "1900"})
         await pilot.press("enter")
-        assert [row[-1] for row in table_rows(app)] == ["2000", "1900"]
+        assert [row[-1] for row in table_rows(app)] == ["20:00", "19:00"]
 
 
 async def test_missing_fields_block_entry(app):
@@ -190,6 +190,18 @@ async def test_invalid_date_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_invalid_time_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"TIME": "2360"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-time"
+        assert [n.message for n in app._notifications] == [
+            "TIME '2360' isn't a real time (0000 to 2359)"
+        ]
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 def drawn_table_row(app, row_index: int) -> str:
     """Text the log table actually draws for a data row (line 0 is the header)."""
     return app.query_one("#log-table", DataTable).render_line(row_index + 1).text
@@ -217,7 +229,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "2026.09.23", "1111"
+            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

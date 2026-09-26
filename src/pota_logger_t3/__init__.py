@@ -6,7 +6,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer
 
-from pota_logger_t3.dates import format_date
+from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.entry_form import FIELDS, EntryForm
 from pota_logger_t3.freq import format_freq
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
@@ -16,8 +16,8 @@ from pota_logger_t3.status_bar import StatusBar
 
 # How parsed values are shown in the log table, and their widths when
 # wider than the entered text.
-FORMATTERS = {"FREQ": format_freq, "DATE": format_date}
-DISPLAY_LENGTHS = {"DATE": len("2026.09.23")}
+FORMATTERS = {"FREQ": format_freq, "DATE": format_date, "TIME": format_time}
+DISPLAY_LENGTHS = {"DATE": len("2026.09.23"), "TIME": len("21:23")}
 
 
 class PotaLoggerApp(App):
