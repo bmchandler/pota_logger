@@ -180,6 +180,43 @@ async def test_invalid_freq_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+def drawn_table_row(app, row_index: int) -> str:
+    """Text the log table actually draws for a data row (line 0 is the header)."""
+    return app.query_one("#log-table", DataTable).render_line(row_index + 1).text
+
+
+async def test_rows_drawn_in_full_without_redraw(app):
+    # Regression: the first row was drawn at header widths ("14.1", "2026")
+    # until something like a mouse hover forced a redraw.
+    typed = {
+        "FREQ": "1415",
+        "MODE": "SSB",
+        "CALL": "W1AAA",
+        "PARK": "464",
+        "ST": "NN",
+        "SNT": "58",
+        "RCD": "58",
+        "PWR": "30",
+        "DATE": "20260923",
+        "TIME": "1111",
+    }
+    async with app.run_test(size=(120, 24)) as pilot:
+        # Typed key by key: the bug needed the redraws that typing causes.
+        for value in typed.values():
+            await pilot.press(*value, "tab")
+        await pilot.press("shift+tab", "enter")
+        await pilot.pause()
+        assert drawn_table_row(app, 0).split() == [
+            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "20260923", "1111"
+        ]
+        # A later, longer value is drawn in full too.
+        fill(app, typed | {"CALL": ""})
+        app.query_one("#field-call", Input).focus()
+        await pilot.press(*"VE3/W1ABC/P", "enter")
+        await pilot.pause()
+        assert drawn_table_row(app, 1).split()[2] == "VE3/W1ABC/P"
+
+
 async def test_date_column_before_time(app):
     async with app.run_test():
         names = [name for name, _, _ in FIELDS]

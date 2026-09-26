@@ -61,7 +61,10 @@ class PotaLoggerApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#log-table", DataTable)
-        table.add_columns(*(name for name, _, _ in FIELDS))
+        # Fixed widths: DataTable doesn't redraw rows it already drew when an
+        # auto-width column widens, which left the first entry truncated.
+        for name, _, max_length in FIELDS:
+            table.add_column(name, width=max(len(name), max_length))
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)

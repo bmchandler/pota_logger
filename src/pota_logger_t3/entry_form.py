@@ -5,20 +5,22 @@ from textual.widgets import Input, Label
 
 from pota_logger_t3.freq import parse_freq
 
-# (name, placeholder, width) in paper-log entry order.
-# Widths are longest expected value + 1 cursor cell + 4 cells of border and padding.
+# (name, placeholder, longest expected value) in paper-log entry order.
 FIELDS = [
-    ("FREQ", "14.074.5", 15),
-    ("MODE", "SSB", 8),
-    ("CALL", "W1ABC", 17),
-    ("PARK", "1234", 13),
-    ("ST", "NJ", 7),
-    ("SNT", "59", 8),
-    ("RCD", "59", 8),
-    ("PWR", "60W", 9),
-    ("DATE", "20260925", 13),
-    ("TIME", "1953", 9),
+    ("FREQ", "14.074.5", 10),  # 29.700.000
+    ("MODE", "SSB", 3),
+    ("CALL", "W1ABC", 12),  # VE3/W1ABC/P
+    ("PARK", "1234", 8),  # US-10123
+    ("ST", "NJ", 2),
+    ("SNT", "59", 3),
+    ("RCD", "59", 3),
+    ("PWR", "60W", 4),  # 100W
+    ("DATE", "20260925", 8),
+    ("TIME", "1953", 4),
 ]
+
+# Input border and padding (4) plus a cell for the cursor.
+INPUT_EXTRA_WIDTH = 5
 
 # Value each field starts with, and resets to after an entry.
 DEFAULTS = {"MODE": "SSB"}
@@ -57,9 +59,9 @@ class EntryForm(Horizontal):
             self.values = values
 
     def compose(self) -> ComposeResult:
-        for name, placeholder, width in FIELDS:
+        for name, placeholder, max_length in FIELDS:
             with Vertical() as column:
-                column.styles.width = width
+                column.styles.width = max_length + INPUT_EXTRA_WIDTH
                 yield Label(name)
                 yield Input(
                     value=DEFAULTS.get(name, ""),
