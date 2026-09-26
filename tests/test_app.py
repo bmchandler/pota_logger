@@ -229,6 +229,43 @@ async def test_invalid_state_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_mode_any_case_shown_uppercase(app):
+    async with app.run_test() as pilot:
+        for mode in ("ssb", "usb", "Lsb", "cw"):
+            fill(app, ENTRY | {"MODE": mode})
+            await pilot.press("enter")
+        assert [row[1] for row in table_rows(app)] == ["SSB", "USB", "LSB", "CW"]
+
+
+async def test_mode_has_placeholder_and_no_autofill(app):
+    async with app.run_test() as pilot:
+        mode = app.query_one("#field-mode", Input)
+        assert mode.placeholder == "SSB"
+        assert mode.suggester is None
+        # Tab moves on and leaves exactly what was typed.
+        await pilot.press(*"14.074", "tab", "s", "tab")
+        assert app.focused.id == "field-call"
+        assert mode.value == "s"
+
+
+async def test_single_letter_mode_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"MODE": "u"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-mode"
+
+
+async def test_invalid_mode_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"MODE": "FM"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-mode"
+        assert len(app._notifications) == 1
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 def drawn_table_row(app, row_index: int) -> str:
     """Text the log table actually draws for a data row (line 0 is the header)."""
     return app.query_one("#log-table", DataTable).render_line(row_index + 1).text

@@ -38,7 +38,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | Field | Entered as | Stored as | Displayed as | Notes |
 |---|---|---|---|---|
 | FREQ | Always MHz, shorthand allowed: `14`, `14.1`, `14.0745`, `14.074.5`, `14074`, `28312456` | Integer Hz | Always in full: `14.000.000`, `14.074.500` | Never carried forward. Missing digits are filled with zeros. After a dot, up to 6 fractional MHz digits, optionally with a second dot after the 3 kHz digits (`14.1` is `14.100.000`; `14.0745` and `14.074.5` are `14.074.500`). Bare digits are the same with the dot left out; the MHz part is whichever of 1 or 2 leading digits lands in a band (`141501` is `14.150.100`, `3985` is `3.985.000`). Across 80m to 10m only one reading ever fits. Must be inside a US amateur band from 80m to 10m. |
-| MODE | `SSB`, `USB`, `LSB`, `CW` | Text | Same | Defaults to `SSB` on each new entry. USB/LSB are for non-standard sideband near band edges. |
+| MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | Defaults to `SSB` on each new entry. Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. USB/LSB are for non-standard sideband near band edges. |
 | CALL | Free text, e.g. `W1ABC`, `VE3/W1ABC` | Uppercase text | Same | International and slash calls allowed. |
 | PARK | `1234` or `JP-1234` | Full reference, e.g. `US-1234` | Bare number for US, full reference otherwise | Bare number means `US-`. One park per entry. |
 | ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |

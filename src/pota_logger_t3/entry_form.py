@@ -7,6 +7,7 @@ from textual.widgets import Input, Label
 
 from pota_logger_t3.dates import parse_date, parse_time
 from pota_logger_t3.freq import parse_freq
+from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.states import parse_state
 
 # (name, placeholder, longest expected value) in paper-log entry order.
@@ -29,6 +30,7 @@ INPUT_EXTRA_WIDTH = 5
 # Fields turned from entered text into values, in entry order.
 PARSERS = {
     "FREQ": parse_freq,
+    "MODE": parse_mode,
     "ST": parse_state,
     "DATE": parse_date,
     "TIME": parse_time,
@@ -66,8 +68,9 @@ class EntryForm(Horizontal):
     class Submitted(Message):
         """Posted when Enter is pressed with every field filled in and valid.
 
-        FREQ is in Hz, DATE is a date, TIME is a time, and ST is uppercase
-        (possibly blank); everything else is the trimmed text as entered.
+        FREQ is in Hz, MODE is uppercase, DATE is a date, TIME is a
+        time, and ST is uppercase (possibly blank); everything else is the
+        trimmed text as entered.
         """
 
         def __init__(self, values: dict[str, str | int | date | time]) -> None:
