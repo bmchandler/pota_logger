@@ -45,7 +45,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. A 3-digit report (`599`) is only allowed when MODE is `CW`; other modes take a 2-digit report. |
 | RCD | `59` / `599` | Text | Same | Same 3-digit-only-on-CW rule as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
-| DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. |
+| DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
 | TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Entered last. Must be a real time, 0000 to 2359. |
 
 Session-level value:

@@ -7,7 +7,7 @@ from textual.message import Message
 from textual.widgets import Input, Label
 
 from pota_logger_t3.callsigns import parse_callsign
-from pota_logger_t3.dates import parse_date, parse_time
+from pota_logger_t3.dates import default_date, parse_date, parse_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
@@ -50,6 +50,9 @@ OPTIONAL = {"ST"}
 # Value each field starts with, and resets to after an entry.
 DEFAULTS = {"MODE": "SSB"}
 
+# Fields whose default is computed fresh at app start rather than fixed.
+DEFAULT_FACTORIES = {"DATE": default_date}
+
 # Fields that keep their value for the next entry.
 CARRY_FORWARD = {"PWR", "DATE"}
 
@@ -90,8 +93,9 @@ class EntryForm(Horizontal):
             with Vertical() as column:
                 column.styles.width = max_length + INPUT_EXTRA_WIDTH
                 yield Label(name)
+                factory = DEFAULT_FACTORIES.get(name)
                 yield Input(
-                    value=DEFAULTS.get(name, ""),
+                    value=factory() if factory else DEFAULTS.get(name, ""),
                     placeholder=placeholder,
                     id=f"field-{name.lower()}",
                 )

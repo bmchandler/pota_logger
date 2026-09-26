@@ -20,6 +20,16 @@ def format_date(value: date) -> str:
     return value.strftime("%Y.%m.%d")
 
 
+def default_date() -> str:
+    """DATE's default value on app start: today's *local* date as YYMMDD.
+
+    Local, not UTC: the app is typically started right after a session
+    ends, when the UTC date has often already rolled over from the date
+    most of the entries actually happened on.
+    """
+    return date.today().strftime("%y%m%d")
+
+
 def parse_time(text: str) -> time:
     """Parse a UTC time entered as 24-hour HHMM: 2123 -> 21:23.
 

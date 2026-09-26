@@ -1,6 +1,8 @@
+from datetime import date
+
 from textual.widgets import DataTable, Input, Static
 
-from pota_logger_t3 import PotaLoggerApp
+from pota_logger_t3 import PotaLoggerApp, dates
 from pota_logger_t3.entry_form import FIELDS
 from pota_logger_t3.settings import Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
@@ -16,6 +18,17 @@ def station_callsign(app) -> str:
 async def test_focus_starts_on_freq(app):
     async with app.run_test():
         assert app.focused.id == "field-freq"
+
+
+async def test_date_defaults_to_todays_local_date(app, monkeypatch):
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 9, 3)
+
+    monkeypatch.setattr(dates, "date", FixedDate)
+    async with app.run_test():
+        assert app.query_one("#field-date", Input).value == "260903"
 
 
 async def test_tab_order_follows_paper_log_then_table(app):

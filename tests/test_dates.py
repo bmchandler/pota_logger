@@ -2,7 +2,8 @@ from datetime import date, time
 
 import pytest
 
-from pota_logger_t3.dates import format_date, format_time, parse_date, parse_time
+from pota_logger_t3 import dates
+from pota_logger_t3.dates import default_date, format_date, format_time, parse_date, parse_time
 
 
 @pytest.mark.parametrize(
@@ -47,6 +48,16 @@ def test_not_a_real_date_message():
 
 def test_format_date():
     assert format_date(date(2026, 9, 3)) == "2026.09.03"
+
+
+def test_default_date_is_todays_local_date(monkeypatch):
+    class FixedDate(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 9, 3)
+
+    monkeypatch.setattr(dates, "date", FixedDate)
+    assert default_date() == "260903"
 
 
 @pytest.mark.parametrize(
