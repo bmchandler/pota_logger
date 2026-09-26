@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.freq import US_BANDS, format_freq, in_us_band, parse_freq
+from pota_logger_t3.freq import US_BANDS, _bare_candidates, format_freq, in_us_band, parse_freq
 
 
 @pytest.mark.parametrize(
@@ -22,11 +22,7 @@ from pota_logger_t3.freq import US_BANDS, format_freq, in_us_band, parse_freq
         ("14.074123", 14_074_123),
         (" 14.074 ", 14_074_000),
         ("3.985", 3_985_000),
-        ("1.81", 1_810_000),
         ("18.1", 18_100_000),
-        ("5.3305", 5_330_500),
-        ("0.1357", 135_700),
-        ("0.475", 475_000),
         ("29.7", 29_700_000),
         # Bare digits: the MHz part is whichever split lands in a band.
         ("141501", 14_150_100),
@@ -39,8 +35,10 @@ from pota_logger_t3.freq import US_BANDS, format_freq, in_us_band, parse_freq
         ("101", 10_100_000),
         ("297", 29_700_000),
         ("21300", 21_300_000),
-        ("1357", 135_700),
-        ("475", 475_000),
+        ("18100", 18_100_000),
+        ("1810", 18_100_000),
+        ("35", 3_500_000),
+        ("4", 4_000_000),
     ],
 )
 def test_parse_freq(text, hz):
@@ -62,13 +60,17 @@ def test_parse_freq(text, hz):
         "14..074",
         "14.0745678",  # more than 6 fractional digits
         "14.074.5555",
-        # Outside US bands.
+        # Outside US bands 80m to 10m.
         "0",
         "0.000",
         "15",
         "14.351",
         "29.701",
-        "0.1356",
+        "3.499",
+        "0.1357",  # 2200m
+        "0.475",  # 630m
+        "1.81",  # 160m
+        "5.3305",  # 60m
         "146.52",
         "146520",
     ],
@@ -83,11 +85,14 @@ def test_out_of_band_message():
         parse_freq("15")
 
 
-@pytest.mark.parametrize("text", ["18100", "1810", "181"])
-def test_bare_digits_in_two_bands_are_ambiguous(text):
-    # 1.810.000 (160m) and 18.100.000 (17m) are both valid.
-    with pytest.raises(ValueError, match=r"1\.810\.000 or 18\.100\.000; add a dot"):
-        parse_freq(text)
+def test_bare_digits_have_one_in_band_reading():
+    # Every whole-kHz frequency, typed as bare digits, has exactly one
+    # in-band reading: itself. Guards against band edits that would make
+    # bare entry ambiguous.
+    for low, high in US_BANDS:
+        for hz in range(low, high + 1, 1_000):
+            bare = format_freq(hz).replace(".", "").rstrip("0")
+            assert [c for c in _bare_candidates(bare) if in_us_band(c)] == [hz], bare
 
 
 def test_band_edges_are_inclusive():
