@@ -39,7 +39,7 @@ async def test_fields_fit_longest_expected_values(app):
         "ST": "NJ",
         "SNT": "599",
         "RCD": "599",
-        "PWR": "100W",
+        "PWR": "1500",
         "DATE": "260925",
         "TIME": "1953",
     }
@@ -60,13 +60,18 @@ ENTRY = {
     "ST": "NJ",
     "SNT": "59",
     "RCD": "57",
-    "PWR": "60W",
+    "PWR": "60",
     "DATE": "260925",
     "TIME": "1953",
 }
 
 # ENTRY as it appears in the log table.
-ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500", "DATE": "2026.09.25", "TIME": "19:53"}).values())
+ENTRY_ROW = list(
+    (
+        ENTRY
+        | {"FREQ": "14.074.500", "PWR": "60W", "DATE": "2026.09.25", "TIME": "19:53"}
+    ).values()
+)
 
 
 def fill(app, values: dict[str, str]) -> None:
@@ -124,7 +129,7 @@ async def test_after_entry_fields_reset_except_power_and_date(app):
         fill(app, ENTRY)
         app.query_one("#field-time", Input).focus()
         await pilot.press("enter")
-        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W", "DATE": "260925"}
+        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60", "DATE": "260925"}
         assert field_values(app) == expected
         assert app.focused.id == "field-freq"
 
@@ -266,6 +271,24 @@ async def test_invalid_mode_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_power_shown_with_watts(app):
+    async with app.run_test() as pilot:
+        for watts in ("60", ".5", "2.5", "1500"):
+            fill(app, ENTRY | {"PWR": watts})
+            await pilot.press("enter")
+        assert [row[7] for row in table_rows(app)] == ["60W", ".5W", "2.5W", "1500W"]
+
+
+async def test_invalid_power_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PWR": "60W"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-pwr"
+        assert len(app._notifications) == 1
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 def drawn_table_row(app, row_index: int) -> str:
     """Text the log table actually draws for a data row (line 0 is the header)."""
     return app.query_one("#log-table", DataTable).render_line(row_index + 1).text
@@ -293,7 +316,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "464", "NJ", "58", "58", "30", "2026.09.23", "11:11"
+            "14.150.000", "SSB", "W1AAA", "464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

@@ -1,4 +1,5 @@
 from datetime import date, time
+from decimal import Decimal
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -8,6 +9,7 @@ from textual.widgets import Input, Label
 from pota_logger_t3.dates import parse_date, parse_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
+from pota_logger_t3.power import parse_power
 from pota_logger_t3.states import parse_state
 
 # (name, placeholder, longest expected value) in paper-log entry order.
@@ -19,7 +21,7 @@ FIELDS = [
     ("ST", "NJ", 2),
     ("SNT", "59", 3),
     ("RCD", "59", 3),
-    ("PWR", "60W", 4),  # 100W
+    ("PWR", "60", 4),  # 1500
     ("DATE", "260925", 6),
     ("TIME", "1953", 4),
 ]
@@ -32,6 +34,7 @@ PARSERS = {
     "FREQ": parse_freq,
     "MODE": parse_mode,
     "ST": parse_state,
+    "PWR": parse_power,
     "DATE": parse_date,
     "TIME": parse_time,
 }
@@ -68,12 +71,12 @@ class EntryForm(Horizontal):
     class Submitted(Message):
         """Posted when Enter is pressed with every field filled in and valid.
 
-        FREQ is in Hz, MODE is uppercase, DATE is a date, TIME is a
-        time, and ST is uppercase (possibly blank); everything else is the
-        trimmed text as entered.
+        FREQ is in Hz, PWR is watts, MODE is uppercase, DATE is a date,
+        TIME is a time, and ST is uppercase (possibly blank); everything
+        else is the trimmed text as entered.
         """
 
-        def __init__(self, values: dict[str, str | int | date | time]) -> None:
+        def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:
             super().__init__()
             self.values = values
 

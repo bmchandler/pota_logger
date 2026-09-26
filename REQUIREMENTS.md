@@ -44,7 +44,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. |
 | RCD | `59` / `599` | Text | Same | |
-| PWR | `60W` or `60` | Integer watts | `60W` | Carried forward. |
+| PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. |
 | TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Entered last. Must be a real time, 0000 to 2359. |
 
@@ -89,7 +89,7 @@ Session-level value:
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME`, then
   `STATION_CALLSIGN`.
 - Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
-  PARK `US-1234`, PWR `60`, DATE `20260925`, TIME `1953`.
+  PARK `US-1234`, PWR `60` or `0.5`, DATE `20260925`, TIME `1953`.
 - Dates and times are UTC everywhere, in both storage and entry. An entry's
   full timestamp is its DATE plus its TIME, and it's stored in the file named
   for its DATE.
