@@ -16,8 +16,11 @@ updated in the same change whenever a rule changes.
 - Build in small "horizontal" steps: only what the current request needs.
   Don't scaffold ahead or add functions before a step uses them.
 - Add or update tests alongside each change.
-- Never run `git commit` on your own. Stage the change, draft a commit
-  message, and wait for the user to try the app and review the code.
+- After code changes are done, stage what makes sense, draft a commit
+  message, and pause there. Don't run `git commit` until the user reviews
+  the diff/stage/message and app behavior and gives a clear go-ahead to
+  commit, in whatever natural phrasing ("Proceed", "Proceed with commit",
+  "Looks good, proceed", "Go ahead and commit", etc.).
 - Commit messages: short subject line, a body with details when useful,
   then the Co-Authored-By trailer. The first commit in a repo is always
   `Initial Commit`.
