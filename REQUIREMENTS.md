@@ -45,7 +45,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. |
 | RCD | `59` / `599` | Text | Same | |
 | PWR | `60W` or `60` | Integer watts | `60W` | Carried forward. |
-| DATE | `20260925` (YYYYMMDD) | Part of the entry's UTC timestamp | `20260925` | Carried forward. |
+| DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. |
 | TIME | `1953` (HHMM) | Part of the entry's UTC timestamp | `1953` | Entered last. |
 
 Session-level value:

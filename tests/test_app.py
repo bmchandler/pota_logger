@@ -40,7 +40,7 @@ async def test_fields_fit_longest_expected_values(app):
         "SNT": "599",
         "RCD": "599",
         "PWR": "100W",
-        "DATE": "20260925",
+        "DATE": "260925",
         "TIME": "1953",
     }
     async with app.run_test(size=(120, 24)):
@@ -61,12 +61,12 @@ ENTRY = {
     "SNT": "59",
     "RCD": "57",
     "PWR": "60W",
-    "DATE": "20260925",
+    "DATE": "260925",
     "TIME": "1953",
 }
 
 # ENTRY as it appears in the log table.
-ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500"}).values())
+ENTRY_ROW = list((ENTRY | {"FREQ": "14.074.500", "DATE": "2026.09.25"}).values())
 
 
 def fill(app, values: dict[str, str]) -> None:
@@ -124,7 +124,7 @@ async def test_after_entry_fields_reset_except_power_and_date(app):
         fill(app, ENTRY)
         app.query_one("#field-time", Input).focus()
         await pilot.press("enter")
-        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W", "DATE": "20260925"}
+        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60W", "DATE": "260925"}
         assert field_values(app) == expected
         assert app.focused.id == "field-freq"
 
@@ -180,6 +180,16 @@ async def test_invalid_freq_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_invalid_date_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"DATE": "260230"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-date"
+        assert [n.message for n in app._notifications] == ["DATE '260230' isn't a real date"]
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 def drawn_table_row(app, row_index: int) -> str:
     """Text the log table actually draws for a data row (line 0 is the header)."""
     return app.query_one("#log-table", DataTable).render_line(row_index + 1).text
@@ -197,7 +207,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         "SNT": "58",
         "RCD": "58",
         "PWR": "30",
-        "DATE": "20260923",
+        "DATE": "260923",
         "TIME": "1111",
     }
     async with app.run_test(size=(120, 24)) as pilot:
@@ -207,7 +217,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "20260923", "1111"
+            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "2026.09.23", "1111"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

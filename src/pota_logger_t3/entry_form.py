@@ -1,8 +1,11 @@
+from datetime import date
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
+from pota_logger_t3.dates import parse_date
 from pota_logger_t3.freq import parse_freq
 
 # (name, placeholder, longest expected value) in paper-log entry order.
@@ -15,12 +18,15 @@ FIELDS = [
     ("SNT", "59", 3),
     ("RCD", "59", 3),
     ("PWR", "60W", 4),  # 100W
-    ("DATE", "20260925", 8),
+    ("DATE", "260925", 6),
     ("TIME", "1953", 4),
 ]
 
 # Input border and padding (4) plus a cell for the cursor.
 INPUT_EXTRA_WIDTH = 5
+
+# Fields turned from entered text into values, in entry order.
+PARSERS = {"FREQ": parse_freq, "DATE": parse_date}
 
 # Value each field starts with, and resets to after an entry.
 DEFAULTS = {"MODE": "SSB"}
@@ -51,10 +57,11 @@ class EntryForm(Horizontal):
     class Submitted(Message):
         """Posted when Enter is pressed with every field filled in and valid.
 
-        FREQ is in Hz; everything else is the trimmed text as entered.
+        FREQ is in Hz and DATE is a date; everything else is the trimmed
+        text as entered.
         """
 
-        def __init__(self, values: dict[str, str | int]) -> None:
+        def __init__(self, values: dict[str, str | int | date]) -> None:
             super().__init__()
             self.values = values
 
@@ -83,13 +90,15 @@ class EntryForm(Horizontal):
             self.notify(f"Missing: {', '.join(missing)}", severity="warning")
             self.field(missing[0]).focus()
             return
-        try:
-            freq_hz = parse_freq(values["FREQ"])
-        except ValueError as error:
-            self.notify(str(error), severity="warning")
-            self.field("FREQ").focus()
-            return
-        self.post_message(self.Submitted(values | {"FREQ": freq_hz}))
+        parsed = {}
+        for name, parse in PARSERS.items():
+            try:
+                parsed[name] = parse(values[name])
+            except ValueError as error:
+                self.notify(str(error), severity="warning")
+                self.field(name).focus()
+                return
+        self.post_message(self.Submitted(values | parsed))
         self.clear_for_next_entry()
 
     def clear_for_next_entry(self) -> None:

@@ -6,11 +6,18 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer
 
+from pota_logger_t3.dates import format_date
 from pota_logger_t3.entry_form import FIELDS, EntryForm
 from pota_logger_t3.freq import format_freq
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.status_bar import StatusBar
+
+
+# How parsed values are shown in the log table, and their widths when
+# wider than the entered text.
+FORMATTERS = {"FREQ": format_freq, "DATE": format_date}
+DISPLAY_LENGTHS = {"DATE": len("2026.09.23")}
 
 
 class PotaLoggerApp(App):
@@ -64,14 +71,16 @@ class PotaLoggerApp(App):
         # Fixed widths: DataTable doesn't redraw rows it already drew when an
         # auto-width column widens, which left the first entry truncated.
         for name, _, max_length in FIELDS:
-            table.add_column(name, width=max(len(name), max_length))
+            table.add_column(name, width=max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
 
     def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
         table = self.query_one("#log-table", DataTable)
-        values = event.values | {"FREQ": format_freq(event.values["FREQ"])}
+        values = event.values | {
+            name: format_value(event.values[name]) for name, format_value in FORMATTERS.items()
+        }
         table.add_row(*values.values())
         table.scroll_end(animate=False)
 
