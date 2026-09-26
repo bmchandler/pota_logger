@@ -202,6 +202,33 @@ async def test_invalid_time_blocks_entry(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_state_is_optional(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"ST": ""})
+        await pilot.press("enter")
+        assert table_rows(app)[0][4] == ""
+        assert not app._notifications
+
+
+async def test_state_uppercased_and_na_allowed(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"ST": "nj"})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"ST": "na"})
+        await pilot.press("enter")
+        assert [row[4] for row in table_rows(app)] == ["NJ", "NA"]
+
+
+async def test_invalid_state_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"ST": "ZZ"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-st"
+        assert len(app._notifications) == 1
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 def drawn_table_row(app, row_index: int) -> str:
     """Text the log table actually draws for a data row (line 0 is the header)."""
     return app.query_one("#log-table", DataTable).render_line(row_index + 1).text
@@ -215,7 +242,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         "MODE": "SSB",
         "CALL": "W1AAA",
         "PARK": "464",
-        "ST": "NN",
+        "ST": "NJ",
         "SNT": "58",
         "RCD": "58",
         "PWR": "30",
@@ -229,7 +256,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "464", "NN", "58", "58", "30", "2026.09.23", "11:11"
+            "14.150.000", "SSB", "W1AAA", "464", "NJ", "58", "58", "30", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

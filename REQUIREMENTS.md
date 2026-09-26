@@ -41,7 +41,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | MODE | `SSB`, `USB`, `LSB`, `CW` | Text | Same | Defaults to `SSB` on each new entry. USB/LSB are for non-standard sideband near band edges. |
 | CALL | Free text, e.g. `W1ABC`, `VE3/W1ABC` | Uppercase text | Same | International and slash calls allowed. |
 | PARK | `1234` or `JP-1234` | Full reference, e.g. `US-1234` | Bare number for US, full reference otherwise | Bare number means `US-`. One park per entry. |
-| ST | `NJ` | Text | Same | State the park is in. |
+| ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. |
 | RCD | `59` / `599` | Text | Same | |
 | PWR | `60W` or `60` | Integer watts | `60W` | Carried forward. |
@@ -64,6 +64,7 @@ Session-level value:
 
 - Fields can be filled and edited in any order before an entry is saved.
 - An entry can't be saved until every required field is filled in and valid.
+  ST is the only optional field.
 - Only DATE and PWR carry forward to the next entry. Everything else is
   entered fresh each time (MODE resets to `SSB`).
 - Multi-park activations: each park is a separate entry.
