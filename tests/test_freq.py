@@ -6,7 +6,7 @@ from pota_logger_t3.freq import (
     band_name,
     format_freq,
     in_us_band,
-    in_voice_range,
+    voice_range,
     parse_freq,
 )
 
@@ -132,29 +132,19 @@ def test_band_name(hz, name):
 
 
 @pytest.mark.parametrize(
-    "hz, voice",
+    "hz, edges",
     [
-        (3_599_999, False),
-        (3_600_000, True),
-        (7_124_999, False),
-        (7_125_000, True),
-        (10_125_000, False),
-        (14_074_500, False),
-        (14_150_000, True),
-        (14_350_000, True),
-        (18_109_999, False),
-        (18_110_000, True),
-        (21_199_999, False),
-        (21_200_000, True),
-        (24_929_999, False),
-        (24_930_000, True),
-        (28_299_999, False),
-        (28_300_000, True),
-        (29_700_000, True),
+        (3_599_999, (3_600_000, 4_000_000)),
+        (7_000_000, (7_125_000, 7_300_000)),
+        (10_125_000, None),
+        (14_285_000, (14_150_000, 14_350_000)),
+        (21_450_000, (21_200_000, 21_450_000)),
+        (29_700_000, (28_300_000, 29_700_000)),
+        (13_999_999, None),
     ],
 )
-def test_in_voice_range(hz, voice):
-    assert in_voice_range(hz) is voice
+def test_voice_range(hz, edges):
+    assert voice_range(hz) == edges
 
 
 def test_voice_ranges_are_inside_their_bands():

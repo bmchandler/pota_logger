@@ -13,12 +13,13 @@ from pota_logger_t3.entry_warnings import (
     future_time,
     possible_dupe,
     state_on_non_us_park,
-    voice_in_cw_range,
+    voice_outside_range,
 )
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
 from pota_logger_t3.reports import parse_report
+from pota_logger_t3.sidebands import check_sideband
 from pota_logger_t3.states import parse_state
 from pota_logger_t3.warning_screen import WarningScreen
 
@@ -69,7 +70,7 @@ CARRY_FORWARD = {"PWR", "DATE"}
 # to, check in entry_warnings.py).
 WARNINGS = [
     ("CALL", possible_dupe),
-    ("FREQ", voice_in_cw_range),
+    ("FREQ", voice_outside_range),
     ("ST", state_on_non_us_park),
     ("DATE", future_time),
 ]
@@ -152,6 +153,12 @@ class EntryForm(Horizontal):
                 self.notify(str(error), severity="warning")
                 self.field(name).focus()
                 return
+        try:
+            check_sideband(parsed["FREQ"], parsed["MODE"])
+        except ValueError as error:
+            self.notify(str(error), severity="warning")
+            self.field("MODE").focus()
+            return
         if not is_usual_callsign(parsed["CALL"]):
             self.app.push_screen(
                 CallsignWarningScreen(parsed["CALL"]),

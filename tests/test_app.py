@@ -270,7 +270,7 @@ async def test_escape_from_future_warning_returns_to_date(app):
         assert field_values(app) == ENTRY | FUTURE
 
 
-async def test_voice_in_cw_range_opens_warning(app):
+async def test_voice_outside_range_opens_warning(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"FREQ": "14.074"})
         await pilot.press("enter")
@@ -278,8 +278,36 @@ async def test_voice_in_cw_range_opens_warning(app):
         assert table_rows(app) == []
         message = app.screen.query_one("#warning-message", Static)
         assert str(message.render()).startswith(
-            "USB on 14.074.000 is outside 20m's voice range."
+            "USB on 14.074.000 runs outside\n20m's voice range."
         )
+
+
+async def test_ssb_near_voice_edge_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "21.450", "MODE": "SSB"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        assert app.focused.id == "field-mode"
+        assert [n.message for n in app._notifications] == [
+            "SSB on 21.450.000 is within 3 kHz of 15m's voice edge; log USB or LSB"
+        ]
+
+
+async def test_sideband_inside_edge_is_saved(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "21.450", "MODE": "LSB"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert len(table_rows(app)) == 1
+
+
+async def test_sideband_past_edge_opens_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "21.450", "MODE": "USB"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
 
 
 async def test_escape_from_voice_warning_returns_to_freq(app):
@@ -572,7 +600,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
     # Regression: the first row was drawn at header widths ("14.1", "2026")
     # until something like a mouse hover forced a redraw.
     typed = {
-        "FREQ": "1415",
+        "FREQ": "1425",
         "MODE": "SSB",
         "CALL": "W1AAA",
         "PARK": "464",
@@ -590,7 +618,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.150.000", "SSB", "W1AAA", "US-464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
+            "14.250.000", "SSB", "W1AAA", "US-464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

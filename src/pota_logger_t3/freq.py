@@ -24,12 +24,14 @@ def band_name(hz: int) -> str | None:
     return next((name for name, low, high, _ in US_BANDS if low <= hz <= high), None)
 
 
-def in_voice_range(hz: int) -> bool:
-    """Whether a US band frequency is in its band's voice (phone) range."""
+def voice_range(hz: int) -> tuple[int, int] | None:
+    """The (low, high) voice range of the band hz is in, or None if that
+    band has none (30m) or hz isn't in a US band.
+    """
     for _, low, high, voice_low in US_BANDS:
         if low <= hz <= high:
-            return voice_low is not None and hz >= voice_low
-    return False
+            return None if voice_low is None else (voice_low, high)
+    return None
 
 
 def parse_freq(text: str) -> int:

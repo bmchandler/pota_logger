@@ -38,7 +38,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | Field | Entered as | Stored as | Displayed as | Notes |
 |---|---|---|---|---|
 | FREQ | Always MHz, shorthand allowed: `14`, `14.1`, `14.0745`, `14.074.5`, `14074`, `28312456` | Integer Hz | Always in full: `14.000.000`, `14.074.500` | Never carried forward. Missing digits are filled with zeros. After a dot, up to 6 fractional MHz digits, optionally with a second dot after the 3 kHz digits (`14.1` is `14.100.000`; `14.0745` and `14.074.5` are `14.074.500`). Bare digits are the same with the dot left out; the MHz part is whichever of 1 or 2 leading digits lands in a band (`141501` is `14.150.100`, `3985` is `3.985.000`). Across 80m to 10m only one reading ever fits. Must be inside a US amateur band from 80m to 10m. |
-| MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | Defaults to `SSB` on each new entry. Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. USB/LSB are for non-standard sideband near band edges. |
+| MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | Defaults to `SSB` on each new entry. Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
 | PARK | `1234`, `JP1234`, or `JP-1234`, any case | Text, as entered | `US-1234` for a bare number, `PREFIX-1234` otherwise (dash added if missing, prefix uppercased) | Bare number means a US park. One park per entry. |
 | ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |
@@ -85,11 +85,15 @@ Session-level value:
     W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
     the usual shorthand, not "duplicate"). Checks entries logged this
     session until CSV storage exists. Esc goes back to CALL.
-  - **Voice in a CW range:** MODE is `SSB`, `USB`, or `LSB` and FREQ is
-    below its band's US voice (phone) range, using the Extra class edges
-    (the widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m
-    21.200, 12m 24.930, 10m 28.300 MHz, each up to the top of the band.
-    30m has no voice range. CW is fine anywhere. Esc goes back to FREQ.
+  - **Voice outside the voice range:** a voice signal runs outside its
+    band's US voice (phone) range, using the Extra class edges (the
+    widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
+    24.930, 10m 28.300 MHz, each up to the top of the band. 30m has no
+    voice range. A sideband takes 3 kHz beside the dial frequency: USB
+    above it, LSB below, so 21.200 LSB and 21.450 USB warn while 21.200
+    USB and 21.450 LSB don't. SSB is checked at the dial frequency only,
+    since it's refused near edges. CW is fine anywhere. Esc goes back to
+    FREQ.
   - **State on a non-US park:** PARK isn't a US park but ST is a US state.
     Blank or `NA` is fine. Esc goes back to ST.
   - **Future date/time:** DATE plus TIME is later than the current UTC

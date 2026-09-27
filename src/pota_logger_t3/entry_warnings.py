@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 
 from pota_logger_t3.dates import format_date, format_time
-from pota_logger_t3.freq import band_name, format_freq, in_voice_range
+from pota_logger_t3.freq import band_name, format_freq, voice_range
+from pota_logger_t3.sidebands import signal_edges
 from pota_logger_t3.parks import format_park
 from pota_logger_t3.states import US_STATES
 
@@ -49,13 +50,20 @@ def future_time(values: dict, logged: list[dict]) -> str | None:
     )
 
 
-def voice_in_cw_range(values: dict, logged: list[dict]) -> str | None:
-    """Warn when a voice mode's FREQ is in its band's CW/data range."""
-    if values["MODE"] == "CW" or in_voice_range(values["FREQ"]):
+def voice_outside_range(values: dict, logged: list[dict]) -> str | None:
+    """Warn when a voice signal runs outside its band's voice range: below
+    it (in the CW/data range), or past an edge on the logged sideband.
+    """
+    mode, freq = values["MODE"], values["FREQ"]
+    if mode == "CW":
         return None
-    freq = values["FREQ"]
+    edges = voice_range(freq)
+    signal_low, signal_high = signal_edges(freq, mode)
+    if edges is not None and edges[0] <= signal_low and signal_high <= edges[1]:
+        return None
     return (
-        f"{values['MODE']} on {format_freq(freq)} is outside {band_name(freq)}'s voice range.\n"
+        f"{mode} on {format_freq(freq)} runs outside\n"
+        f"{band_name(freq)}'s voice range.\n"
         f"{CONFIRM_HINT}"
     )
 
