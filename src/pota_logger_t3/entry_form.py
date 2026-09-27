@@ -9,7 +9,12 @@ from textual.widgets import Input, Label
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 from pota_logger_t3.dates import default_date, parse_date, parse_time
-from pota_logger_t3.entry_warnings import future_time, state_on_non_us_park, voice_in_cw_range
+from pota_logger_t3.entry_warnings import (
+    future_time,
+    possible_dupe,
+    state_on_non_us_park,
+    voice_in_cw_range,
+)
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
@@ -61,8 +66,9 @@ DEFAULT_FACTORIES = {"DATE": default_date}
 CARRY_FORWARD = {"PWR", "DATE"}
 
 # Checks run after the unusual-CALL warning, in order: (field Esc goes back
-# to, check returning a warning message or None).
+# to, check in entry_warnings.py).
 WARNINGS = [
+    ("CALL", possible_dupe),
     ("FREQ", voice_in_cw_range),
     ("ST", state_on_non_us_park),
     ("DATE", future_time),
@@ -99,6 +105,11 @@ class EntryForm(Horizontal):
         def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:
             super().__init__()
             self.values = values
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Entries saved this session, for the possible-dupe warning.
+        self.logged: list[dict] = []
 
     def compose(self) -> ComposeResult:
         for name, placeholder, max_length in FIELDS:
@@ -157,7 +168,7 @@ class EntryForm(Horizontal):
 
     def check_warnings(self, values: dict, warnings: list) -> None:
         for index, (name, check) in enumerate(warnings):
-            message = check(values)
+            message = check(values, self.logged)
             if message:
                 rest = warnings[index + 1 :]
 
@@ -172,6 +183,7 @@ class EntryForm(Horizontal):
         self.submit(values)
 
     def submit(self, values: dict) -> None:
+        self.logged.append(values)
         self.post_message(self.Submitted(values))
         self.clear_for_next_entry()
 

@@ -79,6 +79,12 @@ Session-level value:
     `Correct and/or confirm with Enter.` and holds the call, ready to
     edit. Enter saves the entry with the call as it is in the modal (still
     shape-checked).
+  - **Possible dupe:** CALL, PARK, DATE, band, and mode type (voice or
+    CW; SSB, USB, and LSB count as voice) all match an entry already
+    logged, since POTA counts that contact once. Reads `Possible dupe:
+    W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
+    the usual shorthand, not "duplicate"). Checks entries logged this
+    session until CSV storage exists. Esc goes back to CALL.
   - **Voice in a CW range:** MODE is `SSB`, `USB`, or `LSB` and FREQ is
     below its band's US voice (phone) range, using the Extra class edges
     (the widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m

@@ -14,7 +14,7 @@ class WarningScreen(ModalScreen[bool]):
         align: center middle;
     }
     WarningScreen > Vertical {
-        width: 44;
+        width: 48;
         height: auto;
         padding: 1 2;
         border: thick $warning;

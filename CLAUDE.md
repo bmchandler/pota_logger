@@ -45,7 +45,8 @@ updated in the same change whenever a rule changes.
   `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `__init__.py`
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.
 - Warnings (probably wrong, but saveable) are checks in entry_warnings.py
-  listed in `WARNINGS`, shown in warning_screen.py. The unusual-CALL
+  listed in `WARNINGS`, shown in warning_screen.py. Each check takes the
+  entry and the entries logged so far (`EntryForm.logged`). The unusual-CALL
   warning has its own modal (callsign_warning_screen.py) so the call can
   be edited there.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw

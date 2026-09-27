@@ -317,6 +317,32 @@ async def test_non_us_park_with_blank_state_has_no_warning(app):
         assert table_rows(app)[0][3:5] == ["JP-1234", ""]
 
 
+async def test_possible_dupe_opens_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        fill(app, ENTRY | {"FREQ": "14.300", "MODE": "SSB", "TIME": "2005"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert len(table_rows(app)) == 1
+        message = str(app.screen.query_one("#warning-message", Static).render())
+        assert message.startswith("Possible dupe: W1ABC at US-1234,\n20m voice, already logged at 19:53.")
+        await pilot.press("escape")
+        assert app.focused.id == "field-call"
+        await pilot.press("enter", "enter")
+        assert len(table_rows(app)) == 2
+
+
+async def test_same_call_on_another_band_is_not_a_dupe(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        fill(app, ENTRY | {"FREQ": "7.200"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert len(table_rows(app)) == 2
+
+
 async def test_warnings_come_one_after_another(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | FUTURE | {"CALL": "W11BC"})
@@ -384,9 +410,9 @@ async def test_after_entry_fields_reset_except_power_and_date(app):
 
 async def test_entries_append_in_entered_order(app):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"TIME": "2000"})
+        fill(app, ENTRY | {"CALL": "W1AAA", "TIME": "2000"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"TIME": "1900"})
+        fill(app, ENTRY | {"CALL": "W1AAB", "TIME": "1900"})
         await pilot.press("enter")
         assert [row[-1] for row in table_rows(app)] == ["20:00", "19:00"]
 
@@ -404,13 +430,13 @@ async def test_missing_fields_block_entry(app):
 
 async def test_freq_shown_in_full_in_table(app):
     async with app.run_test() as pilot:
-        fill(app, CW_ENTRY | {"FREQ": "14"})
+        fill(app, CW_ENTRY | {"CALL": "W1AAA", "FREQ": "14"})
         await pilot.press("enter")
-        fill(app, CW_ENTRY | {"FREQ": "14074"})
+        fill(app, CW_ENTRY | {"CALL": "W1AAB", "FREQ": "14074"})
         await pilot.press("enter")
-        fill(app, CW_ENTRY | {"FREQ": "14.0745"})
+        fill(app, CW_ENTRY | {"CALL": "W1AAC", "FREQ": "14.0745"})
         await pilot.press("enter")
-        fill(app, CW_ENTRY | {"FREQ": "28312456"})
+        fill(app, CW_ENTRY | {"CALL": "W1AAD", "FREQ": "28312456"})
         await pilot.press("enter")
         assert [row[0] for row in table_rows(app)] == [
             "14.000.000",
@@ -465,9 +491,9 @@ async def test_state_is_optional(app):
 
 async def test_state_uppercased_and_na_allowed(app):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"ST": "nj"})
+        fill(app, ENTRY | {"CALL": "W1AAA", "ST": "nj"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"ST": "na"})
+        fill(app, ENTRY | {"CALL": "W1AAB", "ST": "na"})
         await pilot.press("enter")
         assert [row[4] for row in table_rows(app)] == ["NJ", "NA"]
 
@@ -484,8 +510,8 @@ async def test_invalid_state_blocks_entry(app):
 
 async def test_mode_any_case_shown_uppercase(app):
     async with app.run_test() as pilot:
-        for mode in ("ssb", "usb", "Lsb", "cw"):
-            fill(app, ENTRY | {"MODE": mode})
+        for call, mode in zip(("W1AAA", "W1AAB", "W1AAC", "W1AAD"), ("ssb", "usb", "Lsb", "cw")):
+            fill(app, ENTRY | {"CALL": call, "MODE": mode})
             await pilot.press("enter")
         assert [row[1] for row in table_rows(app)] == ["SSB", "USB", "LSB", "CW"]
 
@@ -521,8 +547,8 @@ async def test_invalid_mode_blocks_entry(app):
 
 async def test_power_shown_with_watts(app):
     async with app.run_test() as pilot:
-        for watts in ("60", ".5", "2.5", "1500"):
-            fill(app, ENTRY | {"PWR": watts})
+        for call, watts in zip(("W1AAA", "W1AAB", "W1AAC", "W1AAD"), ("60", ".5", "2.5", "1500")):
+            fill(app, ENTRY | {"CALL": call, "PWR": watts})
             await pilot.press("enter")
         assert [row[7] for row in table_rows(app)] == ["60W", ".5W", "2.5W", "1500W"]
 
