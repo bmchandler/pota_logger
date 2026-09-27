@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime, time, timedelta
 
-from pota_logger_t3.entry_warnings import future_time, voice_in_cw_range
+import pytest
+
+from pota_logger_t3.entry_warnings import future_time, state_on_non_us_park, voice_in_cw_range
 
 
 def when(moment: datetime) -> dict:
@@ -43,4 +45,18 @@ def test_voice_in_cw_range_warns():
 def test_voice_on_30m_warns():
     assert voice_in_cw_range({"MODE": "SSB", "FREQ": 10_120_000}).startswith(
         "SSB on 10.120.000 is outside 30m's voice range."
+    )
+
+
+@pytest.mark.parametrize(
+    "park, state",
+    [("1234", "NJ"), ("US-1234", "NJ"), ("us1234", "NJ"), ("JP-1234", ""), ("JP-1234", "NA")],
+)
+def test_state_on_park_without_warning(park, state):
+    assert state_on_non_us_park({"PARK": park, "ST": state}) is None
+
+
+def test_state_on_non_us_park_warns():
+    assert state_on_non_us_park({"PARK": "jp1234", "ST": "NJ"}) == (
+        "JP-1234 is a non-US park, so ST is likely blank.\nEsc to correct, or confirm with Enter."
     )

@@ -298,6 +298,25 @@ async def test_cw_in_cw_range_has_no_warning(app):
         assert len(table_rows(app)) == 1
 
 
+async def test_state_on_non_us_park_opens_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "JP-1234", "ST": "NJ"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        message = app.screen.query_one("#warning-message", Static)
+        assert str(message.render()).startswith("JP-1234 is a non-US park, so ST is likely blank.")
+        await pilot.press("escape")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-st"
+
+
+async def test_non_us_park_with_blank_state_has_no_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "JP-1234", "ST": ""})
+        await pilot.press("enter")
+        assert table_rows(app)[0][3:5] == ["JP-1234", ""]
+
+
 async def test_warnings_come_one_after_another(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | FUTURE | {"CALL": "W11BC"})
@@ -314,9 +333,9 @@ async def test_park_bare_number_shown_as_us(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"PARK": "1234"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"PARK": "JP-1234"})
+        fill(app, ENTRY | {"PARK": "JP-1234", "ST": ""})
         await pilot.press("enter")
-        fill(app, ENTRY | {"PARK": "jp234"})
+        fill(app, ENTRY | {"PARK": "jp234", "ST": ""})
         await pilot.press("enter")
         assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234", "JP-234"]
 

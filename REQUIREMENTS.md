@@ -84,6 +84,8 @@ Session-level value:
     (the widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m
     21.200, 12m 24.930, 10m 28.300 MHz, each up to the top of the band.
     30m has no voice range. CW is fine anywhere. Esc goes back to FREQ.
+  - **State on a non-US park:** PARK isn't a US park but ST is a US state.
+    Blank or `NA` is fine. Esc goes back to ST.
   - **Future date/time:** DATE plus TIME is later than the current UTC
     time. Esc goes back to DATE.
 
