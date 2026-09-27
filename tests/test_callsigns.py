@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.callsigns import parse_callsign
+from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,38 @@ def test_parse_callsign_rejects_empty_parts(text):
 def test_parse_callsign_rejects_non_calls(text):
     with pytest.raises(ValueError, match="doesn't look like a callsign"):
         parse_callsign(text)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "W1ABC",
+        "K1A",
+        "KD2XYZ",
+        "KH6ABC",
+        "IK2ABC",
+        "G4ABC",
+        "M0ABC",
+        "VE3XYZ",
+        "JA1ABC",
+        "DL1ABC",
+        "HB9ABC",
+        "9A1AA",
+        "3D2XYZ",
+        "2E0ABC",
+        "S51ABC",
+        "4U1ITU",
+        "VP2EAB",
+        "W1ABC/P",
+        "VE3/W1ABC/P",
+    ],
+)
+def test_usual_callsigns(call):
+    assert is_usual_callsign(call)
+
+
+@pytest.mark.parametrize(
+    "call", ["W11BC", "W1ABCDE", "W100AW", "GB250RSGB", "3DA0ABC", "VE3/W11BC", "W11BC/P"]
+)
+def test_unusual_callsigns(call):
+    assert not is_usual_callsign(call)

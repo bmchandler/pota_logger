@@ -6,7 +6,8 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
-from pota_logger_t3.callsigns import parse_callsign
+from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
+from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 from pota_logger_t3.dates import default_date, parse_date, parse_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
@@ -131,7 +132,22 @@ class EntryForm(Horizontal):
                     )
                     self.field(name).focus()
                     return
-        self.post_message(self.Submitted(values | parsed))
+        if not is_usual_callsign(parsed["CALL"]):
+            self.app.push_screen(
+                CallsignWarningScreen(parsed["CALL"]),
+                lambda call: self.confirm_unusual_call(values | parsed, call),
+            )
+            return
+        self.submit(values | parsed)
+
+    def confirm_unusual_call(self, values: dict, call: str | None) -> None:
+        if call is None:
+            self.field("CALL").focus()
+            return
+        self.submit(values | {"CALL": call})
+
+    def submit(self, values: dict) -> None:
+        self.post_message(self.Submitted(values))
         self.clear_for_next_entry()
 
     def clear_for_next_entry(self) -> None:

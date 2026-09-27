@@ -3,6 +3,7 @@ from datetime import date
 from textual.widgets import DataTable, Input, Static
 
 from pota_logger_t3 import PotaLoggerApp, dates
+from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.entry_form import FIELDS
 from pota_logger_t3.settings import Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
@@ -160,6 +161,69 @@ async def test_invalid_call_blocks_entry(app):
             "CALL 'W1ABC.' can only use letters, digits, and /"
         ]
         assert field_values(app)["FREQ"] == "14.074.5"
+
+
+async def test_usual_call_skips_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "ve3/w1abc/p"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app)[0][2] == "VE3/W1ABC/P"
+
+
+async def test_unusual_call_opens_warning_instead_of_saving(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "w11bc"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app) == []
+        message = app.screen.query_one("#callsign-warning-message", Static)
+        assert str(message.render()) == (
+            "W11BC is an unusual callsign.\nCorrect and/or confirm with Enter."
+        )
+        assert app.focused.id == "callsign-warning-input"
+        assert app.focused.value == "W11BC"
+
+
+async def test_enter_in_warning_logs_call_as_is(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W11BC"})
+        await pilot.press("enter", "enter")
+        assert not isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app)[0][2] == "W11BC"
+        assert field_values(app)["CALL"] == ""
+        assert app.focused.id == "field-freq"
+
+
+async def test_call_corrected_in_warning_is_logged(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W11BC"})
+        # The call starts selected, so typing replaces it.
+        await pilot.press("enter", *"w1abc", "enter")
+        assert not isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app)[0][2] == "W1ABC"
+
+
+async def test_invalid_correction_stays_in_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W11BC"})
+        await pilot.press("enter")
+        await pilot.press("end", ".", "enter")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app) == []
+        assert [n.message for n in app._notifications] == [
+            "CALL 'W11BC.' can only use letters, digits, and /"
+        ]
+
+
+async def test_escape_from_warning_returns_to_call_without_saving(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W11BC"})
+        await pilot.press("enter", "escape")
+        assert not isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app) == []
+        assert app.focused.id == "field-call"
+        assert field_values(app) == ENTRY | {"CALL": "W11BC"}
 
 
 async def test_park_bare_number_shown_as_us(app):
