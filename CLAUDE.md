@@ -66,6 +66,8 @@ updated in the same change whenever a rule changes.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: missing fields, `PARSERS`, `REPORTS`, `check_sideband`, the
   unusual-CALL modal, then each of `WARNINGS` in order.
+- Colors come from the `pota` Textual theme in theme.py; widget CSS uses
+  theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw
   rows already drawn when an auto-width column widens.
 

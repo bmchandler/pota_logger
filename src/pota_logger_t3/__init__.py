@@ -14,6 +14,7 @@ from pota_logger_t3.power import format_power
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.status_bar import StatusBar
+from pota_logger_t3.theme import POTA_THEME
 
 
 # How parsed values are shown in the log table, and their widths when
@@ -52,6 +53,8 @@ class PotaLoggerApp(App):
 
     def __init__(self, settings_path: Path = SETTINGS_PATH) -> None:
         super().__init__()
+        self.register_theme(POTA_THEME)
+        self.theme = POTA_THEME.name
         self.settings_path = settings_path
         self.settings_error: str | None = None
         try:

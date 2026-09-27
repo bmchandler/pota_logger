@@ -22,6 +22,11 @@ async def test_focus_starts_on_freq(app):
         assert app.focused.id == "field-freq"
 
 
+async def test_uses_pota_theme(app):
+    async with app.run_test():
+        assert app.theme == "pota"
+
+
 async def test_date_defaults_to_todays_local_date(app, monkeypatch):
     class FixedDate(date):
         @classmethod

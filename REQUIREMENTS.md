@@ -35,12 +35,12 @@ Future (not now):
 
 Built: the entry form with its field rules, blocks, and warnings; the log
 table (in memory only, for the session); the status bar; the settings
-modal.
+modal; a light outdoors color theme (leaf and grass greens with
+orange warnings, in theme.py).
 
 Not built yet, in the planned order:
 
-1. Polish: wording and spacing tweaks, and a color theme that complements
-   POTA.
+1. Polish: wording and spacing tweaks.
 2. A COMMENTS field, below the current row of entry fields. Before
    storage, since it adds a CSV column.
 3. CSV storage (see Storage). Until then, entries are lost when the app
