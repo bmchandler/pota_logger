@@ -7,6 +7,7 @@ from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.entry_form import FIELDS
 from pota_logger_t3.settings import Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
+from pota_logger_t3.warning_screen import WarningScreen
 
 
 def station_callsign(app) -> str:
@@ -224,6 +225,58 @@ async def test_escape_from_warning_returns_to_call_without_saving(app):
         assert table_rows(app) == []
         assert app.focused.id == "field-call"
         assert field_values(app) == ENTRY | {"CALL": "W11BC"}
+
+
+FUTURE = {"DATE": "991231"}
+
+
+async def test_future_time_opens_warning_instead_of_saving(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        message = app.screen.query_one("#warning-message", Static)
+        assert str(message.render()).startswith("2099.12.31 19:53 UTC is in the future.")
+
+
+async def test_enter_in_warning_saves(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_rows(app)[0][8] == "2099.12.31"
+        assert app.focused.id == "field-freq"
+
+
+async def test_confirm_button_saves(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter")
+        await pilot.click("#confirm")
+        assert len(table_rows(app)) == 1
+
+
+async def test_escape_from_future_warning_returns_to_date(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "escape")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        assert app.focused.id == "field-date"
+        assert field_values(app) == ENTRY | FUTURE
+
+
+async def test_warnings_come_one_after_another(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE | {"CALL": "W11BC"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        await pilot.press("enter")
+        assert table_rows(app)[0][2] == "W11BC"
 
 
 async def test_park_bare_number_shown_as_us(app):

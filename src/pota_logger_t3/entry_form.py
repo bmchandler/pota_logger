@@ -9,10 +9,12 @@ from textual.widgets import Input, Label
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 from pota_logger_t3.dates import default_date, parse_date, parse_time
+from pota_logger_t3.entry_warnings import future_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
 from pota_logger_t3.states import parse_state
+from pota_logger_t3.warning_screen import WarningScreen
 
 # (name, placeholder, longest expected value) in paper-log entry order.
 FIELDS = [
@@ -56,6 +58,10 @@ DEFAULT_FACTORIES = {"DATE": default_date}
 
 # Fields that keep their value for the next entry.
 CARRY_FORWARD = {"PWR", "DATE"}
+
+# Checks run after the unusual-CALL warning, in order: (field Esc goes back
+# to, check returning a warning message or None).
+WARNINGS = [("DATE", future_time)]
 
 
 class EntryForm(Horizontal):
@@ -138,13 +144,29 @@ class EntryForm(Horizontal):
                 lambda call: self.confirm_unusual_call(values | parsed, call),
             )
             return
-        self.submit(values | parsed)
+        self.check_warnings(values | parsed, WARNINGS)
 
     def confirm_unusual_call(self, values: dict, call: str | None) -> None:
         if call is None:
             self.field("CALL").focus()
             return
-        self.submit(values | {"CALL": call})
+        self.check_warnings(values | {"CALL": call}, WARNINGS)
+
+    def check_warnings(self, values: dict, warnings: list) -> None:
+        for index, (name, check) in enumerate(warnings):
+            message = check(values)
+            if message:
+                rest = warnings[index + 1 :]
+
+                def confirmed(ok: bool, name=name, rest=rest) -> None:
+                    if ok:
+                        self.check_warnings(values, rest)
+                    else:
+                        self.field(name).focus()
+
+                self.app.push_screen(WarningScreen(message), confirmed)
+                return
+        self.submit(values)
 
     def submit(self, values: dict) -> None:
         self.post_message(self.Submitted(values))

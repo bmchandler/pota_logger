@@ -68,15 +68,19 @@ Session-level value:
 - Only DATE and PWR carry forward to the next entry. Everything else is
   entered fresh each time (MODE resets to `SSB`).
 - Multi-park activations: each park is a separate entry.
+- Entries may be typed in any time order, with no warning. The paper log
+  isn't always in time order (an entry is sometimes finished after later
+  ones), and typing it 1:1 keeps it easy to double-check.
 - Warnings flag entries that are probably, but not certainly, wrong. The
-  first Enter opens a warning modal instead of saving. For an unusual CALL
-  it reads `W11BC is an unusual callsign.` / `Correct and/or confirm with
-  Enter.` and holds the call, ready to edit. Enter saves the entry with the
-  call as it is in the modal (still shape-checked); Esc goes back to the
-  form without saving.
-- Warn, but don't block, when an entry's time is earlier than the previous
-  entry's on the same date. This catches entries typed out of order or a
-  missed midnight UTC date change.
+  first Enter opens a warning modal instead of saving; Enter there
+  confirms, and Esc goes back to the form without saving, on the field
+  to fix. When several warnings apply, they come one after another.
+  - **Unusual CALL** (see CALL): reads `W11BC is an unusual callsign.` /
+    `Correct and/or confirm with Enter.` and holds the call, ready to
+    edit. Enter saves the entry with the call as it is in the modal (still
+    shape-checked).
+  - **Future date/time:** DATE plus TIME is later than the current UTC
+    time. Esc goes back to DATE.
 
 ## Log view
 
