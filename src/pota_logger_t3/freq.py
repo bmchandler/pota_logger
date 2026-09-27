@@ -1,21 +1,35 @@
-# US amateur allocations from 80m to 10m, as (low, high) Hz, inclusive.
-# No two bands share a bare-digit reading, so bare entry is never ambiguous.
+# US amateur allocations from 80m to 10m, as (name, low, high, voice low)
+# in Hz, inclusive. Voice runs from voice low to the top of the band, using
+# the Extra class edges (the widest); 30m has no voice. No two bands share
+# a bare-digit reading, so bare entry is never ambiguous.
 US_BANDS = [
-    (3_500_000, 4_000_000),  # 80m
-    (7_000_000, 7_300_000),  # 40m
-    (10_100_000, 10_150_000),  # 30m
-    (14_000_000, 14_350_000),  # 20m
-    (18_068_000, 18_168_000),  # 17m
-    (21_000_000, 21_450_000),  # 15m
-    (24_890_000, 24_990_000),  # 12m
-    (28_000_000, 29_700_000),  # 10m
+    ("80m", 3_500_000, 4_000_000, 3_600_000),
+    ("40m", 7_000_000, 7_300_000, 7_125_000),
+    ("30m", 10_100_000, 10_150_000, None),
+    ("20m", 14_000_000, 14_350_000, 14_150_000),
+    ("17m", 18_068_000, 18_168_000, 18_110_000),
+    ("15m", 21_000_000, 21_450_000, 21_200_000),
+    ("12m", 24_890_000, 24_990_000, 24_930_000),
+    ("10m", 28_000_000, 29_700_000, 28_300_000),
 ]
 
 FORMAT_HINT = "14.074, 14.0745, 14.074.5, or 14074"
 
 
 def in_us_band(hz: int) -> bool:
-    return any(low <= hz <= high for low, high in US_BANDS)
+    return band_name(hz) is not None
+
+
+def band_name(hz: int) -> str | None:
+    return next((name for name, low, high, _ in US_BANDS if low <= hz <= high), None)
+
+
+def in_voice_range(hz: int) -> bool:
+    """Whether a US band frequency is in its band's voice (phone) range."""
+    for _, low, high, voice_low in US_BANDS:
+        if low <= hz <= high:
+            return voice_low is not None and hz >= voice_low
+    return False
 
 
 def parse_freq(text: str) -> int:

@@ -68,7 +68,7 @@ async def test_fields_fit_longest_expected_values(app):
 # Entering a record
 
 ENTRY = {
-    "FREQ": "14.074.5",
+    "FREQ": "14.285.5",
     "MODE": "USB",
     "CALL": "W1ABC",
     "PARK": "1234",
@@ -80,12 +80,15 @@ ENTRY = {
     "TIME": "1953",
 }
 
+# ENTRY on CW, so any frequency in a band is fine.
+CW_ENTRY = ENTRY | {"MODE": "CW"}
+
 # ENTRY as it appears in the log table.
 ENTRY_ROW = list(
     (
         ENTRY
         | {
-            "FREQ": "14.074.500",
+            "FREQ": "14.285.500",
             "PARK": "US-1234",
             "PWR": "60W",
             "DATE": "2026.09.25",
@@ -161,7 +164,7 @@ async def test_invalid_call_blocks_entry(app):
         assert [n.message for n in app._notifications] == [
             "CALL 'W1ABC.' can only use letters, digits, and /"
         ]
-        assert field_values(app)["FREQ"] == "14.074.5"
+        assert field_values(app)["FREQ"] == "14.285.5"
 
 
 async def test_usual_call_skips_warning(app):
@@ -267,6 +270,34 @@ async def test_escape_from_future_warning_returns_to_date(app):
         assert field_values(app) == ENTRY | FUTURE
 
 
+async def test_voice_in_cw_range_opens_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "14.074"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        message = app.screen.query_one("#warning-message", Static)
+        assert str(message.render()).startswith(
+            "USB on 14.074.000 is outside 20m's voice range."
+        )
+
+
+async def test_escape_from_voice_warning_returns_to_freq(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"FREQ": "14.074"})
+        await pilot.press("enter", "escape")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-freq"
+
+
+async def test_cw_in_cw_range_has_no_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, CW_ENTRY | {"FREQ": "14.074"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert len(table_rows(app)) == 1
+
+
 async def test_warnings_come_one_after_another(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | FUTURE | {"CALL": "W11BC"})
@@ -349,18 +380,18 @@ async def test_missing_fields_block_entry(app):
         assert app.focused.id == "field-call"
         assert [n.message for n in app._notifications] == ["Missing: CALL, TIME"]
         # Nothing was cleared.
-        assert field_values(app)["FREQ"] == "14.074.5"
+        assert field_values(app)["FREQ"] == "14.285.5"
 
 
 async def test_freq_shown_in_full_in_table(app):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"FREQ": "14"})
+        fill(app, CW_ENTRY | {"FREQ": "14"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"FREQ": "14074"})
+        fill(app, CW_ENTRY | {"FREQ": "14074"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"FREQ": "14.0745"})
+        fill(app, CW_ENTRY | {"FREQ": "14.0745"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"FREQ": "28312456"})
+        fill(app, CW_ENTRY | {"FREQ": "28312456"})
         await pilot.press("enter")
         assert [row[0] for row in table_rows(app)] == [
             "14.000.000",

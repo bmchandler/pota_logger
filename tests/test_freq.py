@@ -1,6 +1,14 @@
 import pytest
 
-from pota_logger_t3.freq import US_BANDS, _bare_candidates, format_freq, in_us_band, parse_freq
+from pota_logger_t3.freq import (
+    US_BANDS,
+    _bare_candidates,
+    band_name,
+    format_freq,
+    in_us_band,
+    in_voice_range,
+    parse_freq,
+)
 
 
 @pytest.mark.parametrize(
@@ -89,14 +97,14 @@ def test_bare_digits_have_one_in_band_reading():
     # Every whole-kHz frequency, typed as bare digits, has exactly one
     # in-band reading: itself. Guards against band edits that would make
     # bare entry ambiguous.
-    for low, high in US_BANDS:
+    for _, low, high, _ in US_BANDS:
         for hz in range(low, high + 1, 1_000):
             bare = format_freq(hz).replace(".", "").rstrip("0")
             assert [c for c in _bare_candidates(bare) if in_us_band(c)] == [hz], bare
 
 
 def test_band_edges_are_inclusive():
-    for low, high in US_BANDS:
+    for _, low, high, _ in US_BANDS:
         assert in_us_band(low) and in_us_band(high)
         assert not in_us_band(low - 1) and not in_us_band(high + 1)
 
@@ -113,3 +121,42 @@ def test_band_edges_are_inclusive():
 )
 def test_format_freq(hz, text):
     assert format_freq(hz) == text
+
+
+@pytest.mark.parametrize(
+    "hz, name",
+    [(3_500_000, "80m"), (10_125_000, "30m"), (14_074_500, "20m"), (29_700_000, "10m"), (13_999_999, None)],
+)
+def test_band_name(hz, name):
+    assert band_name(hz) == name
+
+
+@pytest.mark.parametrize(
+    "hz, voice",
+    [
+        (3_599_999, False),
+        (3_600_000, True),
+        (7_124_999, False),
+        (7_125_000, True),
+        (10_125_000, False),
+        (14_074_500, False),
+        (14_150_000, True),
+        (14_350_000, True),
+        (18_109_999, False),
+        (18_110_000, True),
+        (21_199_999, False),
+        (21_200_000, True),
+        (24_929_999, False),
+        (24_930_000, True),
+        (28_299_999, False),
+        (28_300_000, True),
+        (29_700_000, True),
+    ],
+)
+def test_in_voice_range(hz, voice):
+    assert in_voice_range(hz) is voice
+
+
+def test_voice_ranges_are_inside_their_bands():
+    for _, low, high, voice_low in US_BANDS:
+        assert voice_low is None or low < voice_low < high

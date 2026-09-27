@@ -79,6 +79,11 @@ Session-level value:
     `Correct and/or confirm with Enter.` and holds the call, ready to
     edit. Enter saves the entry with the call as it is in the modal (still
     shape-checked).
+  - **Voice in a CW range:** MODE is `SSB`, `USB`, or `LSB` and FREQ is
+    below its band's US voice (phone) range, using the Extra class edges
+    (the widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m
+    21.200, 12m 24.930, 10m 28.300 MHz, each up to the top of the band.
+    30m has no voice range. CW is fine anywhere. Esc goes back to FREQ.
   - **Future date/time:** DATE plus TIME is later than the current UTC
     time. Esc goes back to DATE.
 

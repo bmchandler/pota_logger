@@ -9,7 +9,7 @@ from textual.widgets import Input, Label
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 from pota_logger_t3.dates import default_date, parse_date, parse_time
-from pota_logger_t3.entry_warnings import future_time
+from pota_logger_t3.entry_warnings import future_time, voice_in_cw_range
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
@@ -62,7 +62,7 @@ CARRY_FORWARD = {"PWR", "DATE"}
 
 # Checks run after the unusual-CALL warning, in order: (field Esc goes back
 # to, check returning a warning message or None).
-WARNINGS = [("DATE", future_time)]
+WARNINGS = [("FREQ", voice_in_cw_range), ("DATE", future_time)]
 
 
 class EntryForm(Horizontal):
