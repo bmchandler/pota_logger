@@ -31,6 +31,35 @@ Future (not now):
 
 - QRZ.com API integration.
 
+## Status and plan
+
+Built: the entry form with its field rules, blocks, and warnings; the log
+table (in memory only, for the session); the status bar; the settings
+modal.
+
+Not built yet, in the planned order:
+
+1. Polish: wording and spacing tweaks, and a color theme that complements
+   POTA.
+2. A COMMENTS field, below the current row of entry fields. Before
+   storage, since it adds a CSV column.
+3. CSV storage (see Storage). Until then, entries are lost when the app
+   closes, and the possible-dupe warning only sees this session.
+4. Editing a saved entry. After storage, since its hard parts are storage
+   ones: rewriting a CSV row, moving an entry to another date's file when
+   DATE changes, and re-checking dupes against the saved log.
+
+Also not built: the Sort action (see Log view) and ADIF export.
+
+Ideas considered and deferred:
+
+- A CW warning within about 1 kHz of a band edge. Left out for now: a CW
+  signal is narrow, and radios differ on whether the dial shows the
+  transmit frequency or is offset by the CW pitch.
+- Defaulting DATE to "UTC now minus a few hours", which would suit
+  operators in any time zone. The local-date default fits the current
+  operator (US Eastern).
+
 ## Entry fields
 
 In entry order (mirrors the paper log). All times and dates are UTC.
