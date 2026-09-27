@@ -302,6 +302,18 @@ async def test_three_digit_report_requires_cw(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_impossible_report_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"RCD": "69"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-rcd"
+        assert [n.message for n in app._notifications] == [
+            "RCD '69' isn't a real report: readability is 1-5"
+        ]
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 async def test_three_digit_report_allowed_on_cw(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"MODE": "CW", "SNT": "599", "RCD": "579"})

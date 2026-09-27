@@ -38,10 +38,16 @@ updated in the same change whenever a rule changes.
 
 - Each entry field with rules has a small module with `parse_*` (raises
   ValueError with a message shown to the operator) and, if displayed
-  differently, `format_*`: freq.py, modes.py, states.py, power.py, dates.py.
+  differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
+  states.py, reports.py, power.py, dates.py.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value),
-  `PARSERS`, `OPTIONAL`, `DEFAULTS`, and `CARRY_FORWARD`. `__init__.py`
+  `PARSERS`, `REPORTS` (parsed after, since they depend on MODE),
+  `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `__init__.py`
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.
+- Warnings (probably wrong, but saveable) are checks in entry_warnings.py
+  listed in `WARNINGS`, shown in warning_screen.py. The unusual-CALL
+  warning has its own modal (callsign_warning_screen.py) so the call can
+  be edited there.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw
   rows already drawn when an auto-width column widens.
 - Tests never touch the real `data/`: use the `settings_path` / `app`

@@ -13,6 +13,7 @@ from pota_logger_t3.entry_warnings import future_time
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.power import parse_power
+from pota_logger_t3.reports import parse_report
 from pota_logger_t3.states import parse_state
 from pota_logger_t3.warning_screen import WarningScreen
 
@@ -44,8 +45,8 @@ PARSERS = {
     "TIME": parse_time,
 }
 
-# SNT/RCD may only be a 3-digit report (e.g. 599) when MODE is CW.
-THREE_DIGIT_REPORT_MODE = "CW"
+# Signal reports, parsed after PARSERS since their rules depend on MODE.
+REPORTS = ["SNT", "RCD"]
 
 # Fields that may be left blank.
 OPTIONAL = {"ST"}
@@ -129,15 +130,13 @@ class EntryForm(Horizontal):
                 self.notify(str(error), severity="warning")
                 self.field(name).focus()
                 return
-        if parsed["MODE"] != THREE_DIGIT_REPORT_MODE:
-            for name in ("SNT", "RCD"):
-                if len(values[name]) == 3:
-                    self.notify(
-                        f"{name} {values[name]!r} needs MODE CW for a 3-digit report",
-                        severity="warning",
-                    )
-                    self.field(name).focus()
-                    return
+        for name in REPORTS:
+            try:
+                parsed[name] = parse_report(name, values[name], parsed["MODE"])
+            except ValueError as error:
+                self.notify(str(error), severity="warning")
+                self.field(name).focus()
+                return
         if not is_usual_callsign(parsed["CALL"]):
             self.app.push_screen(
                 CallsignWarningScreen(parsed["CALL"]),
