@@ -43,8 +43,8 @@ async def test_set_station_callsign_updates_display():
 async def test_clock_formats():
     app = StatusBarApp("W1TST")
     async with app.run_test():
-        assert re.fullmatch(r"UTC \d{8} \d{2}:\d{2}:\d{2}", text(app, "utc-clock"))
-        assert re.fullmatch(r"\S+ \d{8} \d{2}:\d{2}:\d{2}", text(app, "local-clock"))
+        assert re.fullmatch(r"UTC \d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}", text(app, "utc-clock"))
+        assert re.fullmatch(r"\S+ \d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}", text(app, "local-clock"))
 
 
 async def test_layout_left_center_right():

@@ -4,7 +4,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import Static
 
-CLOCK_FORMAT = "%Y%m%d %H:%M:%S"
+CLOCK_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 
 class StatusBar(Horizontal):
