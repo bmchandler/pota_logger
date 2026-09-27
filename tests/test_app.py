@@ -150,6 +150,18 @@ async def test_call_any_case_shown_uppercase(app):
         assert table_rows(app)[0][2] == "W1ABC"
 
 
+async def test_invalid_call_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W1ABC."})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-call"
+        assert [n.message for n in app._notifications] == [
+            "CALL 'W1ABC.' can only use letters, digits, and /"
+        ]
+        assert field_values(app)["FREQ"] == "14.074.5"
+
+
 async def test_park_bare_number_shown_as_us(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"PARK": "1234"})
