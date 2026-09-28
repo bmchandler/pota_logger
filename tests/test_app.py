@@ -37,6 +37,17 @@ async def test_footer_shows_quit_settings_and_screenshot(app):
         assert shown == ["ctrl+q", "f2", "ctrl+s"]
 
 
+async def test_footer_shows_terminal_size_and_follows_resize(app):
+    async with app.run_test(size=(110, 26)) as pilot:
+        size = app.query_one("#terminal-size", Static)
+        assert str(size.render()) == "110x26"
+        await pilot.resize_terminal(100, 24)
+        await pilot.pause()
+        assert str(size.render()) == "100x24"
+        assert size.region.right == 100
+        assert size.region.y == 23
+
+
 async def test_ctrl_p_opens_no_command_palette(app):
     async with app.run_test() as pilot:
         await pilot.press("ctrl+p")

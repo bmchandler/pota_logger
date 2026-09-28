@@ -108,6 +108,8 @@ Session-level value:
   switching.
 - The footer shows `^q Quit`, `f2 Settings`, and `^s Screenshot` (saves
   an SVG of the screen to the Downloads folder).
+- The footer's right end shows the terminal size as columns x rows
+  (`120x30`), updated live as the window is resized.
 - No command palette (Textual's ctrl+p): "palette" is unfamiliar to most
   operators.
 

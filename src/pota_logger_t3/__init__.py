@@ -1,10 +1,11 @@
 import tomllib
 from pathlib import Path
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
-from textual.widgets import Button, DataTable, Footer
+from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.entry_form import FIELDS, EntryForm
@@ -47,6 +48,21 @@ class PotaLoggerApp(App):
     #button-bar > Button {
         margin-left: 1;
     }
+    /* Footer shares its row with the terminal size, on the right. */
+    #footer-bar {
+        dock: bottom;
+        height: 1;
+    }
+    #footer-bar > Footer {
+        dock: none;
+        width: 1fr;
+    }
+    #terminal-size {
+        width: auto;
+        padding: 0 1;
+        color: $footer-foreground;
+        background: $footer-background;
+    }
     """
 
     # No command palette: "palette" is unfamiliar to most operators, and
@@ -84,7 +100,12 @@ class PotaLoggerApp(App):
             ):
                 button.can_focus = False
                 yield button
-        yield Footer()
+        with Horizontal(id="footer-bar"):
+            yield Footer()
+            yield Static(id="terminal-size")
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.query_one("#terminal-size", Static).update(f"{event.size.width}x{event.size.height}")
 
     def on_mount(self) -> None:
         table = self.query_one("#log-table", DataTable)
