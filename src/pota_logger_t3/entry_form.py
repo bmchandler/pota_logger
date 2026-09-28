@@ -82,7 +82,7 @@ class EntryForm(Horizontal):
     DEFAULT_CSS = """
     EntryForm {
         height: auto;
-        padding: 1 1 0 1;
+        padding: 1;
     }
     EntryForm > Vertical {
         height: auto;

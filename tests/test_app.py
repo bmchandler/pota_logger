@@ -62,6 +62,17 @@ async def test_date_defaults_to_todays_local_date(app, monkeypatch):
         assert app.query_one("#field-date", Input).value == "260903"
 
 
+async def test_entry_fields_have_equal_gaps_above_and_below(app):
+    async with app.run_test(size=(100, 24)):
+        status_bar = app.query_one("StatusBar").region
+        label = app.query_one("EntryForm Label").region
+        field = app.query_one("#field-freq", Input).region
+        table = app.query_one("#log-table", DataTable).region
+        gap_above = label.y - status_bar.bottom
+        gap_below = table.y - field.bottom
+        assert gap_above == gap_below == 1
+
+
 async def test_tab_order_follows_paper_log_then_table(app):
     async with app.run_test():
         chain = [w.id for w in app.screen.focus_chain]
