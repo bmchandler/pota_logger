@@ -26,6 +26,11 @@ updated in the same change whenever a rule changes.
   `Initial Commit`.
 - When a request is ambiguous (especially about UI behavior), ask instead
   of guessing.
+- "Can we ...?" / "Could we ...?" is a literal question, not a go-ahead
+  to edit. Answer it: is it doable out of the box with the framework,
+  what are the trade-offs, would it override stock framework behavior
+  (e.g. a built-in key binding)? Then wait for a clear instruction.
+  Avoid overriding framework defaults unless the user decides to.
 - REQUIREMENTS.md's "Status and plan" section says what's built and
   what's next; update it when a planned item lands.
 
