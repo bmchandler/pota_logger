@@ -23,8 +23,9 @@ from pota_logger_t3.sidebands import check_sideband
 from pota_logger_t3.states import parse_state
 from pota_logger_t3.warning_screen import WarningScreen
 
-# (name, placeholder, longest expected value) in paper-log entry order.
-FIELDS = [
+# (name, placeholder, longest expected value) in paper-log entry order, for
+# the fields in the top row of the form.
+ROW_FIELDS = [
     ("FREQ", "14.074.5", 10),  # 29.700.000
     ("MODE", "SSB", 3),
     ("CALL", "W1ABC", 12),  # VE3/W1ABC/P
@@ -39,6 +40,13 @@ FIELDS = [
 
 # Input border and padding (4) plus a cell for the cursor.
 INPUT_EXTRA_WIDTH = 5
+
+# COMMENT sits below the row, as wide as it, and holds what fits there.
+ROW_WIDTH = sum(max_length + INPUT_EXTRA_WIDTH for _, _, max_length in ROW_FIELDS)
+COMMENT_LENGTH = ROW_WIDTH - INPUT_EXTRA_WIDTH
+
+# Every field, in entry order.
+FIELDS = ROW_FIELDS + [("COMMENT", "", COMMENT_LENGTH)]
 
 # Fields turned from entered text into values, in entry order.
 PARSERS = {
@@ -55,7 +63,7 @@ PARSERS = {
 REPORTS = ["SNT", "RCD"]
 
 # Fields that may be left blank.
-OPTIONAL = {"ST"}
+OPTIONAL = {"ST", "COMMENT"}
 
 # Value each field starts with, and resets to after an entry.
 DEFAULTS = {"MODE": "SSB"}
@@ -76,15 +84,30 @@ WARNINGS = [
 ]
 
 
-class EntryForm(Horizontal):
-    """One row of labeled inputs for a single log entry."""
+def labeled_input(name: str, placeholder: str, max_length: int) -> Vertical:
+    factory = DEFAULT_FACTORIES.get(name)
+    field = Input(
+        value=factory() if factory else DEFAULTS.get(name, ""),
+        placeholder=placeholder,
+        # Only COMMENT is capped, at what fits in view; the other fields
+        # take any length so their rules can explain what's wrong.
+        max_length=max_length if name == "COMMENT" else 0,
+        id=f"field-{name.lower()}",
+    )
+    column = Vertical(Label(name), field)
+    column.styles.width = max_length + INPUT_EXTRA_WIDTH
+    return column
+
+
+class EntryForm(Vertical):
+    """Labeled inputs for a single log entry: a row, then COMMENT below."""
 
     DEFAULT_CSS = """
     EntryForm {
         height: auto;
         padding: 1;
     }
-    EntryForm > Vertical {
+    EntryForm Horizontal, EntryForm Vertical {
         height: auto;
     }
     EntryForm Label {
@@ -113,16 +136,10 @@ class EntryForm(Horizontal):
         self.logged: list[dict] = []
 
     def compose(self) -> ComposeResult:
-        for name, placeholder, max_length in FIELDS:
-            with Vertical() as column:
-                column.styles.width = max_length + INPUT_EXTRA_WIDTH
-                yield Label(name)
-                factory = DEFAULT_FACTORIES.get(name)
-                yield Input(
-                    value=factory() if factory else DEFAULTS.get(name, ""),
-                    placeholder=placeholder,
-                    id=f"field-{name.lower()}",
-                )
+        with Horizontal():
+            for name, placeholder, max_length in ROW_FIELDS:
+                yield labeled_input(name, placeholder, max_length)
+        yield labeled_input("COMMENT", "", COMMENT_LENGTH)
 
     def field(self, name: str) -> Input:
         return self.query_one(f"#field-{name.lower()}", Input)

@@ -59,7 +59,8 @@ updated in the same change whenever a rule changes.
   differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
   states.py, reports.py, power.py, dates.py. sidebands.py holds the
   MODE-and-FREQ sideband rules.
-- `entry_form.py` holds `FIELDS` (name, placeholder, longest value),
+- `entry_form.py` holds `FIELDS` (name, placeholder, longest value):
+  `ROW_FIELDS` for the top row, then COMMENT, laid out below it. Also
   `PARSERS`, `REPORTS` (parsed after, since they depend on MODE),
   `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `__init__.py`
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.

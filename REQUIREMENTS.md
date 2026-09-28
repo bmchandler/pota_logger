@@ -36,16 +36,14 @@ Future (not now):
 Built: the entry form with its field rules, blocks, and warnings; the log
 table (in memory only, for the session); the status bar; the settings
 modal; a light outdoors color theme (leaf and grass greens with
-orange warnings, in theme.py).
+orange warnings, in theme.py); the COMMENT field.
 
 Not built yet, in the planned order:
 
 1. Polish: wording and spacing tweaks.
-2. A COMMENTS field, below the current row of entry fields. Before
-   storage, since it adds a CSV column.
-3. CSV storage (see Storage). Until then, entries are lost when the app
+2. CSV storage (see Storage). Until then, entries are lost when the app
    closes, and the possible-dupe warning only sees this session.
-4. Editing a saved entry. After storage, since its hard parts are storage
+3. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
 
@@ -75,7 +73,8 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
-| TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Entered last. Must be a real time, 0000 to 2359. |
+| TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Last in the top row of the form. Must be a real time, 0000 to 2359. |
+| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). No character rules. Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME at the same width; the log scrolls sideways to show it. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
 
 Session-level value:
 
@@ -102,7 +101,7 @@ Session-level value:
 
 - Fields can be filled and edited in any order before an entry is saved.
 - An entry can't be saved until every required field is filled in and valid.
-  ST is the only optional field.
+  ST and COMMENT are the only optional fields.
 - Only DATE and PWR carry forward to the next entry. Everything else is
   entered fresh each time (MODE resets to `SSB`).
 - Multi-park activations: each park is a separate entry.
@@ -151,7 +150,7 @@ Session-level value:
 - One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
 - `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the entry fields:
-  `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME`, then
+  `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME, COMMENT`, then
   `STATION_CALLSIGN`.
 - Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
   PARK `1234` or `JP-1234` as entered, PWR `60` or `0.5`, DATE `20260925`,
@@ -167,4 +166,4 @@ Session-level value:
 
 - ADIF, aimed at QRZ.com import. Field details (e.g. `SIG`/`SIG_INFO` vs
   `POTA_REF`, and station and operator fields) are worked out when export is
-  built.
+  built. Settled so far: COMMENT exports as ADIF `COMMENT`, not `NOTES`.

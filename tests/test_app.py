@@ -5,7 +5,7 @@ from textual.widgets import Button, DataTable, Input, Static
 
 from pota_logger_t3 import PotaLoggerApp, dates
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
-from pota_logger_t3.entry_form import FIELDS
+from pota_logger_t3.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS
 from pota_logger_t3.settings import Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.warning_screen import WarningScreen
@@ -65,11 +65,11 @@ async def test_date_defaults_to_todays_local_date(app, monkeypatch):
 async def test_entry_fields_have_equal_gaps_above_and_below(app):
     async with app.run_test(size=(100, 24)):
         status_bar = app.query_one("StatusBar").region
-        label = app.query_one("EntryForm Label").region
-        field = app.query_one("#field-freq", Input).region
+        label = app.query_one("EntryForm Horizontal Label").region
+        comment = app.query_one("#field-comment", Input).region
         table = app.query_one("#log-table", DataTable).region
         gap_above = label.y - status_bar.bottom
-        gap_below = table.y - field.bottom
+        gap_below = table.y - comment.bottom
         assert gap_above == gap_below == 1
 
 
@@ -102,6 +102,7 @@ async def test_fields_fit_longest_expected_values(app):
         "PWR": "1500",
         "DATE": "260925",
         "TIME": "1953",
+        "COMMENT": "x" * COMMENT_LENGTH,
     }
     async with app.run_test(size=(120, 24)):
         for name, value in longest.items():
@@ -123,6 +124,7 @@ ENTRY = {
     "PWR": "60",
     "DATE": "260925",
     "TIME": "1953",
+    "COMMENT": "",
 }
 
 # ENTRY on CW, so any frequency in a band is fine.
@@ -487,7 +489,8 @@ async def test_entries_append_in_entered_order(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"CALL": "W1AAB", "TIME": "1900"})
         await pilot.press("enter")
-        assert [row[-1] for row in table_rows(app)] == ["20:00", "19:00"]
+        time_column = [name for name, _, _ in FIELDS].index("TIME")
+        assert [row[time_column] for row in table_rows(app)] == ["20:00", "19:00"]
 
 
 async def test_missing_fields_block_entry(app):
@@ -677,6 +680,43 @@ async def test_date_column_before_time(app):
     async with app.run_test():
         names = [name for name, _, _ in FIELDS]
         assert names.index("DATE") == names.index("TIME") - 1
+
+
+# COMMENT
+
+
+async def test_comment_spans_the_row_of_fields_above(app):
+    async with app.run_test(size=(130, 30)):
+        comment = app.query_one("#field-comment", Input).region
+        first = app.query_one(f"#field-{ROW_FIELDS[0][0].lower()}", Input).region
+        last = app.query_one(f"#field-{ROW_FIELDS[-1][0].lower()}", Input).region
+        assert (comment.x, comment.right) == (first.x, last.right)
+
+
+async def test_comment_takes_only_what_fits_in_view(app):
+    async with app.run_test(size=(130, 30)) as pilot:
+        field = app.query_one("#field-comment", Input)
+        field.focus()
+        await pilot.press(*"x" * (COMMENT_LENGTH + 3))
+        assert field.value == "x" * COMMENT_LENGTH
+        # +1 for the cursor
+        assert field.content_region.width >= COMMENT_LENGTH + 1
+
+
+async def test_comment_column_follows_time_at_the_fields_width(app):
+    async with app.run_test():
+        table = app.query_one("#log-table", DataTable)
+        columns = list(table.columns.values())
+        assert [str(c.label) for c in columns[-2:]] == ["TIME", "COMMENT"]
+        assert columns[-1].width == COMMENT_LENGTH
+
+
+async def test_comment_is_saved_as_typed_and_cleared_for_next_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": " RSGB Field Day Serial #042 "})
+        await pilot.press("enter")
+        assert table_rows(app)[0][-1] == "RSGB Field Day Serial #042"
+        assert app.query_one("#field-comment", Input).value == ""
 
 
 # Quitting
