@@ -89,6 +89,13 @@ Session-level value:
   callsign. Future settings go there too.
 - Settings are saved in `data/settings.toml`.
 
+## Theme and command palette
+
+- The app always uses its own light outdoors theme; there's no theme
+  switching.
+- The command palette (ctrl+p) offers only Keys, Quit, and Screenshot.
+  Textual's Theme and Maximize/Minimize commands are left out.
+
 ## Entry behavior
 
 - Fields can be filled and edited in any order before an entry is saved.

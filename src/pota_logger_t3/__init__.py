@@ -1,9 +1,11 @@
 import tomllib
+from collections.abc import Iterable
 from pathlib import Path
 
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer
 
 from pota_logger_t3.dates import format_date, format_time
@@ -27,6 +29,10 @@ FORMATTERS = {
     "TIME": format_time,
 }
 DISPLAY_LENGTHS = {"PWR": len("1500W"), "DATE": len("2026.09.23"), "TIME": len("21:23")}
+
+# Textual's command palette (ctrl+p) commands kept; the rest (Theme,
+# Maximize/Minimize) are hidden, so the POTA theme is the only one.
+PALETTE_COMMANDS = {"Keys", "Quit", "Screenshot"}
 
 
 class PotaLoggerApp(App):
@@ -62,6 +68,11 @@ class PotaLoggerApp(App):
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
             self.settings_error = f"Couldn't read {settings_path}: {error}"
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        for command in super().get_system_commands(screen):
+            if command.title in PALETTE_COMMANDS:
+                yield command
 
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)

@@ -27,6 +27,12 @@ async def test_uses_pota_theme(app):
         assert app.theme == "pota"
 
 
+async def test_palette_offers_only_keys_quit_and_screenshot(app):
+    async with app.run_test():
+        titles = {command.title for command in app.get_system_commands(app.screen)}
+        assert titles == {"Keys", "Quit", "Screenshot"}
+
+
 async def test_date_defaults_to_todays_local_date(app, monkeypatch):
     class FixedDate(date):
         @classmethod
