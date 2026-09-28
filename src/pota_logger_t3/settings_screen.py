@@ -3,6 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
+from pota_logger_t3.callsigns import parse_callsign
 from pota_logger_t3.settings import Settings
 
 
@@ -59,7 +60,16 @@ class SettingsScreen(ModalScreen[Settings | None]):
             self.action_cancel()
 
     def action_save(self) -> None:
-        callsign = self.query_one("#station-callsign-input", Input).value.strip().upper()
+        field = self.query_one("#station-callsign-input", Input)
+        # Blank is allowed: the status bar shows NOCALL until one is set.
+        callsign = ""
+        if field.value.strip():
+            try:
+                callsign = parse_callsign(field.value, "Station callsign")
+            except ValueError as error:
+                self.notify(str(error), severity="warning")
+                field.focus()
+                return
         self.dismiss(Settings(station_callsign=callsign))
 
     def action_cancel(self) -> None:

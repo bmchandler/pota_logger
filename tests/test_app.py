@@ -847,6 +847,39 @@ async def test_save_button_saves(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
+async def test_invalid_station_callsign_is_refused(app, settings_path):
+    async with app.run_test() as pilot:
+        await pilot.press("f2", *"w1tst/", "enter")
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "station-callsign-input"
+        assert [n.message for n in app._notifications] == [
+            "Station callsign 'w1tst/' has an empty part next to a /"
+        ]
+        assert not settings_path.exists()
+
+
+async def test_non_ascii_station_callsign_is_refused(app, settings_path):
+    async with app.run_test() as pilot:
+        app.push_screen(SettingsScreen(Settings()))
+        await pilot.pause()
+        app.screen.query_one("#station-callsign-input", Input).value = "W1ABÇ"
+        await pilot.press("enter")
+        assert isinstance(app.screen, SettingsScreen)
+        assert not settings_path.exists()
+
+
+async def test_blank_station_callsign_saves_as_nocall(settings_path):
+    save_settings(Settings(station_callsign="W1TST"), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#station-callsign-input", Input).value = "  "
+        await pilot.press("enter")
+        assert not isinstance(app.screen, SettingsScreen)
+        assert station_callsign(app) == "NOCALL"
+        assert load_settings(settings_path) == Settings(station_callsign="")
+
+
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", *"w1tst", "escape")

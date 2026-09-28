@@ -15,8 +15,9 @@ USUAL_CALL = re.compile(
 )
 
 
-def parse_callsign(text: str) -> str:
-    """Parse CALL: any case, returned uppercase. Checks only the shape:
+def parse_callsign(text: str, name: str = "CALL") -> str:
+    """Parse a callsign (CALL, or the station callsign, named in messages
+    by `name`): any case, returned uppercase. Checks only the shape:
     letters, digits, and up to two slashes, with at least one part shaped
     like a call (VE3/W1ABC/P). Prefixes aren't checked against a country
     table, so rare special-event calls still get through.
@@ -26,14 +27,14 @@ def parse_callsign(text: str) -> str:
     call = text.strip().upper()
     shown = text.strip()
     if not ALLOWED.fullmatch(call):
-        raise ValueError(f"CALL {shown!r} can only use letters, digits, and /")
+        raise ValueError(f"{name} {shown!r} can only use letters, digits, and /")
     if call.count("/") > MAX_SLASHES:
-        raise ValueError(f"CALL {shown!r} has more than {MAX_SLASHES} slashes")
+        raise ValueError(f"{name} {shown!r} has more than {MAX_SLASHES} slashes")
     parts = call.split("/")
     if "" in parts:
-        raise ValueError(f"CALL {shown!r} has an empty part next to a /")
+        raise ValueError(f"{name} {shown!r} has an empty part next to a /")
     if not any(BASE_CALL.fullmatch(part) for part in parts):
-        raise ValueError(f"CALL {shown!r} doesn't look like a callsign, like W1ABC")
+        raise ValueError(f"{name} {shown!r} doesn't look like a callsign, like W1ABC")
     return call
 
 

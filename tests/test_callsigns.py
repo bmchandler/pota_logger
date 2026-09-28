@@ -83,3 +83,8 @@ def test_usual_callsigns(call):
 )
 def test_unusual_callsigns(call):
     assert not is_usual_callsign(call)
+
+
+def test_parse_callsign_names_the_field_in_messages():
+    with pytest.raises(ValueError, match="^Station callsign 'W1 ABC' can only use"):
+        parse_callsign("W1 ABC", "Station callsign")

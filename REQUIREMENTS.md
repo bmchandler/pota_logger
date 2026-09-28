@@ -46,6 +46,14 @@ Not built yet, in the planned order:
 3. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
+4. Checking data files at start. Operators (especially once the app is
+   shared) may hand-edit `data/settings.toml` or the log CSVs, so at
+   start every file is checked against the same rules as entry (e.g. the
+   station callsign's shape, each field's rules), and the operator is
+   notified of anything wrong, naming the file and line or row. One
+   standard for all data files, extending the CSV rule in Storage. Until
+   then, only invalid TOML in settings is reported; a bad callsign typed
+   into the file loads as is.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -81,6 +89,9 @@ Session-level value:
 - **Station callsign:** the operator's own call. It's shown in a top status
   area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
   settings modal.
+  Same shape check as CALL (letters, digits, up to two `/`, shaped like a
+  call), uppercased; saving anything else is refused and the modal stays
+  open. Blank is allowed, and shows as `NOCALL`.
 
 ## Settings
 
@@ -164,7 +175,7 @@ Session-level value:
   for its DATE.
 - Files should stay readable and editable by hand.
 - If a hand edit breaks loading, show an error naming the offending file and
-  row number.
+  row number (see "Checking data files at start" in Status and plan).
 
 ## Export
 
