@@ -719,6 +719,18 @@ async def test_comment_is_saved_as_typed_and_cleared_for_next_entry(app):
         assert app.query_one("#field-comment", Input).value == ""
 
 
+async def test_comment_outside_adif_characters_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "Café"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-comment"
+        assert [n.message for n in app._notifications] == [
+            "COMMENT can't include 'é'; ADIF allows only plain keyboard characters"
+        ]
+        assert field_values(app)["COMMENT"] == "Café"
+
+
 # Quitting
 
 

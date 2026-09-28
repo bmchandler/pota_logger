@@ -8,6 +8,7 @@ from textual.widgets import Input, Label
 
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
+from pota_logger_t3.comments import parse_comment
 from pota_logger_t3.dates import default_date, parse_date, parse_time
 from pota_logger_t3.entry_warnings import (
     future_time,
@@ -57,6 +58,7 @@ PARSERS = {
     "PWR": parse_power,
     "DATE": parse_date,
     "TIME": parse_time,
+    "COMMENT": parse_comment,
 }
 
 # Signal reports, parsed after PARSERS since their rules depend on MODE.
