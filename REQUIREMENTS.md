@@ -33,20 +33,23 @@ Future (not now):
 
 ## Status and plan
 
-Built: the entry form with its field rules, blocks, and warnings; the log
-table (in memory only, for the session); the status bar; the settings
-modal; a light outdoors color theme (leaf and grass greens with
-orange warnings, in theme.py); the COMMENT field.
+Built: the entry form with every planned field (COMMENT included), its
+field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
+the log table (in memory only, for the session); the status bar; the
+settings modal, with the station callsign checked like CALL; a light
+outdoors color theme (leaf and grass greens with orange warnings, in
+theme.py); the footer keys and terminal size; sideways scrolling of the
+form in a narrow window. The visual layout is settled; wording tweaks
+can still come up as they're noticed.
 
 Not built yet, in the planned order:
 
-1. Polish: wording and spacing tweaks.
-2. CSV storage (see Storage). Until then, entries are lost when the app
+1. CSV storage (see Storage). Until then, entries are lost when the app
    closes, and the possible-dupe warning only sees this session.
-3. Editing a saved entry. After storage, since its hard parts are storage
+2. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
-4. Checking data files at start. Operators (especially once the app is
+3. Checking data files at start. Operators (especially once the app is
    shared) may hand-edit `data/settings.toml` or the log CSVs, so at
    start every file is checked against the same rules as entry (e.g. the
    station callsign's shape, each field's rules), and the operator is
@@ -65,6 +68,18 @@ Ideas considered and deferred:
 - Defaulting DATE to "UTC now minus a few hours", which would suit
   operators in any time zone. The local-date default fits the current
   operator (US Eastern).
+- A setting for the screenshot folder (Downloads now). Textual takes a
+  folder per screenshot but doesn't expand `~` or `$HOME` and doesn't
+  create missing folders, so the setting would need all of that built.
+- A Keys help panel (Textual's, from the command palette). Textual's
+  input fields already use ctrl+k (delete to the end), and overriding
+  stock bindings is avoided, so it was dropped with the palette.
+- Lining the narrow form's scrollbar up exactly with the input boxes.
+  Textual's input borders put the visible edge partway into a cell, so
+  it would take non-stock input borders; the stock look was kept.
+- A limit on digits in a callsign. ADIF sets none, and special-event
+  calls use years and anniversaries (`W100AW`); the unusual-callsign
+  warning covers typos like `W111111AB`.
 
 ## Entry fields
 
@@ -201,4 +216,12 @@ Session-level value:
 
 - ADIF, aimed at QRZ.com import. Field details (e.g. `SIG`/`SIG_INFO` vs
   `POTA_REF`, and station and operator fields) are worked out when export is
-  built. Settled so far: COMMENT exports as ADIF `COMMENT`, not `NOTES`.
+  built. Settled or known so far:
+  - COMMENT exports as ADIF `COMMENT`, not `NOTES` (what QRZ shows as
+    Comments).
+  - PARK is already a full ADIF POTA reference, for `POTA_REF`.
+  - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
+    lists them as submodes of SSB); `SSB` and `CW` are modes.
+  - ST `NA` means no state: `STATE` is left out.
+  - PWR is the operator's power: `TX_PWR` in watts.
+  - The station callsign is `STATION_CALLSIGN`.

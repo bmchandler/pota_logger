@@ -82,6 +82,12 @@ updated in the same change whenever a rule changes.
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw
   rows already drawn when an auto-width column widens.
+- Textual CSS quirks met so far (see entry_form.py and __init__.py):
+  a single edge like `margin-bottom` in a more specific rule resets the
+  other three sides, so set all four; `height: auto` doesn't count a
+  horizontal scrollbar, so keep outer spacing in margins, not padding.
+- Prefer stock Textual behavior and looks; the user decides when to
+  override them (e.g. the form scrollbar's overhang was kept as stock).
 
 ## Testing notes
 
@@ -92,6 +98,12 @@ updated in the same change whenever a rule changes.
   each, or the possible-dupe warning stops it. Use past dates, or
   `991231` for a future one.
 - To see what the TUI draws (it can't be previewed in the browser), run
-  the app with `run_test(size=(100, 24))` in a scratch script, and print
+  the app with `run_test(size=(107, 24))` in a scratch script (107 is the
+  form's full width; narrower adds its scrollbar), and print
   `"".join(seg.text for seg in strip)` for each strip in
   `app.screen._compositor.render_strips()`.
+- For an image, `app.export_screenshot()` gives an SVG. Before converting
+  it (e.g. cairosvg), replace the "Fira Code" font with "DejaVu Sans
+  Mono": without Fira Code, the block characters in borders (▊ ▎ ▔ ▁)
+  draw as full-cell boxes and hide sub-cell edges. The operator's own
+  terminal screenshots are the reference for fine detail.
