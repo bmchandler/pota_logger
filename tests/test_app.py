@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from textual.command import CommandPalette
 from textual.widgets import Button, DataTable, Input, Static
 
@@ -264,6 +265,19 @@ async def test_invalid_correction_stays_in_warning(app):
         assert table_rows(app) == []
         assert [n.message for n in app._notifications] == [
             "CALL 'W11BC.' can only use letters, digits, and /"
+        ]
+
+
+async def test_non_ascii_correction_stays_in_warning(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W11BC"})
+        await pilot.press("enter")
+        app.screen.query_one("#callsign-warning-input", Input).value = "W1ÅBC"
+        await pilot.press("enter")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        assert table_rows(app) == []
+        assert [n.message for n in app._notifications] == [
+            "CALL 'W1ÅBC' has non-ASCII characters: 'Å'.\nUse plain ASCII, like W1ABC."
         ]
 
 
@@ -758,16 +772,32 @@ async def test_comment_is_saved_as_typed_and_cleared_for_next_entry(app):
         assert app.query_one("#field-comment", Input).value == ""
 
 
-async def test_comment_outside_adif_characters_blocks_entry(app):
+@pytest.mark.parametrize(
+    "name, value, message",
+    [
+        ("COMMENT", "Café", "COMMENT 'Café' has non-ASCII characters: 'é'."),
+        (
+            "SNT",
+            "５９",
+            "SNT '５９' has non-ASCII characters: '５', '９'.\n"
+            "Use plain ASCII, like 59, or 599 on CW.",
+        ),
+        (
+            "FREQ",
+            "１４.２８５",
+            "FREQ '１４.２８５' has non-ASCII characters: '１', '４', '２', '８', '５'.\n"
+            "Use plain ASCII, like 14.074.5.",
+        ),
+    ],
+)
+async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, message):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"COMMENT": "Café"})
+        fill(app, ENTRY | {name: value})
         await pilot.press("enter")
         assert table_rows(app) == []
-        assert app.focused.id == "field-comment"
-        assert [n.message for n in app._notifications] == [
-            "COMMENT can't include 'é'; ADIF allows only plain keyboard characters"
-        ]
-        assert field_values(app)["COMMENT"] == "Café"
+        assert app.focused.id == f"field-{name.lower()}"
+        assert [n.message for n in app._notifications] == [message]
+        assert field_values(app)[name] == value
 
 
 # Quitting
@@ -865,6 +895,10 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
         app.screen.query_one("#station-callsign-input", Input).value = "W1ABÇ"
         await pilot.press("enter")
         assert isinstance(app.screen, SettingsScreen)
+        assert [n.message for n in app._notifications] == [
+            "Station callsign 'W1ABÇ' has non-ASCII characters: 'Ç'.\n"
+            "Use plain ASCII, like W1ABC."
+        ]
         assert not settings_path.exists()
 
 

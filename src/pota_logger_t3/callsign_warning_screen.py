@@ -3,6 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
+from pota_logger_t3.ascii_text import check_ascii
 from pota_logger_t3.callsigns import parse_callsign
 
 
@@ -64,8 +65,10 @@ class CallsignWarningScreen(ModalScreen[str | None]):
             self.action_cancel()
 
     def action_confirm(self) -> None:
+        text = self.query_one("#callsign-warning-input", Input).value.strip()
         try:
-            call = parse_callsign(self.query_one("#callsign-warning-input", Input).value)
+            check_ascii("CALL", text, "W1ABC")
+            call = parse_callsign(text)
         except ValueError as error:
             self.notify(str(error), severity="warning")
             return

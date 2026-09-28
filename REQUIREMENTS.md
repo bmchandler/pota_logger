@@ -82,7 +82,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
 | TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Last in the top row of the form. Must be a real time, 0000 to 2359. |
-| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Limited to ADIF's characters (ASCII 32 to 126: every character on a US keyboard); anything else, like `é`, `°`, curly quotes, or emoji, is refused, naming the characters. Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME at the same width; the log scrolls sideways to show it. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
+| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME at the same width; the log scrolls sideways to show it. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
 
 Session-level value:
 
@@ -114,6 +114,14 @@ Session-level value:
   anything ADIF doesn't allow in a field is refused, whatever QRZ or other
   logbooks accept. Anything ADIF allows is accepted, unless a field's rules
   here say otherwise.
+- Every field, the station callsign, and the call in the unusual-CALL
+  modal take only plain ASCII (codes 32 to 126: every character on a US
+  keyboard), checked before the field's own rules. Anything else (`５`,
+  `é`, `°`, curly quotes, emoji) is refused, naming each character once,
+  in order: `SNT '５９' has non-ASCII characters: '５', '９'.` / `Use plain
+  ASCII, like 59, or 599 on CW.` The example is the field's placeholder
+  (COMMENT has none, so its message ends after the characters). No
+  multi-language support is planned.
 - Fields can be filled and edited in any order before an entry is saved.
 - An entry can't be saved until every required field is filled in and valid.
   ST and COMMENT are the only optional fields.

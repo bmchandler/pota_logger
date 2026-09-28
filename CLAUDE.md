@@ -40,8 +40,9 @@ updated in the same change whenever a rule changes.
   right: a report digit out of range, a frequency outside the bands, or
   anything the ADIF standard doesn't allow (input must always fit ADIF,
   whatever QRZ or other logbooks accept; what ADIF allows is accepted
-  unless the user decides otherwise). Check digits and letters as ASCII:
-  Python's `isdigit()` and `\d` also match non-ASCII digits.
+  unless the user decides otherwise). Non-ASCII is refused up front by
+  `check_ascii` (ascii_text.py), since Python's `isdigit()` and `\d` also
+  match digits like ５ and ²; use it for any new text input too.
 - Warn (modal, Enter saves anyway) what's probably wrong but could be
   real, like a special-event call or a dupe. The operator copies a paper
   log, so a real but odd contact must never be unsaveable.
@@ -61,8 +62,8 @@ updated in the same change whenever a rule changes.
 - Each entry field with rules has a small module with `parse_*` (raises
   ValueError with a message shown to the operator) and, if displayed
   differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
-  states.py, reports.py, power.py, dates.py, comments.py. sidebands.py
-  holds the MODE-and-FREQ sideband rules.
+  states.py, reports.py, power.py, dates.py. sidebands.py holds the
+  MODE-and-FREQ sideband rules.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value):
   `ROW_FIELDS` for the top row, then COMMENT, laid out below it. Also
   `PARSERS`, `REPORTS` (parsed after, since they depend on MODE),
@@ -74,7 +75,8 @@ updated in the same change whenever a rule changes.
   warning has its own modal (callsign_warning_screen.py) so the call can
   be edited there.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
-  problem: missing fields, `PARSERS`, `REPORTS`, `check_sideband`, the
+  problem: missing fields, `check_ascii` on every field (with
+  `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
   unusual-CALL modal, then each of `WARNINGS` in order.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.

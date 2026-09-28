@@ -6,9 +6,9 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
+from pota_logger_t3.ascii_text import check_ascii
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
 from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
-from pota_logger_t3.comments import parse_comment
 from pota_logger_t3.dates import default_date, parse_date, parse_time
 from pota_logger_t3.entry_warnings import (
     future_time,
@@ -66,7 +66,6 @@ PARSERS = {
     "PWR": parse_power,
     "DATE": parse_date,
     "TIME": parse_time,
-    "COMMENT": parse_comment,
 }
 
 # Signal reports, parsed after PARSERS since their rules depend on MODE.
@@ -80,6 +79,13 @@ DEFAULTS = {"MODE": "SSB"}
 
 # Fields whose default is computed fresh at app start rather than fixed.
 DEFAULT_FACTORIES = {"DATE": default_date}
+
+# Plain-ASCII example for each field's non-ASCII message: its placeholder,
+# except where that doesn't cover every case.
+ASCII_EXAMPLES = {name: placeholder for name, placeholder, _ in FIELDS} | {
+    "SNT": "59, or 599 on CW",
+    "RCD": "59, or 599 on CW",
+}
 
 # Fields that keep their value for the next entry.
 CARRY_FORWARD = {"PWR", "DATE"}
@@ -164,6 +170,13 @@ class EntryForm(Vertical):
             self.notify(f"Missing: {', '.join(missing)}", severity="warning")
             self.field(missing[0]).focus()
             return
+        for name, value in values.items():
+            try:
+                check_ascii(name, value, ASCII_EXAMPLES[name])
+            except ValueError as error:
+                self.notify(str(error), severity="warning")
+                self.field(name).focus()
+                return
         parsed = {}
         for name, parse in PARSERS.items():
             try:

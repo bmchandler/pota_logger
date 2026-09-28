@@ -3,6 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
+from pota_logger_t3.ascii_text import check_ascii
 from pota_logger_t3.callsigns import parse_callsign
 from pota_logger_t3.settings import Settings
 
@@ -62,10 +63,12 @@ class SettingsScreen(ModalScreen[Settings | None]):
     def action_save(self) -> None:
         field = self.query_one("#station-callsign-input", Input)
         # Blank is allowed: the status bar shows NOCALL until one is set.
+        text = field.value.strip()
         callsign = ""
-        if field.value.strip():
+        if text:
             try:
-                callsign = parse_callsign(field.value, "Station callsign")
+                check_ascii("Station callsign", text, "W1ABC")
+                callsign = parse_callsign(text, "Station callsign")
             except ValueError as error:
                 self.notify(str(error), severity="warning")
                 field.focus()
