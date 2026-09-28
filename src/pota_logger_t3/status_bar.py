@@ -27,6 +27,7 @@ class StatusBar(Horizontal):
     }
     #utc-clock {
         text-align: right;
+        text-style: bold;
     }
     """
 

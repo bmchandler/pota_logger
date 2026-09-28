@@ -56,3 +56,13 @@ async def test_layout_left_center_right():
         assert callsign.x == 0
         assert callsign.right <= local.x and local.right <= utc.x
         assert utc.right == 90
+
+
+async def test_callsign_and_utc_bold_local_plain():
+    app = StatusBarApp("W1TST")
+    async with app.run_test():
+        bold = {
+            i: bool(app.query_one(f"#{i}").styles.text_style.bold)
+            for i in ("station-callsign", "local-clock", "utc-clock")
+        }
+        assert bold == {"station-callsign": True, "local-clock": False, "utc-clock": True}
