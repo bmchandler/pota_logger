@@ -1,11 +1,9 @@
 import tomllib
-from collections.abc import Iterable
 from pathlib import Path
 
-from textual.app import App, ComposeResult, SystemCommand
+from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
-from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer
 
 from pota_logger_t3.dates import format_date, format_time
@@ -30,10 +28,6 @@ FORMATTERS = {
 }
 DISPLAY_LENGTHS = {"PWR": len("1500W"), "DATE": len("2026.09.23"), "TIME": len("21:23")}
 
-# Textual's command palette (ctrl+p) commands kept; the rest (Theme,
-# Maximize/Minimize) are hidden, so the POTA theme is the only one.
-PALETTE_COMMANDS = {"Keys", "Quit", "Screenshot"}
-
 
 class PotaLoggerApp(App):
     """POTA logger TUI."""
@@ -51,10 +45,15 @@ class PotaLoggerApp(App):
     }
     """
 
+    # No command palette: "palette" is unfamiliar to most operators, and
+    # its Theme command would switch away from the POTA theme.
+    ENABLE_COMMAND_PALETTE = False
+
     # Redeclares Textual's built-in ctrl+q so it shows in the footer.
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("f2", "open_settings", "Settings"),
+        Binding("ctrl+s", "screenshot", "Screenshot"),
     ]
 
     def __init__(self, settings_path: Path = SETTINGS_PATH) -> None:
@@ -68,11 +67,6 @@ class PotaLoggerApp(App):
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
             self.settings_error = f"Couldn't read {settings_path}: {error}"
-
-    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
-        for command in super().get_system_commands(screen):
-            if command.title in PALETTE_COMMANDS:
-                yield command
 
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)
@@ -111,6 +105,11 @@ class PotaLoggerApp(App):
             self.exit()
         elif event.button.id == "settings":
             self.action_open_settings()
+
+    def action_screenshot(self) -> None:
+        # Textual's own screenshot: an SVG saved to the Downloads folder,
+        # with a notification.
+        self.deliver_screenshot()
 
     def action_open_settings(self) -> None:
         # App bindings stay live under a modal, so don't stack a second one.

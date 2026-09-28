@@ -1,5 +1,6 @@
 from datetime import date
 
+from textual.command import CommandPalette
 from textual.widgets import DataTable, Input, Static
 
 from pota_logger_t3 import PotaLoggerApp, dates
@@ -27,10 +28,27 @@ async def test_uses_pota_theme(app):
         assert app.theme == "pota"
 
 
-async def test_palette_offers_only_keys_quit_and_screenshot(app):
+async def test_footer_shows_quit_settings_and_screenshot(app):
     async with app.run_test():
-        titles = {command.title for command in app.get_system_commands(app.screen)}
-        assert titles == {"Keys", "Quit", "Screenshot"}
+        shown = [
+            key for key, active in app.screen.active_bindings.items() if active.binding.show
+        ]
+        assert shown == ["ctrl+q", "f2", "ctrl+s"]
+
+
+async def test_ctrl_p_opens_no_command_palette(app):
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+p")
+        assert not isinstance(app.screen, CommandPalette)
+
+
+async def test_ctrl_s_delivers_a_screenshot(app, monkeypatch):
+    delivered = []
+    # Stubbed so the test doesn't save into the real Downloads folder.
+    monkeypatch.setattr(app, "deliver_screenshot", lambda: delivered.append(True))
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+s")
+        assert delivered == [True]
 
 
 async def test_date_defaults_to_todays_local_date(app, monkeypatch):

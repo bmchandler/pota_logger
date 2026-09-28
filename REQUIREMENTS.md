@@ -89,12 +89,14 @@ Session-level value:
   callsign. Future settings go there too.
 - Settings are saved in `data/settings.toml`.
 
-## Theme and command palette
+## Theme and keys
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The command palette (ctrl+p) offers only Keys, Quit, and Screenshot.
-  Textual's Theme and Maximize/Minimize commands are left out.
+- The footer shows `^q Quit`, `f2 Settings`, and `^s Screenshot` (saves
+  an SVG of the screen to the Downloads folder).
+- No command palette (Textual's ctrl+p): "palette" is unfamiliar to most
+  operators.
 
 ## Entry behavior
 
