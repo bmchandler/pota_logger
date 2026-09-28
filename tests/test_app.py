@@ -1,7 +1,7 @@
 from datetime import date
 
 from textual.command import CommandPalette
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, Static
 
 from pota_logger_t3 import PotaLoggerApp, dates
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
@@ -71,6 +71,11 @@ async def test_entry_fields_have_equal_gaps_above_and_below(app):
         gap_above = label.y - status_bar.bottom
         gap_below = table.y - field.bottom
         assert gap_above == gap_below == 1
+
+
+async def test_quit_button_matches_warning_confirm_color(app):
+    async with app.run_test():
+        assert app.query_one("#quit", Button).variant == "warning"
 
 
 async def test_tab_order_follows_paper_log_then_table(app):

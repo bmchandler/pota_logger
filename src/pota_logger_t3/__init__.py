@@ -76,7 +76,7 @@ class PotaLoggerApp(App):
             # Mouse only, so tabbing through fields can't land on them.
             for button in (
                 Button("Settings", id="settings"),
-                Button("Quit", id="quit", variant="error"),
+                Button("Quit", id="quit", variant="warning"),
             ):
                 button.can_focus = False
                 yield button
