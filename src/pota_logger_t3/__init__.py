@@ -116,8 +116,9 @@ class PotaLoggerApp(App):
         self.deliver_screenshot()
 
     def action_open_settings(self) -> None:
-        # App bindings stay live under a modal, so don't stack a second one.
-        if isinstance(self.screen, SettingsScreen):
+        # App bindings stay live under a modal, so don't stack a second one,
+        # even when another modal (its unusual-callsign warning) is on top.
+        if any(isinstance(screen, SettingsScreen) for screen in self.screen_stack):
             return
         self.push_screen(SettingsScreen(self.settings), self.apply_settings)
 

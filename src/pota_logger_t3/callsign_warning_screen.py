@@ -8,8 +8,9 @@ from pota_logger_t3.callsigns import parse_callsign
 
 
 class CallsignWarningScreen(ModalScreen[str | None]):
-    """Warn about an unusual CALL, which can be corrected here. Dismisses with
-    the call to log, or None to go back to the entry form.
+    """Warn about an unusual callsign (CALL, or the station callsign, named
+    in messages by `field_name`), which can be corrected here. Dismisses
+    with the call to use, or None to go back.
     """
 
     DEFAULT_CSS = """
@@ -39,9 +40,10 @@ class CallsignWarningScreen(ModalScreen[str | None]):
 
     BINDINGS = [("escape", "cancel", "Back")]
 
-    def __init__(self, call: str) -> None:
+    def __init__(self, call: str, field_name: str = "CALL") -> None:
         super().__init__()
         self.call = call
+        self.field_name = field_name
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -67,8 +69,8 @@ class CallsignWarningScreen(ModalScreen[str | None]):
     def action_confirm(self) -> None:
         text = self.query_one("#callsign-warning-input", Input).value.strip()
         try:
-            check_ascii("CALL", text, "W1ABC")
-            call = parse_callsign(text)
+            check_ascii(self.field_name, text, "W1ABC")
+            call = parse_callsign(text, self.field_name)
         except ValueError as error:
             self.notify(str(error), severity="warning")
             return

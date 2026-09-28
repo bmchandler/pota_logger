@@ -4,7 +4,8 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
 from pota_logger_t3.ascii_text import check_ascii
-from pota_logger_t3.callsigns import parse_callsign
+from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
+from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
 from pota_logger_t3.settings import Settings
 
 
@@ -73,7 +74,18 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 self.notify(str(error), severity="warning")
                 field.focus()
                 return
+            if not is_usual_callsign(callsign):
+                self.app.push_screen(
+                    CallsignWarningScreen(callsign, "Station callsign"), self.confirm_unusual_call
+                )
+                return
         self.dismiss(Settings(station_callsign=callsign))
+
+    def confirm_unusual_call(self, call: str | None) -> None:
+        if call is None:
+            self.query_one("#station-callsign-input", Input).focus()
+            return
+        self.dismiss(Settings(station_callsign=call))
 
     def action_cancel(self) -> None:
         self.dismiss(None)

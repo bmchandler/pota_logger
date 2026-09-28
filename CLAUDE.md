@@ -73,7 +73,7 @@ updated in the same change whenever a rule changes.
   listed in `WARNINGS`, shown in warning_screen.py. Each check takes the
   entry and the entries logged so far (`EntryForm.logged`). The unusual-CALL
   warning has its own modal (callsign_warning_screen.py) so the call can
-  be edited there.
+  be edited there; the settings modal uses it for the station callsign.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: missing fields, `check_ascii` on every field (with
   `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the

@@ -914,6 +914,56 @@ async def test_blank_station_callsign_saves_as_nocall(settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="")
 
 
+async def open_settings_with(app, pilot, call: str) -> None:
+    await pilot.press("f2")
+    app.screen.query_one("#station-callsign-input", Input).value = call
+    await pilot.press("enter")
+
+
+async def test_unusual_station_callsign_warns_and_enter_saves(app, settings_path):
+    async with app.run_test() as pilot:
+        await open_settings_with(app, pilot, "w111111ab")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        message = str(app.screen.query_one("#callsign-warning-message", Static).render())
+        assert message.startswith("W111111AB is an unusual callsign.")
+        await pilot.press("enter")
+        assert not isinstance(app.screen, (CallsignWarningScreen, SettingsScreen))
+        assert station_callsign(app) == "W111111AB"
+        assert load_settings(settings_path) == Settings(station_callsign="W111111AB")
+
+
+async def test_unusual_station_callsign_escape_returns_to_settings(app, settings_path):
+    async with app.run_test() as pilot:
+        await open_settings_with(app, pilot, "W11BC")
+        await pilot.press("escape")
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "station-callsign-input"
+        assert app.focused.value == "W11BC"
+        assert not settings_path.exists()
+
+
+async def test_unusual_station_callsign_corrected_in_warning(app, settings_path):
+    async with app.run_test() as pilot:
+        await open_settings_with(app, pilot, "W11BC")
+        app.screen.query_one("#callsign-warning-input", Input).value = "W1ÅBC"
+        await pilot.press("enter")
+        assert [n.message for n in app._notifications] == [
+            "Station callsign 'W1ÅBC' has non-ASCII characters: 'Å'.\n"
+            "Use plain ASCII, like W1ABC."
+        ]
+        app.screen.query_one("#callsign-warning-input", Input).value = "w1tst"
+        await pilot.press("enter")
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+
+
+async def test_f2_over_station_callsign_warning_does_not_stack(app):
+    async with app.run_test() as pilot:
+        await open_settings_with(app, pilot, "W11BC")
+        await pilot.press("f2")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        assert sum(isinstance(s, SettingsScreen) for s in app.screen_stack) == 1
+
+
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", *"w1tst", "escape")

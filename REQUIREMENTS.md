@@ -91,7 +91,10 @@ Session-level value:
   settings modal.
   Same shape check as CALL (letters, digits, up to two `/`, shaped like a
   call), uppercased; saving anything else is refused and the modal stays
-  open. Blank is allowed, and shows as `NOCALL`.
+  open. An unusual call (same rule as CALL, e.g. `W11BC`, `W100AW`) opens
+  the same unusual-callsign warning as CALL, where it can be corrected:
+  Enter saves, Esc goes back to the settings modal. Blank is allowed, and
+  shows as `NOCALL`.
 
 ## Settings
 
