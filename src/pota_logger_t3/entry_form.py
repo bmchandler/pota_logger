@@ -18,6 +18,8 @@ from pota_logger_t3.entry_warnings import (
 )
 from pota_logger_t3.freq import parse_freq
 from pota_logger_t3.modes import parse_mode
+from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger_t3.parks import parse_park
 from pota_logger_t3.power import parse_power
 from pota_logger_t3.reports import parse_report
 from pota_logger_t3.sidebands import check_sideband
@@ -49,11 +51,17 @@ COMMENT_LENGTH = ROW_WIDTH - INPUT_EXTRA_WIDTH
 # Every field, in entry order.
 FIELDS = ROW_FIELDS + [("COMMENT", "", COMMENT_LENGTH)]
 
+# Most fields take any length, so their rules can explain what's wrong.
+# COMMENT takes what fits in view; PARK scrolls to ADIF's longest
+# reference, which is rare enough not to widen the row for.
+INPUT_LIMITS = {"PARK": PARK_MAX_LENGTH, "COMMENT": COMMENT_LENGTH}
+
 # Fields turned from entered text into values, in entry order.
 PARSERS = {
     "FREQ": parse_freq,
     "MODE": parse_mode,
     "CALL": parse_callsign,
+    "PARK": parse_park,
     "ST": parse_state,
     "PWR": parse_power,
     "DATE": parse_date,
@@ -91,9 +99,7 @@ def labeled_input(name: str, placeholder: str, max_length: int) -> Vertical:
     field = Input(
         value=factory() if factory else DEFAULTS.get(name, ""),
         placeholder=placeholder,
-        # Only COMMENT is capped, at what fits in view; the other fields
-        # take any length so their rules can explain what's wrong.
-        max_length=max_length if name == "COMMENT" else 0,
+        max_length=INPUT_LIMITS.get(name, 0),
         id=f"field-{name.lower()}",
     )
     column = Vertical(Label(name), field)
@@ -123,9 +129,10 @@ class EntryForm(Vertical):
     class Submitted(Message):
         """Posted when Enter is pressed with every field filled in and valid.
 
-        FREQ is in Hz, PWR is watts, MODE is uppercase, DATE is a date,
-        TIME is a time, and ST is uppercase (possibly blank); everything
-        else is the trimmed text as entered.
+        FREQ is in Hz, PWR is watts, MODE is uppercase, PARK is a full POTA
+        reference (e.g. US-0464), DATE is a date, TIME is a time, and ST is
+        uppercase (possibly blank); everything else is the trimmed text as
+        entered.
         """
 
         def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:

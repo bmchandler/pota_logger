@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.freq import band_name, format_freq, voice_range
 from pota_logger_t3.sidebands import signal_edges
-from pota_logger_t3.parks import format_park
 from pota_logger_t3.states import US_STATES
 
 CONFIRM_HINT = "Esc to correct, or confirm with Enter."
@@ -32,7 +31,7 @@ def dupe_key(values: dict) -> tuple:
     mode_type = "CW" if values["MODE"] == "CW" else "voice"
     return (
         values["CALL"],
-        format_park(values["PARK"]),
+        values["PARK"],
         values["DATE"],
         band_name(values["FREQ"]),
         mode_type,
@@ -70,7 +69,7 @@ def voice_outside_range(values: dict, logged: list[dict]) -> str | None:
 
 def state_on_non_us_park(values: dict, logged: list[dict]) -> str | None:
     """Warn when a non-US park has a US state in ST (blank or NA is fine)."""
-    park = format_park(values["PARK"])
+    park = values["PARK"]
     if park.startswith("US-") or values["ST"] not in US_STATES:
         return None
     return f"{park} is a non-US park, so ST is likely blank.\n{CONFIRM_HINT}"

@@ -9,7 +9,7 @@ from textual.widgets import Button, DataTable, Footer
 from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.entry_form import FIELDS, EntryForm
 from pota_logger_t3.freq import format_freq
-from pota_logger_t3.parks import format_park
+from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger_t3.power import format_power
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
@@ -21,12 +21,16 @@ from pota_logger_t3.theme import POTA_THEME
 # wider than the entered text.
 FORMATTERS = {
     "FREQ": format_freq,
-    "PARK": format_park,
     "PWR": format_power,
     "DATE": format_date,
     "TIME": format_time,
 }
-DISPLAY_LENGTHS = {"PWR": len("1500W"), "DATE": len("2026.09.23"), "TIME": len("21:23")}
+DISPLAY_LENGTHS = {
+    "PARK": PARK_MAX_LENGTH,
+    "PWR": len("1500W"),
+    "DATE": len("2026.09.23"),
+    "TIME": len("21:23"),
+}
 
 
 class PotaLoggerApp(App):

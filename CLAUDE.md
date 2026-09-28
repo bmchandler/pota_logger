@@ -37,7 +37,11 @@ updated in the same change whenever a rule changes.
 ## Entry checks: block vs warn
 
 - Block (refuse with a notification, focus the field) only what can't be
-  right: a report digit out of range, a frequency outside the bands.
+  right: a report digit out of range, a frequency outside the bands, or
+  anything the ADIF standard doesn't allow (input must always fit ADIF,
+  whatever QRZ or other logbooks accept; what ADIF allows is accepted
+  unless the user decides otherwise). Check digits and letters as ASCII:
+  Python's `isdigit()` and `\d` also match non-ASCII digits.
 - Warn (modal, Enter saves anyway) what's probably wrong but could be
   real, like a special-event call or a dupe. The operator copies a paper
   log, so a real but odd contact must never be unsaveable.

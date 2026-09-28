@@ -430,7 +430,7 @@ async def test_warnings_come_one_after_another(app):
         assert table_rows(app)[0][2] == "W11BC"
 
 
-async def test_park_bare_number_shown_as_us(app):
+async def test_park_shown_as_full_pota_reference(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"PARK": "1234"})
         await pilot.press("enter")
@@ -438,7 +438,46 @@ async def test_park_bare_number_shown_as_us(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"PARK": "jp234", "ST": ""})
         await pilot.press("enter")
-        assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234", "JP-234"]
+        fill(app, ENTRY | {"PARK": "us4566@us-wy", "ST": ""})
+        await pilot.press("enter")
+        assert [row[3] for row in table_rows(app)] == [
+            "US-1234", "JP-1234", "JP-0234", "US-4566@US-WY"
+        ]
+
+
+async def test_park_field_takes_adif_longest_reference_at_its_width(app):
+    async with app.run_test(size=(130, 30)) as pilot:
+        field = app.query_one("#field-park", Input)
+        width = field.region.width
+        field.focus()
+        await pilot.press(*"ABCD-12345@US-ABC", *"XYZ")
+        assert field.value == "ABCD-12345@US-ABC"
+        assert field.region.width == width
+        table = app.query_one("#log-table", DataTable)
+        park = next(c for c in table.columns.values() if str(c.label) == "PARK")
+        assert park.width == len("ABCD-12345@US-ABC")
+
+
+async def test_park_with_too_many_digits_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "123456"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-park"
+        assert [n.message for n in app._notifications] == [
+            "PARK '123456' isn't a POTA park; parks must be <= 5 digits"
+        ]
+
+
+async def test_invalid_park_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "US 1234"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-park"
+        assert [n.message for n in app._notifications] == [
+            "PARK 'US 1234' isn't a POTA park; use a form like 1234, JP-1234, or US-4566@US-WY"
+        ]
 
 
 async def test_three_digit_report_requires_cw(app):
@@ -666,7 +705,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.250.000", "SSB", "W1AAA", "US-464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
+            "14.250.000", "SSB", "W1AAA", "US-0464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})

@@ -74,14 +74,14 @@ def test_voice_outside_range_message():
 
 @pytest.mark.parametrize(
     "park, state",
-    [("1234", "NJ"), ("US-1234", "NJ"), ("us1234", "NJ"), ("JP-1234", ""), ("JP-1234", "NA")],
+    [("US-1234", "NJ"), ("US-4566@US-WY", "WY"), ("JP-1234", ""), ("JP-1234", "NA")],
 )
 def test_state_on_park_without_warning(park, state):
     assert state_on_non_us_park({"PARK": park, "ST": state}, []) is None
 
 
 def test_state_on_non_us_park_warns():
-    assert state_on_non_us_park({"PARK": "jp1234", "ST": "NJ"}, []) == (
+    assert state_on_non_us_park({"PARK": "JP-1234", "ST": "NJ"}, []) == (
         "JP-1234 is a non-US park, so ST is likely blank.\nEsc to correct, or confirm with Enter."
     )
 
@@ -90,7 +90,7 @@ LOGGED = {
     "FREQ": 14_285_000,
     "MODE": "SSB",
     "CALL": "W1ABC",
-    "PARK": "1234",
+    "PARK": "US-1234",
     "DATE": date(2026, 9, 25),
     "TIME": time(19, 53),
 }
@@ -109,7 +109,7 @@ def test_possible_dupe_warns():
     "change",
     [
         {"CALL": "W1ABD"},
-        {"PARK": "1235"},
+        {"PARK": "US-1235"},
         {"DATE": date(2026, 9, 26)},
         {"FREQ": 7_200_000},
         {"MODE": "CW"},
