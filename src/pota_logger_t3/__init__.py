@@ -10,6 +10,7 @@ from textual.widgets import Button, DataTable, Footer, Static
 from pota_logger_t3.dates import format_date, format_time
 from pota_logger_t3.entry_form import FIELDS, EntryForm
 from pota_logger_t3.freq import format_freq
+from pota_logger_t3.logbook import append_entry, load_entries
 from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger_t3.power import format_power
 from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
@@ -84,6 +85,8 @@ class PotaLoggerApp(App):
         self.register_theme(POTA_THEME)
         self.theme = POTA_THEME.name
         self.settings_path = settings_path
+        # Log files sit beside the settings, in data/.
+        self.log_dir = settings_path.parent
         self.settings_error: str | None = None
         try:
             self.settings = load_settings(settings_path)
@@ -119,13 +122,28 @@ class PotaLoggerApp(App):
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
+        entries, problems = load_entries(self.log_dir)
+        for entry in entries:
+            self.add_log_row(entry)
+        self.query_one(EntryForm).logged.extend(entries)
+        for problem in problems:
+            self.notify(f"Skipped {problem}", severity="error", timeout=30)
 
     def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
+        try:
+            append_entry(self.log_dir, event.values, self.settings.station_callsign)
+        except OSError as error:
+            self.notify(
+                f"Couldn't save the entry to a file: {error}", severity="error", timeout=30
+            )
+        self.add_log_row(event.values)
+
+    def add_log_row(self, values: dict) -> None:
         table = self.query_one("#log-table", DataTable)
-        values = event.values | {
-            name: format_value(event.values[name]) for name, format_value in FORMATTERS.items()
+        shown = values | {
+            name: format_value(values[name]) for name, format_value in FORMATTERS.items()
         }
-        table.add_row(*values.values())
+        table.add_row(*(shown[name] for name, _, _ in FIELDS))
         table.scroll_end(animate=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -35,28 +35,31 @@ Future (not now):
 
 Built: the entry form with every planned field (COMMENT included), its
 field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
-the log table (in memory only, for the session); the status bar; the
-settings modal, with the station callsign checked like CALL; a light
+the log table; CSV storage (see Storage); the status bar; the settings
+modal, with the station callsign checked like CALL; a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window. The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
+To do: hand-test loading after editing a log file by hand (in Vim or
+ST4, and after a spreadsheet save): a fixed row loads, a broken row is
+skipped with a notification naming the file and row.
+
 Not built yet, in the planned order:
 
-1. CSV storage (see Storage). Until then, entries are lost when the app
-   closes, and the possible-dupe warning only sees this session.
-2. Editing a saved entry. After storage, since its hard parts are storage
+1. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
-3. Checking data files at start. Operators (especially once the app is
+2. Checking data files at start. Operators (especially once the app is
    shared) may hand-edit `data/settings.toml` or the log CSVs, so at
    start every file is checked against the same rules as entry (e.g. the
    station callsign's shape, each field's rules), and the operator is
    notified of anything wrong, naming the file and line or row. One
    standard for all data files, extending the CSV rule in Storage. Until
-   then, only invalid TOML in settings is reported; a bad callsign typed
-   into the file loads as is.
+   then, only invalid TOML in settings is reported, and a log row is only
+   skipped (see Storage) when it can't be read back at all; a bad
+   callsign typed into either file loads as is.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -170,8 +173,8 @@ Session-level value:
     CW; SSB, USB, and LSB count as voice) all match an entry already
     logged, since POTA counts that contact once. Reads `Possible dupe:
     W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
-    the usual shorthand, not "duplicate"). Checks entries logged this
-    session until CSV storage exists. Esc goes back to CALL.
+    the usual shorthand, not "duplicate"). Checks every entry in the log
+    files, plus those saved this session. Esc goes back to CALL.
   - **Voice outside the voice range:** a voice signal runs outside its
     band's US voice (phone) range, using the Extra class edges (the
     widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
@@ -189,7 +192,8 @@ Session-level value:
 ## Log view
 
 - Entries stay in the order they were entered. There's no automatic sorting,
-  so the log can be checked line by line against the paper log.
+  so the log can be checked line by line against the paper log. At start,
+  the log files are shown oldest date first, each in its row order.
 - A **Sort** action orders entries by UTC timestamp when the operator asks for
   it.
 
@@ -209,8 +213,22 @@ Session-level value:
   full timestamp is its DATE plus its TIME, and it's stored in the file named
   for its DATE.
 - Files should stay readable and editable by hand.
+- Each entry is appended to its date's file when saved (Enter), and every
+  log file is loaded at start. A new file starts with the header row.
+- Written with `\n` line endings; a COMMENT with a comma or quote is
+  quoted, CSV style (`"Nice, loud"`). If a hand edit left the last line
+  without its line break, one is added before appending.
+- Loading accepts what a spreadsheet may add when saving: a UTF-8
+  byte-order mark, `\r\n` line endings, and blank lines.
 - If a hand edit breaks loading, show an error naming the offending file and
-  row number (see "Checking data files at start" in Status and plan).
+  row number (see "Checking data files at start" in Status and plan). For
+  now that covers what can't be read back at all: a wrong header row
+  (the file is skipped), a file that isn't UTF-8 text (skipped), or a row
+  with the wrong number of values or a FREQ, PWR, DATE, or TIME not in its
+  stored form (the row is skipped). E.g. TIME `53`, as a spreadsheet may
+  save `0053`, is refused rather than read as 05:03. Skipped rows stay in
+  the file, to be fixed by hand.
+- Other files in `data/` (anything not named `YYYYMMDD.csv`) are ignored.
 
 ## Export
 

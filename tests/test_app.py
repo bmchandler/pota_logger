@@ -848,6 +848,56 @@ async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, me
         assert field_values(app)[name] == value
 
 
+# Storage
+
+
+async def test_entry_is_saved_to_its_dates_file(settings_path):
+    save_settings(Settings(station_callsign="W1TST"), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "Nice, loud"})
+        await pilot.press("enter")
+    assert (settings_path.parent / "20260925.csv").read_text().splitlines() == [
+        "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN",
+        '14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,"Nice, loud",W1TST',
+    ]
+
+
+async def test_saved_entries_are_shown_at_start(app, settings_path):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert table_rows(app) == [ENTRY_ROW]
+
+
+async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"TIME": "2005"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+
+
+async def test_unreadable_row_is_skipped_with_notification(settings_path):
+    path = settings_path.parent / "20260925.csv"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
+        "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,53,,W1TST\n"
+    )
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert table_rows(app) == []
+        assert [n.message for n in app._notifications] == [
+            f"Skipped {path} row 2: TIME '53' should be HHMM, like 2123"
+        ]
+
+
 # Quitting
 
 

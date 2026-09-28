@@ -54,8 +54,13 @@ updated in the same change whenever a rule changes.
 
 - Never put the operator's real station callsign in tracked files, tests,
   examples, or commit messages. Use made-up calls like `W1TST` or `W1ABC`.
-- The real callsign lives only in `data/settings.toml`; `data/` is
-  git-ignored. The callsign guard hooks are a backup, not the main rule.
+- `data/` is git-ignored. The callsign guard hooks block whatever call is
+  in `data/settings.toml`, and are a backup, not the main rule.
+- Since logs are saved, the operator's `data/settings.toml` holds a
+  placeholder call, used nowhere in the repo, instead of the real one.
+  So the guard no longer catches the real call: check staged changes and
+  commit messages for it by hand. Never name the placeholder in tracked
+  files either (the guard blocks it), and don't use it as a test call.
 
 ## Code notes
 
@@ -78,6 +83,10 @@ updated in the same change whenever a rule changes.
   problem: missing fields, `check_ascii` on every field (with
   `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
   unusual-CALL modal, then each of `WARNINGS` in order.
+- logbook.py holds the CSV storage: `append_entry` on each save,
+  `load_entries` at start (entries plus a message per skipped row or
+  file). The app keeps log files beside settings (`settings_path.parent`),
+  so the test fixtures' temp dir covers both.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw

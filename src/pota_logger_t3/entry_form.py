@@ -163,7 +163,8 @@ class EntryForm(Vertical):
 
     def __init__(self) -> None:
         super().__init__()
-        # Entries saved this session, for the possible-dupe warning.
+        # Entries loaded at start and saved since, for the possible-dupe
+        # warning.
         self.logged: list[dict] = []
 
     def watch_show_horizontal_scrollbar(self, show: bool) -> None:
