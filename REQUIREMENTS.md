@@ -203,8 +203,8 @@ Session-level value:
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME, COMMENT`, then
   `STATION_CALLSIGN`.
 - Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
-  PARK `1234` or `JP-1234` as entered, PWR `60` or `0.5`, DATE `20260925`,
-  TIME `1953`.
+  PARK `US-1234` or `JP-1234` (the full reference, whatever was typed),
+  PWR `60` or `0.5`, DATE `20260925`, TIME `1953`.
 - Dates and times are UTC everywhere, in both storage and entry. An entry's
   full timestamp is its DATE plus its TIME, and it's stored in the file named
   for its DATE.
