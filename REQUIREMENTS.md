@@ -128,6 +128,13 @@ Session-level value:
   (COMMENT has none, so its message ends after the characters). No
   multi-language support is planned.
 - Fields can be filled and edited in any order before an entry is saved.
+- When the window is narrower than the entry form (107 columns today:
+  the top row plus its margins), the form gets a horizontal scrollbar,
+  starting at the fields' left column, with a blank row above and below
+  it (moving the log down two rows); moving to a field scrolls it into
+  view.
+  At full width the scrollbar goes away. The form and the log scroll
+  separately.
 - An entry can't be saved until every required field is filled in and valid.
   ST and COMMENT are the only optional fields.
 - Only DATE and PWR carry forward to the next entry. Everything else is

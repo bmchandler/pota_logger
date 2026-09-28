@@ -39,6 +39,9 @@ class PotaLoggerApp(App):
 
     CSS = """
     #log-table {
+        /* Full width: left to itself, it came out narrower beside the
+           entry form's side margins. */
+        width: 100%;
         height: 1fr;
     }
     #button-bar {

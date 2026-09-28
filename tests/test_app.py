@@ -6,7 +6,7 @@ from textual.widgets import Button, DataTable, Input, Static
 
 from pota_logger_t3 import PotaLoggerApp, dates
 from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
-from pota_logger_t3.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS
+from pota_logger_t3.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
 from pota_logger_t3.settings import Settings, load_settings, save_settings
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.warning_screen import WarningScreen
@@ -75,7 +75,7 @@ async def test_date_defaults_to_todays_local_date(app, monkeypatch):
 
 
 async def test_entry_fields_have_equal_gaps_above_and_below(app):
-    async with app.run_test(size=(100, 24)):
+    async with app.run_test(size=(107, 24)):
         status_bar = app.query_one("StatusBar").region
         label = app.query_one("EntryForm Horizontal Label").region
         comment = app.query_one("#field-comment", Input).region
@@ -88,6 +88,43 @@ async def test_entry_fields_have_equal_gaps_above_and_below(app):
 async def test_quit_button_matches_warning_confirm_color(app):
     async with app.run_test():
         assert app.query_one("#quit", Button).variant == "warning"
+
+
+async def test_form_scrolls_sideways_only_when_narrower_than_it(app):
+    async with app.run_test(size=(107, 24)) as pilot:
+        form = app.query_one(EntryForm)
+        assert not form.show_horizontal_scrollbar
+        await pilot.resize_terminal(106, 24)
+        await pilot.pause()
+        assert form.show_horizontal_scrollbar
+        await pilot.resize_terminal(107, 24)
+        await pilot.pause()
+        assert not form.show_horizontal_scrollbar
+        assert form.scroll_x == 0
+
+
+async def test_narrow_form_scrollbar_lines_up_with_comment_and_keeps_gaps(app):
+    async with app.run_test(size=(90, 24)) as pilot:
+        await pilot.pause()
+        form = app.query_one(EntryForm).region
+        comment = app.query_one("#field-comment", Input).region
+        table = app.query_one("#log-table", DataTable).region
+        scrollbar_row = form.bottom - 1
+        assert form.x == comment.x
+        # COMMENT, a blank row, the scrollbar, a blank row, then the log.
+        assert scrollbar_row - comment.bottom == 1
+        assert table.y - form.bottom == 1
+        assert table.width == 90
+
+
+async def test_narrow_form_scrolls_to_the_focused_field(app):
+    async with app.run_test(size=(90, 24)) as pilot:
+        form = app.query_one(EntryForm)
+        field = app.query_one("#field-time", Input)
+        field.focus()
+        await pilot.pause()
+        assert form.scroll_x > 0
+        assert form.region.contains_region(field.region)
 
 
 async def test_tab_order_follows_paper_log_then_table(app):

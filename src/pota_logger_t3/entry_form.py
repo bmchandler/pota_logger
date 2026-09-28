@@ -117,12 +117,28 @@ class EntryForm(Vertical):
     """Labeled inputs for a single log entry: a row, then COMMENT below."""
 
     DEFAULT_CSS = """
+    /* Scrolls sideways only when the window is narrower than the form.
+       Margins sit outside the scrollbar, so it lines up with the fields.
+       The row below COMMENT is inside, above the scrollbar; while the
+       scrollbar shows, a margin below it keeps the gap before the log. */
     EntryForm {
         height: auto;
-        padding: 1;
+        margin: 1 1 0 1;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    EntryForm.-scrolling {
+        /* All four sides: margin-bottom alone would reset the others. */
+        margin: 1;
+    }
+    EntryForm > Vertical {
+        margin-bottom: 1;
     }
     EntryForm Horizontal, EntryForm Vertical {
         height: auto;
+    }
+    EntryForm Horizontal {
+        width: auto;
     }
     EntryForm Label {
         padding: 0 1;
@@ -149,6 +165,9 @@ class EntryForm(Vertical):
         super().__init__()
         # Entries saved this session, for the possible-dupe warning.
         self.logged: list[dict] = []
+
+    def watch_show_horizontal_scrollbar(self, show: bool) -> None:
+        self.set_class(show, "-scrolling")
 
     def compose(self) -> ComposeResult:
         with Horizontal():
