@@ -191,11 +191,18 @@ Session-level value:
 
 ## Log view
 
-- Entries stay in the order they were entered. There's no automatic sorting,
-  so the log can be checked line by line against the paper log. At start,
-  the log files are shown oldest date first, each in its row order.
-- A **Sort** action orders entries by UTC timestamp when the operator asks for
-  it.
+- Entries typed this session are shown at the top, in the order they were
+  entered, even when their times are out of order, so they can be checked
+  line by line against the paper log. Each new one goes below the last,
+  and the log scrolls to keep it in view.
+- Below them, the saved entries (from the log files at start) are shown
+  newest first by UTC timestamp (DATE, then TIME). Entries with the same
+  timestamp keep their file order. On the next start, this session's
+  entries are sorted in with the rest.
+- A **Sort** action (planned) orders the log by any column when the
+  operator asks for it. It sorts every entry, this session's included, so
+  their typed order is lost, just as after a restart. How it's triggered
+  and whether it toggles newest/oldest are decided when it's built.
 
 ## Storage
 

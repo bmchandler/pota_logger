@@ -87,6 +87,9 @@ updated in the same change whenever a rule changes.
   `load_entries` at start (entries plus a message per skipped row or
   file). The app keeps log files beside settings (`settings_path.parent`),
   so the test fixtures' temp dir covers both.
+- The log table shows `session_entries` (typed order) above
+  `saved_entries` (newest first), and is redrawn in full on each save
+  (`show_log`), since DataTable can't insert a row mid-table.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw

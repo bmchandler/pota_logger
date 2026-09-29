@@ -35,6 +35,14 @@ DISPLAY_LENGTHS = {
 }
 
 
+def log_row(values: dict) -> list:
+    """An entry's cells in the log table, in FIELDS order."""
+    shown = values | {
+        name: format_value(values[name]) for name, format_value in FORMATTERS.items()
+    }
+    return [shown[name] for name, _, _ in FIELDS]
+
+
 class PotaLoggerApp(App):
     """POTA logger TUI."""
 
@@ -123,9 +131,14 @@ class PotaLoggerApp(App):
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
         entries, problems = load_entries(self.log_dir)
-        for entry in entries:
-            self.add_log_row(entry)
         self.query_one(EntryForm).logged.extend(entries)
+        # Saved entries newest first; entries typed this session go above
+        # them in the order typed, to check against the paper log.
+        self.saved_entries = sorted(
+            entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
+        )
+        self.session_entries: list[dict] = []
+        self.show_log()
         for problem in problems:
             self.notify(f"Skipped {problem}", severity="error", timeout=30)
 
@@ -136,15 +149,21 @@ class PotaLoggerApp(App):
             self.notify(
                 f"Couldn't save the entry to a file: {error}", severity="error", timeout=30
             )
-        self.add_log_row(event.values)
+        self.session_entries.append(event.values)
+        self.show_log()
+        self.call_after_refresh(self.scroll_to_row, len(self.session_entries) - 1)
 
-    def add_log_row(self, values: dict) -> None:
+    def show_log(self) -> None:
+        # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
-        shown = values | {
-            name: format_value(values[name]) for name, format_value in FORMATTERS.items()
-        }
-        table.add_row(*(shown[name] for name, _, _ in FIELDS))
-        table.scroll_end(animate=False)
+        table.clear()
+        table.add_rows(log_row(entry) for entry in self.session_entries + self.saved_entries)
+
+    def scroll_to_row(self, index: int) -> None:
+        """Scroll the log just enough to show a row, from the top."""
+        table = self.query_one("#log-table", DataTable)
+        rows_in_view = table.scrollable_content_region.height - table.header_height
+        table.scroll_to(y=max(0, index - rows_in_view + 1), animate=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "quit":

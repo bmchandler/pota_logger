@@ -122,7 +122,9 @@ async def test_narrow_form_scrolls_to_the_focused_field(app):
         form = app.query_one(EntryForm)
         field = app.query_one("#field-time", Input)
         field.focus()
+        # Focus queues a scroll into view, which then animates.
         await pilot.pause()
+        await pilot.wait_for_scheduled_animations()
         assert form.scroll_x > 0
         assert form.region.contains_region(field.region)
 
@@ -870,6 +872,71 @@ async def test_saved_entries_are_shown_at_start(app, settings_path):
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert table_rows(app) == [ENTRY_ROW]
+
+
+def write_saved_log(settings_path, rows: dict[str, list[tuple[str, str, str]]]) -> None:
+    """Write log files: {file date: [(CALL, DATE, TIME), ...]} in file order."""
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    for day, entries in rows.items():
+        (settings_path.parent / f"{day}.csv").write_text(
+            "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
+            + "".join(
+                f"14285500,USB,{call},US-1234,NJ,59,57,60,{date},{time},,W1TST\n"
+                for call, date, time in entries
+            )
+        )
+
+
+def table_calls(app) -> list[str]:
+    return [row[2] for row in table_rows(app)]
+
+
+async def test_saved_entries_shown_newest_first(settings_path):
+    write_saved_log(
+        settings_path,
+        {
+            "20260924": [("K1AAA", "20260924", "2300")],
+            "20260925": [
+                ("K1BBB", "20260925", "1900"),
+                ("K1CCC", "20260925", "0100"),
+                ("K1DDD", "20260925", "2100"),
+            ],
+        },
+    )
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert table_calls(app) == ["K1DDD", "K1BBB", "K1CCC", "K1AAA"]
+
+
+async def test_session_entries_go_above_saved_ones_in_typed_order(settings_path):
+    write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        # Out of time order on purpose, as copied from the paper log.
+        for call, time in [("W1ABC", "1953"), ("K2DEF", "1948"), ("N3GHI", "2010")]:
+            fill(app, ENTRY | {"CALL": call, "TIME": time})
+            await pilot.press("enter")
+        assert table_calls(app) == ["W1ABC", "K2DEF", "N3GHI", "K1AAA"]
+    # Next start, they're sorted in with the rest.
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert table_calls(app) == ["N3GHI", "W1ABC", "K2DEF", "K1AAA"]
+
+
+async def test_log_scrolls_to_show_the_latest_session_entry(settings_path):
+    write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test(size=(107, 24)) as pilot:
+        table = app.query_one("#log-table", DataTable)
+        calls = [f"W1A{letter}" for letter in "BCDEFGHIJKLM"]
+        for call in calls:
+            fill(app, ENTRY | {"CALL": call})
+            await pilot.press("enter")
+        await pilot.pause()
+        rows_in_view = table.scrollable_content_region.height - table.header_height
+        assert rows_in_view < len(calls)
+        # The latest session entry is the bottom row in view.
+        assert table.scroll_y == len(calls) - rows_in_view
 
 
 async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
