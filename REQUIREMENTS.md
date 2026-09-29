@@ -35,16 +35,27 @@ Future (not now):
 
 Built: the entry form with every planned field (COMMENT included), its
 field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
-the log table; CSV storage (see Storage); the status bar; the settings
+the log table (this session's entries as typed, marked `•`, above the
+saved ones newest first, with a divider between; see Log view); CSV
+storage (see Storage); the status bar; the settings
 modal, with the station callsign checked like CALL; a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window. The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-To do: hand-test loading after editing a log file by hand (in Vim or
-ST4, and after a spreadsheet save): a fixed row loads, a broken row is
-skipped with a notification naming the file and row.
+To do:
+
+- Hand-test loading after editing a log file by hand (in Vim or ST4, and
+  after a spreadsheet save): a fixed row loads, a broken row is skipped
+  with a notification naming the file and row.
+- SNT and RCD placeholders follow MODE, as a hint: `599` while MODE is
+  `CW` (any case), back to `59` for any other MODE (`SSB`, `USB`, `LSB`,
+  or anything else typed). Only the placeholder changes, which shows only
+  while the field is empty: a value already typed in SNT or RCD is never
+  cleared or changed. The non-ASCII message's example (`59, or 599 on
+  CW`) stays as is. Open when built: whether the placeholder updates as
+  MODE is typed or when leaving MODE.
 
 Not built yet, in the planned order:
 

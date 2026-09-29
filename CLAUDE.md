@@ -132,3 +132,12 @@ updated in the same change whenever a rule changes.
   Mono": without Fira Code, the block characters in borders (▊ ▎ ▔ ▁)
   draw as full-cell boxes and hide sub-cell edges. The operator's own
   terminal screenshots are the reference for fine detail.
+- cairosvg skips `text-decoration`, so it doesn't draw underlines; a
+  headless Firefox screenshot of the SVG does (`firefox --headless
+  --screenshot=out.png --window-size=1330,650 file:///path/to.svg`).
+  Textual's SVG export doesn't draw overlines at all (the log divider),
+  so no screenshot shows it.
+- To confirm what escape codes reach a real terminal (e.g. SGR 53 for
+  overline), run a scratch app under `pty.fork()` with the window size
+  set by `TIOCSWINSZ`, capture its output, and search the `\x1b[...m`
+  codes.
