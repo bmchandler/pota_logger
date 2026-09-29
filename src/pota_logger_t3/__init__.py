@@ -34,13 +34,17 @@ DISPLAY_LENGTHS = {
     "TIME": len("21:23"),
 }
 
+# Marks entries typed this session in the log's first column, which has no
+# header. Kept to one character so the column can later show other states.
+SESSION_MARKER = "•"
 
-def log_row(values: dict) -> list:
-    """An entry's cells in the log table, in FIELDS order."""
+
+def log_row(values: dict, marker: str = "") -> list:
+    """An entry's cells in the log table: its marker, then FIELDS order."""
     shown = values | {
         name: format_value(values[name]) for name, format_value in FORMATTERS.items()
     }
-    return [shown[name] for name, _, _ in FIELDS]
+    return [marker] + [shown[name] for name, _, _ in FIELDS]
 
 
 class PotaLoggerApp(App):
@@ -125,6 +129,7 @@ class PotaLoggerApp(App):
         table = self.query_one("#log-table", DataTable)
         # Fixed widths: DataTable doesn't redraw rows it already drew when an
         # auto-width column widens, which left the first entry truncated.
+        table.add_column("", width=len(SESSION_MARKER))
         for name, _, max_length in FIELDS:
             table.add_column(name, width=max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
         self.query_one("#field-freq").focus()
@@ -157,7 +162,10 @@ class PotaLoggerApp(App):
         # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
         table.clear()
-        table.add_rows(log_row(entry) for entry in self.session_entries + self.saved_entries)
+        table.add_rows(
+            [log_row(entry, SESSION_MARKER) for entry in self.session_entries]
+            + [log_row(entry) for entry in self.saved_entries]
+        )
 
     def scroll_to_row(self, index: int) -> None:
         """Scroll the log just enough to show a row, from the top."""

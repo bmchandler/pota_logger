@@ -90,6 +90,9 @@ updated in the same change whenever a rule changes.
 - The log table shows `session_entries` (typed order) above
   `saved_entries` (newest first), and is redrawn in full on each save
   (`show_log`), since DataTable can't insert a row mid-table.
+  Its first column, with no header, is the status marker
+  (`SESSION_MARKER` on session entries); tests' `table_rows` leaves it
+  out, and `table_markers` reads it.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw

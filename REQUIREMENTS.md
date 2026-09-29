@@ -195,6 +195,11 @@ Session-level value:
   entered, even when their times are out of order, so they can be checked
   line by line against the paper log. Each new one goes below the last,
   and the log scrolls to keep it in view.
+- The log's first column, with no header, holds a one-character status
+  marker. For now, `•` marks entries typed this session; it isn't saved,
+  so it's gone on the next start. The column moves with its row when the
+  log is sorted, so the marks survive a Sort. Later it may show other
+  states, like an entry not yet uploaded to QRZ.
 - Below them, the saved entries (from the log files at start) are shown
   newest first by UTC timestamp (DATE, then TIME). Entries with the same
   timestamp keep their file order. On the next start, this session's

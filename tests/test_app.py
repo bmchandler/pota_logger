@@ -138,7 +138,8 @@ async def test_tab_order_follows_paper_log_then_table(app):
 async def test_log_table_columns_match_fields(app):
     async with app.run_test():
         table = app.query_one("#log-table", DataTable)
-        assert [str(c.label) for c in table.columns.values()] == [n for n, _, _ in FIELDS]
+        # The first column, with no header, holds the session marker.
+        assert [str(c.label) for c in table.columns.values()] == [""] + [n for n, _, _ in FIELDS]
 
 
 async def test_fields_fit_longest_expected_values(app):
@@ -206,8 +207,14 @@ def field_values(app) -> dict[str, str]:
 
 
 def table_rows(app) -> list[list[str]]:
+    """The log's rows, without the marker column."""
     table = app.query_one("#log-table", DataTable)
-    return [[str(cell) for cell in table.get_row_at(i)] for i in range(table.row_count)]
+    return [[str(cell) for cell in table.get_row_at(i)[1:]] for i in range(table.row_count)]
+
+
+def table_markers(app) -> list[str]:
+    table = app.query_one("#log-table", DataTable)
+    return [str(table.get_row_at(i)[0]) for i in range(table.row_count)]
 
 
 async def test_mode_starts_as_ssb(app):
@@ -769,14 +776,14 @@ async def test_rows_drawn_in_full_without_redraw(app):
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
-            "14.250.000", "SSB", "W1AAA", "US-0464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
+            "•", "14.250.000", "SSB", "W1AAA", "US-0464", "NJ", "58", "58", "30W", "2026.09.23", "11:11"
         ]
         # A later, longer value is drawn in full too.
         fill(app, typed | {"CALL": ""})
         app.query_one("#field-call", Input).focus()
         await pilot.press(*"VE3/W1ABC/P", "enter")
         await pilot.pause()
-        assert drawn_table_row(app, 1).split()[2] == "VE3/W1ABC/P"
+        assert drawn_table_row(app, 1).split()[3] == "VE3/W1ABC/P"
 
 
 async def test_date_column_before_time(app):
@@ -921,6 +928,24 @@ async def test_session_entries_go_above_saved_ones_in_typed_order(settings_path)
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert table_calls(app) == ["N3GHI", "W1ABC", "K2DEF", "K1AAA"]
+
+
+async def test_session_entries_are_marked(settings_path):
+    write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test(size=(107, 24)) as pilot:
+        assert table_markers(app) == [""]
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        await pilot.pause()
+        assert table_markers(app) == ["•", ""]
+        # Drawn in the first column, before FREQ.
+        assert drawn_table_row(app, 0).split()[:2] == ["•", "14.285.500"]
+        assert drawn_table_row(app, 1).split()[0] == "14.285.500"
+    # Gone on the next start.
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert table_markers(app) == ["", ""]
 
 
 async def test_log_scrolls_to_show_the_latest_session_entry(settings_path):
