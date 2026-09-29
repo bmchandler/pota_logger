@@ -1,6 +1,7 @@
 import tomllib
 from pathlib import Path
 
+from rich.text import Text
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -38,13 +39,38 @@ DISPLAY_LENGTHS = {
 # header. Kept to one character so the column can later show other states.
 SESSION_MARKER = "•"
 
+# The log's columns, (label, width): the marker, then the fields. Fixed
+# widths: DataTable doesn't redraw rows it already drew when an auto-width
+# column widens, which left the first entry truncated.
+LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
+    (name, max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
+    for name, _, max_length in FIELDS
+]
 
-def log_row(values: dict, marker: str = "") -> list:
+# Style of the first saved row when entries were typed this session: a
+# divider between those above (as typed) and the saved ones (sorted). An
+# overline sits on the cell's top edge, where an underline would sit at the
+# font's underline position, partway up a highlighted row. A terminal
+# without overline support just draws no divider.
+DIVIDER_STYLE = "overline"
+
+
+def log_cell(value: str, width: int, style: str = "") -> Text:
+    """A log cell, padded one space each side. The cells carry their own
+    padding (the table's cell_padding is 0) so the divider's line runs
+    unbroken across the row. Text, not str, so DataTable doesn't read
+    brackets in a COMMENT as markup.
+    """
+    return Text(f" {value:<{width}} ", style=style)
+
+
+def log_row(values: dict, marker: str = "", style: str = "") -> list[Text]:
     """An entry's cells in the log table: its marker, then FIELDS order."""
     shown = values | {
         name: format_value(values[name]) for name, format_value in FORMATTERS.items()
     }
-    return [marker] + [shown[name] for name, _, _ in FIELDS]
+    cells = [marker] + [shown[name] for name, _, _ in FIELDS]
+    return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, LOG_COLUMNS)]
 
 
 class PotaLoggerApp(App):
@@ -109,7 +135,7 @@ class PotaLoggerApp(App):
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)
         yield EntryForm()
-        yield DataTable(id="log-table")
+        yield DataTable(id="log-table", cell_padding=0)
         with Horizontal(id="button-bar"):
             # Mouse only, so tabbing through fields can't land on them.
             for button in (
@@ -127,11 +153,8 @@ class PotaLoggerApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#log-table", DataTable)
-        # Fixed widths: DataTable doesn't redraw rows it already drew when an
-        # auto-width column widens, which left the first entry truncated.
-        table.add_column("", width=len(SESSION_MARKER))
-        for name, _, max_length in FIELDS:
-            table.add_column(name, width=max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
+        for label, width in LOG_COLUMNS:
+            table.add_column(log_cell(label, width), width=width + 2)
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
@@ -162,9 +185,11 @@ class PotaLoggerApp(App):
         # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
         table.clear()
+        saved_rows = [log_row(entry) for entry in self.saved_entries]
+        if self.session_entries and saved_rows:
+            saved_rows[0] = log_row(self.saved_entries[0], style=DIVIDER_STYLE)
         table.add_rows(
-            [log_row(entry, SESSION_MARKER) for entry in self.session_entries]
-            + [log_row(entry) for entry in self.saved_entries]
+            [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
         )
 
     def scroll_to_row(self, index: int) -> None:

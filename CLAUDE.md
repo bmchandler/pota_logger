@@ -92,11 +92,21 @@ updated in the same change whenever a rule changes.
   (`show_log`), since DataTable can't insert a row mid-table.
   Its first column, with no header, is the status marker
   (`SESSION_MARKER` on session entries); tests' `table_rows` leaves it
-  out, and `table_markers` reads it.
+  out (and strips padding), and `table_markers` reads it. When there
+  are session entries, the first saved row is overlined as a divider
+  (`DIVIDER_STYLE`).
+- Log cells are Rich `Text` built by `log_cell`, padded a space each
+  side, with the table's `cell_padding` at 0, so the divider's line is
+  unbroken; column widths (`LOG_COLUMNS`) plus 2 for that padding.
+  Never pass DataTable a plain `str` cell: it's parsed as Rich markup,
+  which hid brackets in a COMMENT and crashed on `[/]`.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw
   rows already drawn when an auto-width column widens.
+- An App subclass's `on_mount` doesn't need `super().on_mount()`:
+  Textual calls each class's handler, so that runs the app's twice (in a
+  scratch script, use `on_ready` for setup after mount).
 - Textual CSS quirks met so far (see entry_form.py and __init__.py):
   a single edge like `margin-bottom` in a more specific rule resets the
   other three sides, so set all four; `height: auto` doesn't count a

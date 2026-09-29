@@ -204,6 +204,17 @@ Session-level value:
   newest first by UTC timestamp (DATE, then TIME). Entries with the same
   timestamp keep their file order. On the next start, this session's
   entries are sorted in with the rest.
+- A thin divider separates this session's entries, as typed, from the
+  sorted saved ones below: the first saved row is overlined across the
+  whole row, so the line sits on the cell edge between the two rows (an
+  underline sat partway up a highlighted row, at the font's underline
+  position). There's none until an entry is typed, or when nothing is
+  saved yet. A terminal without overline support shows no divider, rather
+  than something that looks like a glitch. When the planned Sort is
+  built, the divider goes away on sorting (nothing is in typed order any
+  more), while the `•` marks stay.
+- Every value is shown as entered, brackets included (e.g. a COMMENT of
+  `RSGB [bold]Field[/bold] Day`); nothing in a cell is read as styling.
 - A **Sort** action (planned) orders the log by any column when the
   operator asks for it. It sorts every entry, this session's included, so
   their typed order is lost, just as after a restart. How it's triggered

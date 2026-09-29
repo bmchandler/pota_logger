@@ -139,7 +139,8 @@ async def test_log_table_columns_match_fields(app):
     async with app.run_test():
         table = app.query_one("#log-table", DataTable)
         # The first column, with no header, holds the session marker.
-        assert [str(c.label) for c in table.columns.values()] == [""] + [n for n, _, _ in FIELDS]
+        labels = [str(c.label).strip() for c in table.columns.values()]
+        assert labels == [""] + [n for n, _, _ in FIELDS]
 
 
 async def test_fields_fit_longest_expected_values(app):
@@ -207,14 +208,26 @@ def field_values(app) -> dict[str, str]:
 
 
 def table_rows(app) -> list[list[str]]:
-    """The log's rows, without the marker column."""
+    """The log's rows, without the marker column or the cells' padding."""
     table = app.query_one("#log-table", DataTable)
-    return [[str(cell) for cell in table.get_row_at(i)[1:]] for i in range(table.row_count)]
+    return [
+        [str(cell).strip() for cell in table.get_row_at(i)[1:]] for i in range(table.row_count)
+    ]
 
 
 def table_markers(app) -> list[str]:
     table = app.query_one("#log-table", DataTable)
-    return [str(table.get_row_at(i)[0]) for i in range(table.row_count)]
+    return [str(table.get_row_at(i)[0]).strip() for i in range(table.row_count)]
+
+
+def divider_rows(app) -> list[int]:
+    """Rows whose every cell is overlined, as the divider is."""
+    table = app.query_one("#log-table", DataTable)
+    return [
+        i
+        for i in range(table.row_count)
+        if all("overline" in str(cell.style) for cell in table.get_row_at(i))
+    ]
 
 
 async def test_mode_starts_as_ssb(app):
@@ -525,8 +538,9 @@ async def test_park_field_takes_adif_longest_reference_at_its_width(app):
         assert field.value == "ABCD-12345@US-ABC"
         assert field.region.width == width
         table = app.query_one("#log-table", DataTable)
-        park = next(c for c in table.columns.values() if str(c.label) == "PARK")
-        assert park.width == len("ABCD-12345@US-ABC")
+        park = next(c for c in table.columns.values() if str(c.label).strip() == "PARK")
+        # Plus the padding each log cell carries, a space each side.
+        assert park.width == len("ABCD-12345@US-ABC") + 2
 
 
 async def test_park_with_too_many_digits_blocks_entry(app):
@@ -817,8 +831,9 @@ async def test_comment_column_follows_time_at_the_fields_width(app):
     async with app.run_test():
         table = app.query_one("#log-table", DataTable)
         columns = list(table.columns.values())
-        assert [str(c.label) for c in columns[-2:]] == ["TIME", "COMMENT"]
-        assert columns[-1].width == COMMENT_LENGTH
+        assert [str(c.label).strip() for c in columns[-2:]] == ["TIME", "COMMENT"]
+        # Plus the padding each log cell carries, a space each side.
+        assert columns[-1].width == COMMENT_LENGTH + 2
 
 
 async def test_comment_is_saved_as_typed_and_cleared_for_next_entry(app):
@@ -946,6 +961,52 @@ async def test_session_entries_are_marked(settings_path):
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert table_markers(app) == ["", ""]
+
+
+async def test_divider_over_the_first_saved_entry(settings_path):
+    write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test(size=(107, 24)) as pilot:
+        # No entries typed yet, so nothing to divide.
+        assert divider_rows(app) == []
+        for call in ["W1ABC", "K2DEF"]:
+            fill(app, ENTRY | {"CALL": call})
+            await pilot.press("enter")
+            await pilot.pause()
+        assert divider_rows(app) == [2]
+        # Unbroken: the cells carry their own padding, so the line covers
+        # every cell of the row, gaps between columns included.
+        table = app.query_one("#log-table", DataTable)
+        cells = table.get_row_at(2)
+        assert [cell.cell_len for cell in cells] == [c.width for c in table.columns.values()]
+        assert all(len(cell.spans) == 0 and cell.style == "overline" for cell in cells)
+        # And drawn with the overline, across the table's width.
+        drawn = table.render_line(3)
+        assert all(segment.style.overline for segment in drawn if segment.text)
+
+
+async def test_no_divider_without_saved_entries(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        await pilot.pause()
+        assert divider_rows(app) == []
+
+
+async def test_comment_brackets_shown_as_typed(settings_path):
+    # DataTable reads plain-string cells as markup, which hid these brackets
+    # and crashed on "[/]".
+    app = PotaLoggerApp(settings_path=settings_path)
+    comments = ["RSGB [bold]Field[/bold] Day", "Oops [/] typo"]
+    async with app.run_test() as pilot:
+        for call, comment in zip(["W1ABC", "K2DEF"], comments):
+            fill(app, ENTRY | {"CALL": call, "COMMENT": comment})
+            await pilot.press("enter")
+            await pilot.pause()
+        assert [row[-1] for row in table_rows(app)] == comments
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert sorted(row[-1] for row in table_rows(app)) == sorted(comments)
 
 
 async def test_log_scrolls_to_show_the_latest_session_entry(settings_path):
