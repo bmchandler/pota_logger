@@ -79,6 +79,17 @@ To do:
   and a bad one is reported naming the file (item 1 in the plan below).
 - A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
   refused on load, with an error naming the file and row.
+- SNT and RCD digit count must match MODE: CW takes exactly 3 digits
+  (`599`), SSB, USB, and LSB exactly 2 (`59`). Today CW also takes 2, so
+  a row hand-edited from SSB to CW loads with `59` (while CW to SSB with
+  `599` is refused, as it should be). Changes the SNT rule in Entry
+  fields ("and CW may too" goes), so it applies to the entry form and
+  to loading alike. Why: a 2-digit CW report is possible but rare, and
+  with modern radios the tone digit is nearly always 9, so a missing
+  third digit on CW is most likely a slip in copying the contact. The
+  report is refused and the operator adds the digit (no auto-fill). An
+  operator whose contact needs a 2-digit CW report to confirm on QRZ.com
+  can sort that out there.
 - SNT and RCD placeholders follow MODE, as a hint: `599` while MODE is
   `CW` (any case), back to `59` for any other MODE (`SSB`, `USB`, `LSB`,
   or anything else typed). Only the placeholder changes, which shows only
