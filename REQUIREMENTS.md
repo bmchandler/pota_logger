@@ -37,7 +37,8 @@ Built: the entry form with every planned field (COMMENT included), its
 field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
 the log table (this session's entries as typed, marked `•`, above the
 saved ones newest first, with a divider between; see Log view); CSV
-storage (see Storage); the status bar; the settings
+storage (see Storage), with each log row checked at start against the
+entry rules that refuse a value; the status bar; the settings
 modal, with the station callsign checked like CALL; a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
@@ -48,7 +49,10 @@ To do:
 
 - Hand-test loading after editing a log file by hand (in Vim or ST4, and
   after a spreadsheet save): a fixed row loads, a broken row is skipped
-  with a notification naming the file and row.
+  with a notification naming the file and row. Tried so far: a comma at
+  the start of a line, a wrong TIME, and an extra header column were
+  reported; MODE, ST, SNT, RCD, and PWR against their rules were not,
+  and now are (still to re-test by hand, along with COMMENT).
 - SNT and RCD placeholders follow MODE, as a hint: `599` while MODE is
   `CW` (any case), back to `59` for any other MODE (`SSB`, `USB`, `LSB`,
   or anything else typed). Only the placeholder changes, which shows only
@@ -59,18 +63,20 @@ To do:
 
 Not built yet, in the planned order:
 
-1. Editing a saved entry. After storage, since its hard parts are storage
+1. Checking data files at start. Operators (especially once the app is
+   shared) may hand-edit `data/settings.toml` or the log CSVs, so at
+   start every file is checked against the same rules as entry, and the
+   operator is notified of anything wrong, naming the file and line or
+   row. One standard for all data files, extending the CSV rule in
+   Storage. Only the entry rules that refuse a value apply: warnings are
+   for the entry form only, and a value from a file is taken as meant.
+   Done for log rows (see Storage). Still to do: the station callsign in
+   `data/settings.toml`, where only invalid TOML is reported so far and
+   a bad callsign loads as is. Comes before editing, so loading is a
+   safety net for the rows editing rewrites.
+2. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
-2. Checking data files at start. Operators (especially once the app is
-   shared) may hand-edit `data/settings.toml` or the log CSVs, so at
-   start every file is checked against the same rules as entry (e.g. the
-   station callsign's shape, each field's rules), and the operator is
-   notified of anything wrong, naming the file and line or row. One
-   standard for all data files, extending the CSV rule in Storage. Until
-   then, only invalid TOML in settings is reported, and a log row is only
-   skipped (see Storage) when it can't be read back at all; a bad
-   callsign typed into either file loads as is.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -255,13 +261,23 @@ Session-level value:
 - Loading accepts what a spreadsheet may add when saving: a UTF-8
   byte-order mark, `\r\n` line endings, and blank lines.
 - If a hand edit breaks loading, show an error naming the offending file and
-  row number (see "Checking data files at start" in Status and plan). For
-  now that covers what can't be read back at all: a wrong header row
-  (the file is skipped), a file that isn't UTF-8 text (skipped), or a row
-  with the wrong number of values or a FREQ, PWR, DATE, or TIME not in its
-  stored form (the row is skipped). E.g. TIME `53`, as a spreadsheet may
-  save `0053`, is refused rather than read as 05:03. Skipped rows stay in
-  the file, to be fixed by hand.
+  row number (see "Checking data files at start" in Status and plan): a
+  wrong header row (the file is skipped), a file that isn't UTF-8 text
+  (skipped), or a row that fails a check (the row is skipped). Skipped
+  rows stay in the file, to be fixed by hand.
+- A row's checks, stopping at the first problem: the number of values;
+  non-ASCII in any column; a blank column other than ST, COMMENT, or
+  STATION_CALLSIGN; FREQ, PWR, and DATE in their stored form (FREQ in Hz,
+  DATE as YYYYMMDD; e.g. TIME `53`, as a spreadsheet may save `0053`, is
+  refused rather than read as 05:03); then each field's entry rules that
+  refuse a value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape,
+  PARK, ST, SNT and RCD against MODE, PWR's range, TIME, and SSB near a
+  voice edge). Entry warnings (unusual call, possible dupe, and the rest)
+  aren't checked: a saved entry was confirmed when entered, or edited by
+  hand on purpose.
+- A value the entry form would accept in another form loads as that
+  field's stored form, as entry would store it: e.g. PARK `1234` loads
+  as `US-1234`, a lowercase call as uppercase. The file isn't changed.
 - Other files in `data/` (anything not named `YYYYMMDD.csv`) are ignored.
 
 ## Export

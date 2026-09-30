@@ -4,8 +4,17 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from pota_logger_t3.ascii_text import check_ascii
+from pota_logger_t3.callsigns import parse_callsign
 from pota_logger_t3.dates import parse_time
-from pota_logger_t3.entry_form import FIELDS
+from pota_logger_t3.entry_form import FIELDS, OPTIONAL, REPORTS
+from pota_logger_t3.freq import in_us_band
+from pota_logger_t3.modes import parse_mode
+from pota_logger_t3.parks import parse_park
+from pota_logger_t3.power import parse_power
+from pota_logger_t3.reports import parse_report
+from pota_logger_t3.sidebands import check_sideband
+from pota_logger_t3.states import parse_state
 
 # CSV columns: the entry fields in entry order, then the station callsign.
 COLUMNS = [name for name, _, _ in FIELDS] + ["STATION_CALLSIGN"]
@@ -49,9 +58,9 @@ def append_entry(log_dir: Path, values: dict, station_callsign: str) -> None:
         writer.writerow(to_row(values, station_callsign))
 
 
-# Only the conversions back from stored text, strict enough not to misread a
-# value (e.g. a spreadsheet saving TIME 0053 as 53). Each field's own rules
-# are checked at start in a later step.
+# Conversions back from stored text, strict enough not to misread a value
+# (e.g. a spreadsheet saving TIME 0053 as 53), then each field's own entry
+# rules, so a hand edit can't load what the entry form would refuse.
 DIGITS = re.compile(r"[0-9]+")
 NUMBER = re.compile(r"[0-9]+(\.[0-9]*)?|\.[0-9]+")
 
@@ -59,13 +68,16 @@ NUMBER = re.compile(r"[0-9]+(\.[0-9]*)?|\.[0-9]+")
 def load_freq(text: str) -> int:
     if not DIGITS.fullmatch(text):
         raise ValueError(f"FREQ {text!r} should be Hz, like 14074500")
-    return int(text)
+    hz = int(text)
+    if not in_us_band(hz):
+        raise ValueError(f"FREQ {text!r} isn't in a US amateur band (80m to 10m)")
+    return hz
 
 
 def load_power(text: str) -> Decimal:
     if not NUMBER.fullmatch(text):
         raise ValueError(f"PWR {text!r} should be watts, like 60 or 0.5")
-    return Decimal(text)
+    return parse_power(text)
 
 
 def load_date(text: str) -> date:
@@ -77,21 +89,48 @@ def load_date(text: str) -> date:
         raise ValueError(f"DATE {text!r} isn't a real date") from None
 
 
+# Fields turned from stored text into values, in column order. The rest
+# (SNT, RCD, COMMENT) are kept as text; SNT and RCD are checked after these
+# since their rules depend on MODE.
 LOADERS = {
     "FREQ": load_freq,
+    "MODE": parse_mode,
+    "CALL": parse_callsign,
+    "PARK": parse_park,
+    "ST": parse_state,
     "PWR": load_power,
     "DATE": load_date,
     "TIME": parse_time,
+    "STATION_CALLSIGN": lambda text: parse_callsign(text, "STATION_CALLSIGN"),
 }
+
+# May be blank: the entry form's optional fields, and the station callsign,
+# which entries saved before it was set are stored without.
+OPTIONAL_COLUMNS = OPTIONAL | {"STATION_CALLSIGN"}
 
 
 def from_row(row: list[str]) -> dict:
-    """An entry from its CSV row. Raises ValueError naming what's wrong."""
+    """An entry from its CSV row, checked against the entry form's rules
+    that refuse a value. Its warnings aren't checked: a saved entry was
+    either confirmed when entered, or hand-edited on purpose.
+
+    Raises ValueError naming what's wrong.
+    """
     if len(row) != len(COLUMNS):
         raise ValueError(f"has {len(row)} values, should have {len(COLUMNS)}")
     values = dict(zip(COLUMNS, row))
+    for name in COLUMNS:
+        check_ascii(name, values[name])
+    missing = [
+        name for name in COLUMNS if not values[name].strip() and name not in OPTIONAL_COLUMNS
+    ]
+    if missing:
+        raise ValueError(f"Missing: {', '.join(missing)}")
     for name, load in LOADERS.items():
-        values[name] = load(values[name])
+        values[name] = load(values[name]) if values[name].strip() else ""
+    for name in REPORTS:
+        values[name] = parse_report(name, values[name], values["MODE"])
+    check_sideband(values["FREQ"], values["MODE"])
     return values
 
 

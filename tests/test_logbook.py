@@ -128,6 +128,24 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace("14285500", "14.2855"), "FREQ '14.2855' should be Hz, like 14074500"),
         (ROW.replace(",60,", ",60W,"), "PWR '60W' should be watts, like 60 or 0.5"),
         (ROW.replace(",W1TST", ""), "has 11 values, should have 12"),
+        # Each field's entry rules, as in the operator's hand-edit tests.
+        (ROW.replace("14285500", "13285500"), "FREQ '13285500' isn't in a US amateur band (80m to 10m)"),
+        (ROW.replace(",USB,", ",ABC,"), "MODE 'ABC' should be SSB, USB, LSB, or CW"),
+        (ROW.replace(",W1ABC,", ",W1/,"), "CALL 'W1/' has an empty part next to a /"),
+        (ROW.replace("US-1234", "1234X"), "PARK '1234X' isn't a POTA park; use a form like 1234, JP-1234, or US-4566@US-WY"),
+        (ROW.replace(",NJ,", ",NNN,"), "ST 'NNN' isn't a US state; use a code like NJ, NA, or blank"),
+        (ROW.replace(",NJ,", ",NN,"), "ST 'NN' isn't a US state; use a code like NJ, NA, or blank"),
+        (ROW.replace(",59,57,", ",99,57,"), "SNT '99' isn't a real report: readability is 1-5"),
+        (ROW.replace(",59,57,", ",59,99,"), "RCD '99' isn't a real report: readability is 1-5"),
+        (ROW.replace(",59,57,", ",599,57,"), "SNT '599' needs MODE CW for a 3-digit report"),
+        (ROW.replace(",60,", ",9999,"), "PWR '9999' should be between .1 and 1500 watts"),
+        (
+            ROW.replace("14285500,USB", "14150500,SSB"),
+            "SSB on 14.150.500 is within 3 kHz of 20m's voice edge; log USB or LSB",
+        ),
+        (ROW.replace(",W1ABC,", ",,"), "Missing: CALL"),
+        (ROW.replace(",,W1TST", ",Café,W1TST"), "COMMENT 'Café' has non-ASCII characters: 'é'."),
+        (ROW.replace(",W1TST", ",W1"), "STATION_CALLSIGN 'W1' doesn't look like a callsign, like W1ABC"),
     ],
 )
 def test_bad_row_is_skipped_and_named(log_dir, row, message):
@@ -135,6 +153,23 @@ def test_bad_row_is_skipped_and_named(log_dir, row, message):
     entries, problems = load_entries(log_dir)
     assert [entry["CALL"] for entry in entries] == ["K2DEF"]
     assert problems == [f"{log_dir / '20260925.csv'} row 2: {message}"]
+
+
+def test_blank_optional_values_load(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",NJ,", ",,").replace(",W1TST", ","))
+    entries, problems = load_entries(log_dir)
+    assert entries == [ENTRY | {"ST": "", "STATION_CALLSIGN": ""}]
+    assert problems == []
+
+
+def test_entry_warnings_arent_checked(log_dir):
+    # An unusual call, logged twice: the entry form warns on both, but a
+    # saved entry was either confirmed then or hand-edited on purpose.
+    row = ROW.replace(",W1ABC,", ",W100AW,")
+    write_log(log_dir, "20260925.csv", HEADER + row + row)
+    entries, problems = load_entries(log_dir)
+    assert len(entries) == 2
+    assert problems == []
 
 
 def test_wrong_header_skips_the_file(log_dir):
