@@ -53,6 +53,32 @@ To do:
   the start of a line, a wrong TIME, and an extra header column were
   reported; MODE, ST, SNT, RCD, and PWR against their rules were not,
   and now are (still to re-test by hand, along with COMMENT).
+- Log rows must hold the stored form: a value the entry form would
+  accept in a short form is refused in a file, with an error. E.g. PARK
+  `1234` is refused (only `US-1234` or `JP-1234` style loads); the bare
+  number is for the entry form only. Today it loads as `US-1234`. The
+  same goes for every other short form, e.g. a lowercase CALL, ST, or
+  MODE (`w1abc`, `nj`, `usb`) is refused rather than loaded uppercase.
+- No entry can be saved without a station callsign set. Since the
+  start, entries could be saved with none set (the status bar shows
+  `NOCALL` and the row's STATION_CALLSIGN is blank); that was never
+  intended. On Enter with no station callsign set, the usual warning
+  modal (used here as a block) says "A transmitting station callsign is
+  required. Press Enter to go to Settings", with no way to save anyway
+  and no Esc: Enter opens the settings modal, and the entry stays in the
+  form. The call is also required on first run: the app opens on that
+  modal when none is set, and when Settings is left with the call
+  cleared (or cancelled with none set), it goes back to the modal, then
+  Settings again. Ctrl+Q quits from anywhere (stock Textual, and works
+  in any modal), for an operator not ready to set it yet. Ctrl+C stays
+  stock (it doesn't quit). Once it's built,
+  a blank STATION_CALLSIGN in a log row is refused on load too (today
+  it's allowed, for rows saved before a call was set).
+- The station callsign in `data/settings.toml` is checked at start with
+  CALL's shape rules and messages, as the settings modal already does,
+  and a bad one is reported naming the file (item 1 in the plan below).
+- A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
+  refused on load, with an error naming the file and row.
 - SNT and RCD placeholders follow MODE, as a hint: `599` while MODE is
   `CW` (any case), back to `59` for any other MODE (`SSB`, `USB`, `LSB`,
   or anything else typed). Only the placeholder changes, which shows only
