@@ -14,7 +14,13 @@ from pota_logger_t3.freq import format_freq
 from pota_logger_t3.logbook import append_entry, load_entries
 from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger_t3.power import format_power
-from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save_settings
+from pota_logger_t3.settings import (
+    SETTINGS_PATH,
+    Settings,
+    StationCallsignError,
+    load_settings,
+    save_settings,
+)
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.status_bar import StatusBar
 from pota_logger_t3.theme import POTA_THEME
@@ -133,11 +139,19 @@ class PotaLoggerApp(App):
         # Log files sit beside the settings, in data/.
         self.log_dir = settings_path.parent
         self.settings_error: str | None = None
+        # A refused station callsign from the file, shown in Settings to
+        # correct (most likely a slip) until a call is saved.
+        self.station_callsign_to_fix = ""
         try:
             self.settings = load_settings(settings_path)
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
             self.settings_error = f"Couldn't read {settings_path}: {error}"
+        except StationCallsignError as error:
+            # None is set, so the app asks for one.
+            self.settings = Settings()
+            self.settings_error = f"{settings_path}: {error}"
+            self.station_callsign_to_fix = error.text
 
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)
@@ -230,7 +244,10 @@ class PotaLoggerApp(App):
         self.show_settings()
 
     def show_settings(self) -> None:
-        self.push_screen(SettingsScreen(self.settings), self.apply_settings)
+        shown = Settings(
+            station_callsign=self.settings.station_callsign or self.station_callsign_to_fix
+        )
+        self.push_screen(SettingsScreen(shown), self.apply_settings)
 
     def require_station_callsign(self) -> None:
         """Block until a station callsign is set: Enter opens Settings, and
@@ -249,6 +266,7 @@ class PotaLoggerApp(App):
     def apply_settings(self, settings: Settings | None) -> None:
         if settings is not None:
             self.settings = settings
+            self.station_callsign_to_fix = ""
             save_settings(settings, self.settings_path)
             self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
         if not self.settings.station_callsign:

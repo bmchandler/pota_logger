@@ -37,8 +37,9 @@ Built: the entry form with every planned field (COMMENT included), its
 field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
 the log table (this session's entries as typed, marked `•`, above the
 saved ones newest first, with a divider between; see Log view); CSV
-storage (see Storage), with each log row checked at start against the
-entry rules that refuse a value; the status bar; the settings
+storage (see Storage), with each log row and the settings file's
+station callsign checked at start against the entry rules that refuse a
+value (see Storage and Settings); the status bar; the settings
 modal, with the station callsign checked like CALL and required before
 any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -60,9 +61,6 @@ To do:
   number is for the entry form only. Today it loads as `US-1234`. The
   same goes for every other short form, e.g. a lowercase CALL, ST, or
   MODE (`w1abc`, `nj`, `usb`) is refused rather than loaded uppercase.
-- The station callsign in `data/settings.toml` is checked at start with
-  CALL's shape rules and messages, as the settings modal already does,
-  and a bad one is reported naming the file (item 1 in the plan below).
 - A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
   refused on load, with an error naming the file and row.
 - Speed up the test suite (assessed 2026-10-01: 541 tests in about 2
@@ -96,10 +94,10 @@ Not built yet, in the planned order:
    row. One standard for all data files, extending the CSV rule in
    Storage. Only the entry rules that refuse a value apply: warnings are
    for the entry form only, and a value from a file is taken as meant.
-   Done for log rows (see Storage). Still to do: the station callsign in
-   `data/settings.toml`, where only invalid TOML is reported so far and
-   a bad callsign loads as is. Comes before editing, so loading is a
-   safety net for the rows editing rewrites.
+   Done for log rows (see Storage) and `data/settings.toml` (see
+   Settings); the remaining to-do items above (stored forms only, DATE
+   against the file name) tighten the log-row checks. Comes before
+   editing, so loading is a safety net for the rows editing rewrites.
 2. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
@@ -161,7 +159,7 @@ Session-level value:
   required.` / `Press Enter to go to Settings.`, with no way to save
   anyway, no Esc, and one button, Settings: Enter opens the settings
   modal. It shows when the app starts with none set (first run, or a
-  `data/settings.toml` with none or one that can't be read), and when
+  `data/settings.toml` with none, a bad one, or invalid TOML), and when
   Settings is left with none: saved with the call cleared (the blank is
   saved) or cancelled with none set. From there, Enter opens Settings
   again; F2 does nothing while it's up. On Enter in the form with none
@@ -175,6 +173,24 @@ Session-level value:
 - A settings modal holds app-wide settings, starting with the station
   callsign. Future settings go there too.
 - Settings are saved in `data/settings.toml`.
+- At start, the file is checked (see "Checking data files at start" in
+  Status and plan). Invalid TOML is reported as `Couldn't read <file>:
+  <error>`. The station callsign gets CALL's checks that refuse a value
+  (plain ASCII, then its shape), with CALL's messages naming the
+  `station_callsign` key: `<file>: station_callsign 'W1' doesn't look
+  like a callsign, like W1ABC`. A hand edit is held to the strictest
+  rule: the call must be exactly as the app saves it, so spaces around
+  it (`station_callsign ' W1ABC ' should have no spaces, like W1ABC`)
+  and lowercase (`station_callsign 'w1abc' should be uppercase, like
+  W1ABC`) are refused, not tidied up on load. Either way the app
+  starts with no call set, so the station-callsign block follows (see
+  Session-level value). A refused call opens in Settings, ready to
+  correct (most likely a slip, and the modal gets noticed where a
+  notification may not); it's there again if Settings is cancelled,
+  until a call is saved, which rewrites the file. Saving uppercases it,
+  as usual. An unusual call (`W100AW`) loads without a warning: a value
+  from a file is taken as meant. Only an empty call (`""`) means none is
+  set yet; one of just spaces is refused too.
 
 ## Theme and keys
 

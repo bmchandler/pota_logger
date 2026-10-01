@@ -1355,3 +1355,44 @@ async def test_broken_settings_file_notifies_and_keeps_running(settings_path):
         messages = [n.message for n in app._notifications]
         assert len(messages) == 1
         assert str(settings_path) in messages[0]
+
+
+async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1"\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        assert station_callsign(app) == "NOCALL"
+        assert app.screen.id == "station-callsign-required"
+        assert [n.message for n in app._notifications] == [
+            f"{settings_path}: station_callsign 'W1' doesn't look like a callsign, like W1ABC"
+        ]
+        # In Settings to correct, and back there if cancelled.
+        await pilot.press("enter")
+        assert app.focused.value == "W1"
+        await pilot.press("escape", "enter")
+        assert app.focused.value == "W1"
+        await pilot.press("end", *"TST", "enter")
+        assert len(app.screen_stack) == 1
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+
+
+@pytest.mark.parametrize(
+    "call, problem",
+    [("w1tst", "should be uppercase, like W1TST"), (" W1TST ", "should have no spaces, like W1TST")],
+)
+async def test_station_callsign_in_file_must_be_as_saved(settings_path, call, problem):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(f'station_callsign = "{call}"\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        assert station_callsign(app) == "NOCALL"
+        assert [n.message for n in app._notifications] == [
+            f"{settings_path}: station_callsign {call!r} {problem}"
+        ]
+        await pilot.press("enter")
+        assert app.focused.value == call
+        # Saved as the settings modal saves it.
+        await pilot.press("enter")
+        assert station_callsign(app) == "W1TST"
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
