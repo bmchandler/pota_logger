@@ -54,15 +54,20 @@ To do:
   with a notification naming the file and row. Tried so far: a comma at
   the start of a line, a wrong TIME, and an extra header column were
   reported; MODE, ST, SNT, RCD, and PWR against their rules were not,
-  and now are (still to re-test by hand, along with COMMENT).
-- Log rows must hold the stored form: a value the entry form would
-  accept in a short form is refused in a file, with an error. E.g. PARK
-  `1234` is refused (only `US-1234` or `JP-1234` style loads); the bare
-  number is for the entry form only. Today it loads as `US-1234`. The
-  same goes for every other short form, e.g. a lowercase CALL, ST, or
-  MODE (`w1abc`, `nj`, `usb`) is refused rather than loaded uppercase.
-- A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
-  refused on load, with an error naming the file and row.
+  and now are (still to re-test by hand, along with COMMENT, and the
+  exact-form checks: spaces, lowercase, short forms, DATE against the
+  file name).
+- Possible: decouple COMMENT's input limit from the log's view of it.
+  Today the limit is what fits in the field's view (100 characters), and
+  the log column is that same fixed width. Instead, the input could take
+  a set cap (e.g. 100, scrolling within the field if wider than its
+  view), while the log's COMMENT column widens to the longest COMMENT
+  shown, so the operator always sees the whole of each one, whether the
+  cap goes up or down later or a file holds a longer one (see Storage:
+  any length loads). Log columns are fixed widths because DataTable
+  doesn't redraw rows already drawn when a column widens; since the log
+  is redrawn in full on each save, the width could be worked out from
+  the entries at each redraw.
 - Speed up the test suite (assessed 2026-10-01: 541 tests in about 2
   minutes). The 428 unit tests take under 2 seconds; the 113 app tests
   (`run_test`) take the rest, about 1 second each, plus about 0.1 second
@@ -94,10 +99,10 @@ Not built yet, in the planned order:
    row. One standard for all data files, extending the CSV rule in
    Storage. Only the entry rules that refuse a value apply: warnings are
    for the entry form only, and a value from a file is taken as meant.
-   Done for log rows (see Storage) and `data/settings.toml` (see
-   Settings); the remaining to-do items above (stored forms only, DATE
-   against the file name) tighten the log-row checks. Comes before
-   editing, so loading is a safety net for the rows editing rewrites.
+   Built, for log rows (see Storage) and `data/settings.toml` (see
+   Settings), each value held to exactly what the app writes; only the
+   hand test in To do is left. Comes before editing, so loading is a
+   safety net for the rows editing rewrites.
 2. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log.
@@ -320,19 +325,32 @@ Session-level value:
   wrong header row (the file is skipped), a file that isn't UTF-8 text
   (skipped), or a row that fails a check (the row is skipped). Skipped
   rows stay in the file, to be fixed by hand.
+- A hand edit is held to the strictest rule: every value must be
+  written exactly as the app writes it, so nothing is tidied up on load.
 - A row's checks, stopping at the first problem: the number of values;
-  non-ASCII in any column; a blank column other than ST or COMMENT
-  (STATION_CALLSIGN included, as no entry is saved without one); FREQ, PWR, and DATE in their stored form (FREQ in Hz,
-  DATE as YYYYMMDD; e.g. TIME `53`, as a spreadsheet may save `0053`, is
-  refused rather than read as 05:03); then each field's entry rules that
-  refuse a value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape,
-  PARK, ST, SNT and RCD against MODE, PWR's range, TIME, and SSB near a
-  voice edge). Entry warnings (unusual call, possible dupe, and the rest)
+  each column in order for non-ASCII, then spaces before or after the
+  value (`CALL ' W1ABC' should have no spaces around it, like W1ABC`;
+  spaces inside a COMMENT are fine); a blank column other than ST or
+  COMMENT (STATION_CALLSIGN included, as no entry is saved without one);
+  FREQ, PWR, and DATE as numbers (FREQ in Hz, DATE as YYYYMMDD; e.g. TIME
+  `53`, as a spreadsheet may save `0053`, is refused rather than read as
+  05:03); each field's entry rules that refuse a value (FREQ in a band,
+  MODE, CALL and STATION_CALLSIGN's shape, PARK, ST, SNT and RCD against
+  MODE, PWR's range, TIME); each value in its stored form, the "Stored
+  as" column in Entry fields: lowercase is refused (`MODE 'usb' should
+  be uppercase, like USB`), and so is any other form the entry form
+  would take, or a number written another way (`PARK '1234' should be
+  'US-1234' in a log file`, likewise PARK `US1234`, PWR `.5` or `60.0`,
+  FREQ `014285500`); DATE matching the file's name (`DATE '20260924'
+  should match the file name, 20260925.csv`); then SSB near a voice
+  edge. Entry warnings (unusual call, possible dupe, and the rest)
   aren't checked: a saved entry was confirmed when entered, or edited by
-  hand on purpose.
-- A value the entry form would accept in another form loads as that
-  field's stored form, as entry would store it: e.g. PARK `1234` loads
-  as `US-1234`, a lowercase call as uppercase. The file isn't changed.
+  hand on purpose. COMMENT's length isn't checked either: the entry
+  form's limit (100 characters today) is just what fits in view, not a
+  rule about the data (ADIF sets no limit), and it moves whenever the
+  form's width does. If the field were later narrowed to, say, 80, every
+  saved 100-character COMMENT would be refused on load; widened, nothing
+  breaks either way. So any length loads.
 - Other files in `data/` (anything not named `YYYYMMDD.csv`) are ignored.
 
 ## Export

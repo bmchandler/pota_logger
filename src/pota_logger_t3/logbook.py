@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from pota_logger_t3.ascii_text import check_ascii
+from pota_logger_t3.ascii_text import check_ascii, check_trimmed
 from pota_logger_t3.callsigns import parse_callsign
 from pota_logger_t3.dates import parse_time
 from pota_logger_t3.entry_form import FIELDS, OPTIONAL, REPORTS
@@ -60,7 +60,8 @@ def append_entry(log_dir: Path, values: dict, station_callsign: str) -> None:
 
 # Conversions back from stored text, strict enough not to misread a value
 # (e.g. a spreadsheet saving TIME 0053 as 53), then each field's own entry
-# rules, so a hand edit can't load what the entry form would refuse.
+# rules, so a hand edit can't load what the entry form would refuse. Last,
+# each value must be written exactly as the app writes it.
 DIGITS = re.compile(r"[0-9]+")
 NUMBER = re.compile(r"[0-9]+(\.[0-9]*)?|\.[0-9]+")
 
@@ -105,10 +106,23 @@ LOADERS = {
 }
 
 
-def from_row(row: list[str]) -> dict:
-    """An entry from its CSV row, checked against the entry form's rules
-    that refuse a value. Its warnings aren't checked: a saved entry was
-    either confirmed when entered, or hand-edited on purpose.
+def check_stored_form(name: str, text: str, stored: str) -> None:
+    """Refuse a value that loads, but isn't written as the app writes it:
+    a short form the entry form takes (PARK 1234), lowercase, or a number
+    written another way (PWR .5, FREQ with a leading zero).
+    """
+    if text == stored:
+        return
+    if text.upper() == stored:
+        raise ValueError(f"{name} {text!r} should be uppercase, like {stored}")
+    raise ValueError(f"{name} {text!r} should be {stored!r} in a log file")
+
+
+def from_row(row: list[str], file_date: str) -> dict:
+    """An entry from its CSV row in the file for `file_date` (YYYYMMDD),
+    checked against the entry form's rules that refuse a value, and held
+    to exactly what the app writes. Its warnings aren't checked: a saved
+    entry was either confirmed when entered, or hand-edited on purpose.
 
     Raises ValueError naming what's wrong.
     """
@@ -117,13 +131,19 @@ def from_row(row: list[str]) -> dict:
     values = dict(zip(COLUMNS, row))
     for name in COLUMNS:
         check_ascii(name, values[name])
-    missing = [name for name in COLUMNS if not values[name].strip() and name not in OPTIONAL]
+        check_trimmed(name, values[name])
+    missing = [name for name in COLUMNS if not values[name] and name not in OPTIONAL]
     if missing:
         raise ValueError(f"Missing: {', '.join(missing)}")
     for name, load in LOADERS.items():
-        values[name] = load(values[name]) if values[name].strip() else ""
+        values[name] = load(values[name]) if values[name] else ""
     for name in REPORTS:
         values[name] = parse_report(name, values[name], values["MODE"])
+    for name, text, stored in zip(COLUMNS, row, to_row(values, values["STATION_CALLSIGN"])):
+        check_stored_form(name, text, stored)
+    day = f"{values['DATE']:%Y%m%d}"
+    if day != file_date:
+        raise ValueError(f"DATE {day!r} should match the file name, {file_date}.csv")
     check_sideband(values["FREQ"], values["MODE"])
     return values
 
@@ -148,7 +168,7 @@ def load_entries(log_dir: Path) -> tuple[list[dict], list[str]]:
                     if not row:  # a blank line, e.g. left at the end by an editor
                         continue
                     try:
-                        file_entries.append(from_row(row))
+                        file_entries.append(from_row(row, path.stem))
                     except ValueError as error:
                         file_problems.append(f"{path} row {reader.line_num}: {error}")
             except UnicodeDecodeError:

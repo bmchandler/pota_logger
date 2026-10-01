@@ -19,3 +19,17 @@ def check_ascii(name: str, text: str, example: str = "") -> None:
     if example:
         message += f"\nUse plain ASCII, like {example}."
     raise ValueError(message)
+
+
+def check_trimmed(name: str, text: str) -> None:
+    """Refuse spaces before or after a value read from a data file, which
+    the app never saves: a hand edit is held to exactly what's saved.
+
+    Raises ValueError with a message suitable for showing the operator.
+    """
+    trimmed = text.strip()
+    if text == trimmed:
+        return
+    if not trimmed:
+        raise ValueError(f"{name} {text!r} should be empty, with no spaces")
+    raise ValueError(f"{name} {text!r} should have no spaces around it, like {trimmed}")

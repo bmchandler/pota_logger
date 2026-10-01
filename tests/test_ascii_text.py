@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.ascii_text import check_ascii
+from pota_logger_t3.ascii_text import check_ascii, check_trimmed
 
 
 @pytest.mark.parametrize(
@@ -29,3 +29,22 @@ def test_no_example_ends_after_the_characters():
 def test_refuses_characters_outside_ascii_32_to_126(text):
     with pytest.raises(ValueError, match="has non-ASCII characters"):
         check_ascii("COMMENT", text, "")
+
+
+@pytest.mark.parametrize("text", ["W1ABC", "", "Nice signal"])
+def test_trimmed_text_passes(text):
+    check_trimmed("COMMENT", text)
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (" W1ABC", "CALL ' W1ABC' should have no spaces around it, like W1ABC"),
+        ("W1ABC  ", "CALL 'W1ABC  ' should have no spaces around it, like W1ABC"),
+        ("  ", "CALL '  ' should be empty, with no spaces"),
+    ],
+)
+def test_spaces_around_text_are_refused(text, message):
+    with pytest.raises(ValueError) as error:
+        check_trimmed("CALL", text)
+    assert str(error.value) == message

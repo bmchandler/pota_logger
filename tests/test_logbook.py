@@ -94,7 +94,9 @@ def test_no_data_dir_loads_nothing(log_dir):
 
 
 def test_loads_files_in_date_order_and_ignores_others(log_dir):
-    write_log(log_dir, "20260926.csv", HEADER + ROW.replace("W1ABC", "K2DEF"))
+    write_log(
+        log_dir, "20260926.csv", HEADER + ROW.replace("W1ABC", "K2DEF").replace("20260925", "20260926")
+    )
     write_log(log_dir, "20260925.csv", HEADER + ROW)
     write_log(log_dir, "notes.csv", "not a log\n")
     entries, _ = load_entries(log_dir)
@@ -148,6 +150,27 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",,W1TST", ",Café,W1TST"), "COMMENT 'Café' has non-ASCII characters: 'é'."),
         (ROW.replace(",W1TST", ",W1"), "STATION_CALLSIGN 'W1' doesn't look like a callsign, like W1ABC"),
         (ROW.replace(",W1TST", ","), "Missing: STATION_CALLSIGN"),
+        # Held to exactly what the app writes: no spaces around a value.
+        (ROW.replace(",W1ABC,", ", W1ABC,"), "CALL ' W1ABC' should have no spaces around it, like W1ABC"),
+        (ROW.replace(",,W1TST", ",Nice signal ,W1TST"), "COMMENT 'Nice signal ' should have no spaces around it, like Nice signal"),
+        (ROW.replace(",NJ,", ", ,"), "ST ' ' should be empty, with no spaces"),
+        (ROW.replace(",W1TST", ",W1TST "), "STATION_CALLSIGN 'W1TST ' should have no spaces around it, like W1TST"),
+        # No lowercase.
+        (ROW.replace(",USB,", ",usb,"), "MODE 'usb' should be uppercase, like USB"),
+        (ROW.replace(",W1ABC,", ",w1abc,"), "CALL 'w1abc' should be uppercase, like W1ABC"),
+        (ROW.replace("US-1234", "us-1234"), "PARK 'us-1234' should be uppercase, like US-1234"),
+        (ROW.replace(",NJ,", ",nj,"), "ST 'nj' should be uppercase, like NJ"),
+        (ROW.replace(",W1TST", ",w1tst"), "STATION_CALLSIGN 'w1tst' should be uppercase, like W1TST"),
+        # No short forms or numbers written another way.
+        (ROW.replace("US-1234", "1234"), "PARK '1234' should be 'US-1234' in a log file"),
+        (ROW.replace("US-1234", "US1234"), "PARK 'US1234' should be 'US-1234' in a log file"),
+        (ROW.replace("US-1234", "us464"), "PARK 'us464' should be 'US-0464' in a log file"),
+        (ROW.replace("14285500", "014285500"), "FREQ '014285500' should be '14285500' in a log file"),
+        (ROW.replace(",60,", ",60.0,"), "PWR '60.0' should be '60' in a log file"),
+        (ROW.replace(",60,", ",060,"), "PWR '060' should be '60' in a log file"),
+        (ROW.replace(",60,", ",.5,"), "PWR '.5' should be '0.5' in a log file"),
+        # DATE as its file's name.
+        (ROW.replace("20260925", "20260924"), "DATE '20260924' should match the file name, 20260925.csv"),
     ],
 )
 def test_bad_row_is_skipped_and_named(log_dir, row, message):

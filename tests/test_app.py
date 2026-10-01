@@ -1379,7 +1379,7 @@ async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(setting
 
 @pytest.mark.parametrize(
     "call, problem",
-    [("w1tst", "should be uppercase, like W1TST"), (" W1TST ", "should have no spaces, like W1TST")],
+    [("w1tst", "should be uppercase, like W1TST"), (" W1TST ", "should have no spaces around it, like W1TST")],
 )
 async def test_station_callsign_in_file_must_be_as_saved(settings_path, call, problem):
     settings_path.parent.mkdir(parents=True)

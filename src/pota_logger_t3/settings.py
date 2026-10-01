@@ -3,7 +3,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from pota_logger_t3.ascii_text import check_ascii
+from pota_logger_t3.ascii_text import check_ascii, check_trimmed
 from pota_logger_t3.callsigns import parse_callsign
 
 # src/pota_logger_t3/settings.py -> project root
@@ -29,8 +29,9 @@ class StationCallsignError(ValueError):
 def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     """Load settings, or defaults if the file doesn't exist yet. The
     station callsign is checked like CALL ("" means none is set yet), and
-    must be exactly as saved: no spaces around it, and uppercase; the unusual-call warning is for the
-    settings modal only, as a call from the file is taken as meant.
+    must be exactly as saved: no spaces around it, and uppercase. The
+    unusual-call warning is for the settings modal only, as a call from
+    the file is taken as meant.
 
     Raises tomllib.TOMLDecodeError if the file has been hand-edited into
     invalid TOML, or StationCallsignError (with a message for the
@@ -46,9 +47,7 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     if callsign:
         try:
             check_ascii("station_callsign", callsign)
-            if callsign != callsign.strip():
-                like = f", like {callsign.strip()}" if callsign.strip() else ""
-                raise ValueError(f"station_callsign {callsign!r} should have no spaces{like}")
+            check_trimmed("station_callsign", callsign)
             parsed = parse_callsign(callsign, "station_callsign")
             if parsed != callsign:
                 raise ValueError(
