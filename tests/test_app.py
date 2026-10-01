@@ -181,7 +181,7 @@ ENTRY = {
 }
 
 # ENTRY on CW, so any frequency in a band is fine.
-CW_ENTRY = ENTRY | {"MODE": "CW"}
+CW_ENTRY = ENTRY | {"MODE": "CW", "SNT": "599", "RCD": "579"}
 
 # ENTRY as it appears in the log table.
 ENTRY_ROW = list(
@@ -577,6 +577,18 @@ async def test_three_digit_report_requires_cw(app):
         assert field_values(app)["CALL"] == "W1ABC"
 
 
+async def test_two_digit_report_blocked_on_cw(app):
+    async with app.run_test() as pilot:
+        fill(app, CW_ENTRY | {"RCD": "57"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-rcd"
+        assert [n.message for n in app._notifications] == [
+            "RCD '57' needs 3 digits on CW, like 599"
+        ]
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
 async def test_impossible_report_blocks_entry(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"RCD": "69"})
@@ -711,7 +723,8 @@ async def test_invalid_state_blocks_entry(app):
 async def test_mode_any_case_shown_uppercase(app):
     async with app.run_test() as pilot:
         for call, mode in zip(("W1AAA", "W1AAB", "W1AAC", "W1AAD"), ("ssb", "usb", "Lsb", "cw")):
-            fill(app, ENTRY | {"CALL": call, "MODE": mode})
+            reports = {"SNT": "599", "RCD": "599"} if mode == "cw" else {}
+            fill(app, ENTRY | {"CALL": call, "MODE": mode} | reports)
             await pilot.press("enter")
         assert [row[1] for row in table_rows(app)] == ["SSB", "USB", "LSB", "CW"]
 

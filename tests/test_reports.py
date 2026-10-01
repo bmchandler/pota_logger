@@ -9,7 +9,6 @@ from pota_logger_t3.reports import parse_report
         ("59", "SSB", "59"),
         (" 57 ", "USB", "57"),
         ("11", "LSB", "11"),
-        ("59", "CW", "59"),
         ("599", "CW", "599"),
         ("111", "CW", "111"),
         ("579", "CW", "579"),
@@ -23,6 +22,11 @@ def test_parse_report(text, mode, report):
 def test_parse_report_rejects_shape(text):
     with pytest.raises(ValueError, match="should be 2 digits like 59, or 3 like 599 on CW"):
         parse_report("SNT", text, "CW")
+
+
+def test_parse_report_rejects_two_digits_on_cw():
+    with pytest.raises(ValueError, match="SNT '59' needs 3 digits on CW, like 599"):
+        parse_report("SNT", "59", "CW")
 
 
 def test_parse_report_rejects_three_digits_off_cw():
@@ -42,5 +46,6 @@ def test_parse_report_rejects_three_digits_off_cw():
     ],
 )
 def test_parse_report_rejects_out_of_range(text, part):
+    mode = "CW" if len(text) == 3 else "SSB"
     with pytest.raises(ValueError, match=f"isn't a real report: {part}"):
-        parse_report("SNT", text, "CW")
+        parse_report("SNT", text, mode)

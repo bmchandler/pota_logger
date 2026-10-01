@@ -79,17 +79,6 @@ To do:
   and a bad one is reported naming the file (item 1 in the plan below).
 - A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
   refused on load, with an error naming the file and row.
-- SNT and RCD digit count must match MODE: CW takes exactly 3 digits
-  (`599`), SSB, USB, and LSB exactly 2 (`59`). Today CW also takes 2, so
-  a row hand-edited from SSB to CW loads with `59` (while CW to SSB with
-  `599` is refused, as it should be). Changes the SNT rule in Entry
-  fields ("and CW may too" goes), so it applies to the entry form and
-  to loading alike. Why: a 2-digit CW report is possible but rare, and
-  with modern radios the tone digit is nearly always 9, so a missing
-  third digit on CW is most likely a slip in copying the contact. The
-  report is refused and the operator adds the digit (no auto-fill). An
-  operator whose contact needs a 2-digit CW report to confirm on QRZ.com
-  can sort that out there.
 - SNT and RCD placeholders follow MODE, as a hint: `599` while MODE is
   `CW` (any case), back to `59` for any other MODE (`SSB`, `USB`, `LSB`,
   or anything else typed). Only the placeholder changes, which shows only
@@ -149,7 +138,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
 | PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, `US-4566@US-WY`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012`, `US-4566@US-WY` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER, optionally @LOCATION. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. LOCATION is a 4 to 6 character ISO 3166-2 code (`US-WY`), only for parks spanning more than one, like trails. Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference (17 characters); the log column is 17 wide. |
 | ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |
-| SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. A 3-digit report (`599`) is only allowed when MODE is `CW`; other modes take a 2-digit report, and CW may too. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
+| SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |

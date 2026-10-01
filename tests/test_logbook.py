@@ -138,6 +138,7 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",59,57,", ",99,57,"), "SNT '99' isn't a real report: readability is 1-5"),
         (ROW.replace(",59,57,", ",59,99,"), "RCD '99' isn't a real report: readability is 1-5"),
         (ROW.replace(",59,57,", ",599,57,"), "SNT '599' needs MODE CW for a 3-digit report"),
+        (ROW.replace(",USB,", ",CW,"), "SNT '59' needs 3 digits on CW, like 599"),
         (ROW.replace(",60,", ",9999,"), "PWR '9999' should be between .1 and 1500 watts"),
         (
             ROW.replace("14285500,USB", "14150500,SSB"),
