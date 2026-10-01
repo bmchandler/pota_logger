@@ -79,6 +79,30 @@ To do:
   and a bad one is reported naming the file (item 1 in the plan below).
 - A log row whose DATE doesn't match its file's name (`YYYYMMDD.csv`) is
   refused on load, with an error naming the file and row.
+- Speed up the test suite (assessed 2026-10-01: 541 tests in about 2
+  minutes). The 428 unit tests take under 2 seconds; the 113 app tests
+  (`run_test`) take the rest, about 1 second each, plus about 0.1 second
+  per `pilot.press` key. No test is out of date; all match this file.
+  Options, cheapest first:
+  - Fewer keypresses: `test_comment_takes_only_what_fits_in_view` types
+    103 keys (11 s); fill to near the limit, then type the last few.
+    `test_typed_entry_with_tab_between_fields` and
+    `test_rows_drawn_in_full_without_redraw` (7 to 9 s) type on purpose
+    (key-by-key entry, and a redraw bug that needed it), so they stay.
+  - Run tests in parallel with pytest-xdist (a new dev dependency;
+    `pytest -n auto` on 8 cores should bring it under 30 seconds). Tests
+    already use their own temp dirs, so they should run in parallel as is.
+  - Find why each app start takes about 1 second (profile one
+    `run_test`); a fixed cost there is paid 113 times.
+  - Fewer app tests where a unit test covers the same rule: each field's
+    "blocks entry" test repeats its parser's messages, while the blocking
+    itself (notification, focus, nothing saved) is one shared loop in
+    `on_input_submitted`. A few could check that path, with the messages
+    left to the unit tests. Less end-to-end coverage, so the operator
+    decides.
+  - When "No entry can be saved without a station callsign" lands,
+    `test_blank_station_callsign_saves_as_nocall` and
+    `test_no_settings_file_shows_placeholder` change with it.
 
 Not built yet, in the planned order:
 

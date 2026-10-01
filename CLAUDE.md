@@ -118,6 +118,11 @@ updated in the same change whenever a rule changes.
 
 - Tests never touch the real `data/`: use the `settings_path` / `app`
   fixtures in tests/conftest.py, which point at a temp dir.
+- App tests are the slow part: about 1 second per `run_test`, plus
+  about 0.1 second per `pilot.press` key. Set field values with `fill()`
+  unless typing key by key is what's being tested. Unit tests (one per
+  field module) are nearly instant, so put a field's rules and messages
+  there. See the test-speed TODO in REQUIREMENTS.md's "Status and plan".
 - tests/test_app.py builds on `ENTRY` (USB on a 20m voice frequency) and
   `CW_ENTRY`. A test that saves several entries needs a different CALL on
   each, or the possible-dupe warning stops it. Use past dates, or
