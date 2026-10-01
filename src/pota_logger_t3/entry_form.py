@@ -21,7 +21,7 @@ from pota_logger_t3.modes import parse_mode
 from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger_t3.parks import parse_park
 from pota_logger_t3.power import parse_power
-from pota_logger_t3.reports import parse_report
+from pota_logger_t3.reports import THREE_DIGIT_MODE, parse_report
 from pota_logger_t3.sidebands import check_sideband
 from pota_logger_t3.states import parse_state
 from pota_logger_t3.warning_screen import WarningScreen
@@ -70,6 +70,10 @@ PARSERS = {
 
 # Signal reports, parsed after PARSERS since their rules depend on MODE.
 REPORTS = ["SNT", "RCD"]
+
+# SNT and RCD placeholder while MODE is CW, as a hint; ROW_FIELDS has the
+# usual one.
+CW_REPORT_PLACEHOLDER = "599"
 
 # Fields that may be left blank.
 OPTIONAL = {"ST", "COMMENT"}
@@ -182,6 +186,17 @@ class EntryForm(Vertical):
     def values(self) -> dict[str, str]:
         return {name: self.field(name).value.strip() for name, _, _ in FIELDS}
 
+    def on_input_blurred(self, event: Input.Blurred) -> None:
+        if event.input.id == "field-mode":
+            self.show_report_placeholders()
+
+    def show_report_placeholders(self) -> None:
+        """Hint 599 in SNT and RCD while MODE is CW, 59 otherwise."""
+        on_cw = self.field("MODE").value.strip().upper() == THREE_DIGIT_MODE
+        for name, placeholder, _ in ROW_FIELDS:
+            if name in REPORTS:
+                self.field(name).placeholder = CW_REPORT_PLACEHOLDER if on_cw else placeholder
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()
         values = self.values()
@@ -257,4 +272,5 @@ class EntryForm(Vertical):
         for name, _, _ in FIELDS:
             if name not in CARRY_FORWARD:
                 self.field(name).value = DEFAULTS.get(name, "")
+        self.show_report_placeholders()
         self.field("FREQ").focus()

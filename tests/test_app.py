@@ -740,6 +740,49 @@ async def test_mode_has_placeholder_and_no_autofill(app):
         assert mode.value == "s"
 
 
+def report_placeholders(app) -> list[str]:
+    return [app.query_one(f"#field-{name}", Input).placeholder for name in ("snt", "rcd")]
+
+
+async def test_report_placeholders_follow_mode_on_leaving_it(app):
+    async with app.run_test() as pilot:
+        mode = app.query_one("#field-mode", Input)
+        assert report_placeholders(app) == ["59", "59"]
+        mode.focus()
+        mode.value = "cw"
+        await pilot.pause()
+        # Not while MODE is still being typed.
+        assert report_placeholders(app) == ["59", "59"]
+        await pilot.press("tab")
+        assert report_placeholders(app) == ["599", "599"]
+        mode.focus()
+        mode.value = "x"
+        await pilot.press("shift+tab")
+        assert report_placeholders(app) == ["59", "59"]
+
+
+async def test_report_placeholders_leave_typed_reports_alone(app):
+    async with app.run_test() as pilot:
+        fill(app, {"SNT": "57"})
+        mode = app.query_one("#field-mode", Input)
+        mode.focus()
+        mode.value = "CW"
+        await pilot.press("tab")
+        assert field_values(app)["SNT"] == "57"
+        assert report_placeholders(app) == ["599", "599"]
+
+
+async def test_report_placeholders_reset_after_cw_entry(app):
+    async with app.run_test() as pilot:
+        app.query_one("#field-mode", Input).focus()
+        fill(app, CW_ENTRY)
+        await pilot.press("tab")
+        assert report_placeholders(app) == ["599", "599"]
+        await pilot.press("enter")
+        assert len(table_rows(app)) == 1
+        assert report_placeholders(app) == ["59", "59"]
+
+
 async def test_single_letter_mode_blocks_entry(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"MODE": "u"})
