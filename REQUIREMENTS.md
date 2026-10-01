@@ -57,6 +57,13 @@ To do:
   and now are (still to re-test by hand, along with COMMENT, and the
   exact-form checks: spaces, lowercase, short forms, DATE against the
   file name).
+- Later, with other visual tweaks: show notifications (errors and
+  warnings) higher up, at the bottom right of the log area, above the
+  Settings and Quit buttons. Their long stay is good, but stacked at the
+  bottom right they cover the Settings button, and leave Quit clickable
+  at the edge but unreadable, which could frustrate a newer operator.
+  Textual's notifications sit in its ToastRack, which CSS can move
+  (e.g. a bottom margin), a small override of stock looks.
 - Possible: decouple COMMENT's input limit from the log's view of it.
   Today the limit is what fits in the field's view (100 characters), and
   the log column is that same fixed width. Instead, the input could take
