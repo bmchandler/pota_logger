@@ -199,6 +199,11 @@ class EntryForm(Vertical):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()
+        # Every entry records it (ADIF STATION_CALLSIGN), and a log row
+        # without one is refused on load.
+        if not self.app.settings.station_callsign:
+            self.app.require_station_callsign()
+            return
         values = self.values()
         missing = [name for name, value in values.items() if not value and name not in OPTIONAL]
         if missing:

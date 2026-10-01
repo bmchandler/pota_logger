@@ -104,10 +104,6 @@ LOADERS = {
     "STATION_CALLSIGN": lambda text: parse_callsign(text, "STATION_CALLSIGN"),
 }
 
-# May be blank: the entry form's optional fields, and the station callsign,
-# which entries saved before it was set are stored without.
-OPTIONAL_COLUMNS = OPTIONAL | {"STATION_CALLSIGN"}
-
 
 def from_row(row: list[str]) -> dict:
     """An entry from its CSV row, checked against the entry form's rules
@@ -121,9 +117,7 @@ def from_row(row: list[str]) -> dict:
     values = dict(zip(COLUMNS, row))
     for name in COLUMNS:
         check_ascii(name, values[name])
-    missing = [
-        name for name in COLUMNS if not values[name].strip() and name not in OPTIONAL_COLUMNS
-    ]
+    missing = [name for name in COLUMNS if not values[name].strip() and name not in OPTIONAL]
     if missing:
         raise ValueError(f"Missing: {', '.join(missing)}")
     for name, load in LOADERS.items():

@@ -18,6 +18,7 @@ from pota_logger_t3.settings import SETTINGS_PATH, Settings, load_settings, save
 from pota_logger_t3.settings_screen import SettingsScreen
 from pota_logger_t3.status_bar import StatusBar
 from pota_logger_t3.theme import POTA_THEME
+from pota_logger_t3.warning_screen import WarningScreen
 
 
 # How parsed values are shown in the log table, and their widths when
@@ -53,6 +54,12 @@ LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
 # font's underline position, partway up a highlighted row. A terminal
 # without overline support just draws no divider.
 DIVIDER_STYLE = "overline"
+
+# Shown, as a block, while no station callsign is set: at start, on Enter
+# in the form, and when Settings is left without one.
+STATION_CALLSIGN_REQUIRED = (
+    "A transmitting station callsign\nis required.\nPress Enter to go to Settings."
+)
 
 
 def log_cell(value: str, width: int, style: str = "") -> Text:
@@ -169,6 +176,8 @@ class PotaLoggerApp(App):
         self.show_log()
         for problem in problems:
             self.notify(f"Skipped {problem}", severity="error", timeout=30)
+        if not self.settings.station_callsign:
+            self.require_station_callsign()
 
     def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
         try:
@@ -212,16 +221,38 @@ class PotaLoggerApp(App):
     def action_open_settings(self) -> None:
         # App bindings stay live under a modal, so don't stack a second one,
         # even when another modal (its unusual-callsign warning) is on top.
-        if any(isinstance(screen, SettingsScreen) for screen in self.screen_stack):
+        # Under the station-callsign block, Enter is the way to Settings.
+        if any(
+            isinstance(screen, SettingsScreen) or screen.id == "station-callsign-required"
+            for screen in self.screen_stack
+        ):
             return
+        self.show_settings()
+
+    def show_settings(self) -> None:
         self.push_screen(SettingsScreen(self.settings), self.apply_settings)
 
+    def require_station_callsign(self) -> None:
+        """Block until a station callsign is set: Enter opens Settings, and
+        leaving it without one comes back here. Ctrl+Q still quits.
+        """
+        self.push_screen(
+            WarningScreen(
+                STATION_CALLSIGN_REQUIRED,
+                confirm_label="Settings",
+                can_go_back=False,
+                id="station-callsign-required",
+            ),
+            lambda _: self.show_settings(),
+        )
+
     def apply_settings(self, settings: Settings | None) -> None:
-        if settings is None:
-            return
-        self.settings = settings
-        save_settings(settings, self.settings_path)
-        self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
+        if settings is not None:
+            self.settings = settings
+            save_settings(settings, self.settings_path)
+            self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
+        if not self.settings.station_callsign:
+            self.require_station_callsign()
 
 
 def main() -> None:

@@ -147,6 +147,7 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",W1ABC,", ",,"), "Missing: CALL"),
         (ROW.replace(",,W1TST", ",Café,W1TST"), "COMMENT 'Café' has non-ASCII characters: 'é'."),
         (ROW.replace(",W1TST", ",W1"), "STATION_CALLSIGN 'W1' doesn't look like a callsign, like W1ABC"),
+        (ROW.replace(",W1TST", ","), "Missing: STATION_CALLSIGN"),
     ],
 )
 def test_bad_row_is_skipped_and_named(log_dir, row, message):
@@ -157,9 +158,9 @@ def test_bad_row_is_skipped_and_named(log_dir, row, message):
 
 
 def test_blank_optional_values_load(log_dir):
-    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",NJ,", ",,").replace(",W1TST", ","))
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",NJ,", ",,"))
     entries, problems = load_entries(log_dir)
-    assert entries == [ENTRY | {"ST": "", "STATION_CALLSIGN": ""}]
+    assert entries == [ENTRY | {"ST": "", "STATION_CALLSIGN": "W1TST"}]
     assert problems == []
 
 

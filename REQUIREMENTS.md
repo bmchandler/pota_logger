@@ -39,7 +39,8 @@ the log table (this session's entries as typed, marked `•`, above the
 saved ones newest first, with a divider between; see Log view); CSV
 storage (see Storage), with each log row checked at start against the
 entry rules that refuse a value; the status bar; the settings
-modal, with the station callsign checked like CALL; a light
+modal, with the station callsign checked like CALL and required before
+any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window. The visual layout is settled; wording tweaks
@@ -59,21 +60,6 @@ To do:
   number is for the entry form only. Today it loads as `US-1234`. The
   same goes for every other short form, e.g. a lowercase CALL, ST, or
   MODE (`w1abc`, `nj`, `usb`) is refused rather than loaded uppercase.
-- No entry can be saved without a station callsign set. Since the
-  start, entries could be saved with none set (the status bar shows
-  `NOCALL` and the row's STATION_CALLSIGN is blank); that was never
-  intended. On Enter with no station callsign set, the usual warning
-  modal (used here as a block) says "A transmitting station callsign is
-  required. Press Enter to go to Settings", with no way to save anyway
-  and no Esc: Enter opens the settings modal, and the entry stays in the
-  form. The call is also required on first run: the app opens on that
-  modal when none is set, and when Settings is left with the call
-  cleared (or cancelled with none set), it goes back to the modal, then
-  Settings again. Ctrl+Q quits from anywhere (stock Textual, and works
-  in any modal), for an operator not ready to set it yet. Ctrl+C stays
-  stock (it doesn't quit). Once it's built,
-  a blank STATION_CALLSIGN in a log row is refused on load too (today
-  it's allowed, for rows saved before a call was set).
 - The station callsign in `data/settings.toml` is checked at start with
   CALL's shape rules and messages, as the settings modal already does,
   and a bad one is reported naming the file (item 1 in the plan below).
@@ -100,9 +86,6 @@ To do:
     `on_input_submitted`. A few could check that path, with the messages
     left to the unit tests. Less end-to-end coverage, so the operator
     decides.
-  - When "No entry can be saved without a station callsign" lands,
-    `test_blank_station_callsign_saves_as_nocall` and
-    `test_no_settings_file_shows_placeholder` change with it.
 
 Not built yet, in the planned order:
 
@@ -171,8 +154,21 @@ Session-level value:
   call), uppercased; saving anything else is refused and the modal stays
   open. An unusual call (same rule as CALL, e.g. `W11BC`, `W100AW`) opens
   the same unusual-callsign warning as CALL, where it can be corrected:
-  Enter saves, Esc goes back to the settings modal. Blank is allowed, and
-  shows as `NOCALL`.
+  Enter saves, Esc goes back to the settings modal.
+- **Required:** no entry can be saved without a station callsign set.
+  While none is set, the status bar shows `NOCALL` and the usual warning
+  modal, used as a block, reads `A transmitting station callsign` / `is
+  required.` / `Press Enter to go to Settings.`, with no way to save
+  anyway, no Esc, and one button, Settings: Enter opens the settings
+  modal. It shows when the app starts with none set (first run, or a
+  `data/settings.toml` with none or one that can't be read), and when
+  Settings is left with none: saved with the call cleared (the blank is
+  saved) or cancelled with none set. From there, Enter opens Settings
+  again; F2 does nothing while it's up. On Enter in the form with none
+  set, it shows too, and the entry stays in the form (Settings always
+  ends with a call set, so this is a safety net). Ctrl+Q quits from
+  anywhere (stock Textual, and works in any modal), for an operator not
+  ready to set it yet. Ctrl+C stays stock (it doesn't quit).
 
 ## Settings
 
@@ -309,8 +305,8 @@ Session-level value:
   (skipped), or a row that fails a check (the row is skipped). Skipped
   rows stay in the file, to be fixed by hand.
 - A row's checks, stopping at the first problem: the number of values;
-  non-ASCII in any column; a blank column other than ST, COMMENT, or
-  STATION_CALLSIGN; FREQ, PWR, and DATE in their stored form (FREQ in Hz,
+  non-ASCII in any column; a blank column other than ST or COMMENT
+  (STATION_CALLSIGN included, as no entry is saved without one); FREQ, PWR, and DATE in their stored form (FREQ in Hz,
   DATE as YYYYMMDD; e.g. TIME `53`, as a spreadsheet may save `0053`, is
   refused rather than read as 05:03); then each field's entry rules that
   refuse a value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape,

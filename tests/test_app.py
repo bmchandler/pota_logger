@@ -931,9 +931,7 @@ async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, me
 # Storage
 
 
-async def test_entry_is_saved_to_its_dates_file(settings_path):
-    save_settings(Settings(station_callsign="W1TST"), settings_path)
-    app = PotaLoggerApp(settings_path=settings_path)
+async def test_entry_is_saved_to_its_dates_file(app, settings_path):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"COMMENT": "Nice, loud"})
         await pilot.press("enter")
@@ -969,7 +967,7 @@ def table_calls(app) -> list[str]:
     return [row[2] for row in table_rows(app)]
 
 
-async def test_saved_entries_shown_newest_first(settings_path):
+async def test_saved_entries_shown_newest_first(app, settings_path):
     write_saved_log(
         settings_path,
         {
@@ -981,14 +979,12 @@ async def test_saved_entries_shown_newest_first(settings_path):
             ],
         },
     )
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert table_calls(app) == ["K1DDD", "K1BBB", "K1CCC", "K1AAA"]
 
 
-async def test_session_entries_go_above_saved_ones_in_typed_order(settings_path):
+async def test_session_entries_go_above_saved_ones_in_typed_order(app, settings_path):
     write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test() as pilot:
         # Out of time order on purpose, as copied from the paper log.
         for call, time in [("W1ABC", "1953"), ("K2DEF", "1948"), ("N3GHI", "2010")]:
@@ -1001,9 +997,8 @@ async def test_session_entries_go_above_saved_ones_in_typed_order(settings_path)
         assert table_calls(app) == ["N3GHI", "W1ABC", "K2DEF", "K1AAA"]
 
 
-async def test_session_entries_are_marked(settings_path):
+async def test_session_entries_are_marked(app, settings_path):
     write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test(size=(107, 24)) as pilot:
         assert table_markers(app) == [""]
         fill(app, ENTRY)
@@ -1019,9 +1014,8 @@ async def test_session_entries_are_marked(settings_path):
         assert table_markers(app) == ["", ""]
 
 
-async def test_divider_over_the_first_saved_entry(settings_path):
+async def test_divider_over_the_first_saved_entry(app, settings_path):
     write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test(size=(107, 24)) as pilot:
         # No entries typed yet, so nothing to divide.
         assert divider_rows(app) == []
@@ -1049,10 +1043,9 @@ async def test_no_divider_without_saved_entries(app):
         assert divider_rows(app) == []
 
 
-async def test_comment_brackets_shown_as_typed(settings_path):
+async def test_comment_brackets_shown_as_typed(app, settings_path):
     # DataTable reads plain-string cells as markup, which hid these brackets
     # and crashed on "[/]".
-    app = PotaLoggerApp(settings_path=settings_path)
     comments = ["RSGB [bold]Field[/bold] Day", "Oops [/] typo"]
     async with app.run_test() as pilot:
         for call, comment in zip(["W1ABC", "K2DEF"], comments):
@@ -1065,9 +1058,8 @@ async def test_comment_brackets_shown_as_typed(settings_path):
         assert sorted(row[-1] for row in table_rows(app)) == sorted(comments)
 
 
-async def test_log_scrolls_to_show_the_latest_session_entry(settings_path):
+async def test_log_scrolls_to_show_the_latest_session_entry(app, settings_path):
     write_saved_log(settings_path, {"20260924": [("K1AAA", "20260924", "2300")]})
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test(size=(107, 24)) as pilot:
         table = app.query_one("#log-table", DataTable)
         calls = [f"W1A{letter}" for letter in "BCDEFGHIJKLM"]
@@ -1092,14 +1084,12 @@ async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
         assert isinstance(app.screen, WarningScreen)
 
 
-async def test_unreadable_row_is_skipped_with_notification(settings_path):
+async def test_unreadable_row_is_skipped_with_notification(app, settings_path):
     path = settings_path.parent / "20260925.csv"
-    path.parent.mkdir(parents=True)
     path.write_text(
         "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
         "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,53,,W1TST\n"
     )
-    app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert table_rows(app) == []
         assert [n.message for n in app._notifications] == [
@@ -1138,14 +1128,67 @@ async def test_buttons_not_focusable(app):
 # Settings
 
 
-async def test_no_settings_file_shows_placeholder(app):
-    async with app.run_test():
-        assert station_callsign(app) == "NOCALL"
+def required_message(app) -> str:
+    return str(app.screen.query_one("#warning-message", Static).render())
 
 
-async def test_loads_saved_callsign(settings_path):
-    save_settings(Settings(station_callsign="W1TST"), settings_path)
+async def test_no_station_callsign_opens_on_required_block(settings_path):
     app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        assert app.screen.id == "station-callsign-required"
+        assert required_message(app) == (
+            "A transmitting station callsign\nis required.\nPress Enter to go to Settings."
+        )
+        assert [b.label.plain for b in app.screen.query(Button)] == ["Settings"]
+        assert station_callsign(app) == "NOCALL"
+        # No Esc, and F2 doesn't stack Settings over it.
+        await pilot.press("escape", "f2")
+        assert app.screen.id == "station-callsign-required"
+        await pilot.press("enter")
+        assert isinstance(app.screen, SettingsScreen)
+        app.screen.query_one("#station-callsign-input", Input).value = "w1tst"
+        await pilot.press("enter")
+        assert len(app.screen_stack) == 1
+        assert app.focused.id == "field-freq"
+        assert station_callsign(app) == "W1TST"
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+
+
+async def test_settings_cancelled_with_no_call_goes_back_to_block(settings_path):
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("enter", "escape")
+        assert app.screen.id == "station-callsign-required"
+        await pilot.press("enter")
+        assert isinstance(app.screen, SettingsScreen)
+
+
+async def test_ctrl_q_quits_from_required_block(settings_path):
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+q")
+        assert app.return_code == 0
+
+
+async def test_enter_with_no_station_callsign_keeps_entry_and_asks_for_one(app, settings_path):
+    async with app.run_test() as pilot:
+        # Not reachable through Settings, which always ends with a call
+        # set; a guard so no row is saved without one.
+        app.settings = Settings()
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        assert app.screen.id == "station-callsign-required"
+        await pilot.press("enter")
+        app.screen.query_one("#station-callsign-input", Input).value = "W1ABC"
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert field_values(app) == ENTRY
+        await pilot.press("enter")
+        assert table_rows(app) == [ENTRY_ROW]
+    assert (settings_path.parent / "20260925.csv").read_text().splitlines()[1].endswith(",W1ABC")
+
+
+async def test_loads_saved_callsign(app):
     async with app.run_test():
         assert station_callsign(app) == "W1TST"
 
@@ -1169,19 +1212,27 @@ async def test_f2_does_not_stack_modals(app):
         assert len(app.screen_stack) == 2
 
 
+async def test_settings_shows_the_current_call(app):
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert app.focused.value == "W1TST"
+
+
 async def test_save_uppercases_updates_status_and_file(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", *"w1tst", "enter")
+        # Typing replaces the call, selected on opening.
+        await pilot.press("f2", *"w1abc", "enter")
         assert not isinstance(app.screen, SettingsScreen)
-        assert station_callsign(app) == "W1TST"
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert station_callsign(app) == "W1ABC"
+        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
 async def test_save_button_saves(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", *"w1tst")
+        await pilot.press("f2")
+        app.screen.query_one("#station-callsign-input", Input).value = "W1ABC"
         await pilot.click("#save")
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
 async def test_invalid_station_callsign_is_refused(app, settings_path):
@@ -1192,7 +1243,7 @@ async def test_invalid_station_callsign_is_refused(app, settings_path):
         assert [n.message for n in app._notifications] == [
             "Station callsign 'w1tst/' has an empty part next to a /"
         ]
-        assert not settings_path.exists()
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
 async def test_non_ascii_station_callsign_is_refused(app, settings_path):
@@ -1206,19 +1257,19 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
             "Station callsign 'W1ABÇ' has non-ASCII characters: 'Ç'.\n"
             "Use plain ASCII, like W1ABC."
         ]
-        assert not settings_path.exists()
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
-async def test_blank_station_callsign_saves_as_nocall(settings_path):
-    save_settings(Settings(station_callsign="W1TST"), settings_path)
-    app = PotaLoggerApp(settings_path=settings_path)
+async def test_cleared_station_callsign_saves_and_asks_for_one(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2")
         app.screen.query_one("#station-callsign-input", Input).value = "  "
         await pilot.press("enter")
-        assert not isinstance(app.screen, SettingsScreen)
+        assert app.screen.id == "station-callsign-required"
         assert station_callsign(app) == "NOCALL"
         assert load_settings(settings_path) == Settings(station_callsign="")
+        await pilot.press("enter")
+        assert isinstance(app.screen, SettingsScreen)
 
 
 async def open_settings_with(app, pilot, call: str) -> None:
@@ -1246,7 +1297,7 @@ async def test_unusual_station_callsign_escape_returns_to_settings(app, settings
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "station-callsign-input"
         assert app.focused.value == "W11BC"
-        assert not settings_path.exists()
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
 async def test_unusual_station_callsign_corrected_in_warning(app, settings_path):
@@ -1258,9 +1309,9 @@ async def test_unusual_station_callsign_corrected_in_warning(app, settings_path)
             "Station callsign 'W1ÅBC' has non-ASCII characters: 'Å'.\n"
             "Use plain ASCII, like W1ABC."
         ]
-        app.screen.query_one("#callsign-warning-input", Input).value = "w1tst"
+        app.screen.query_one("#callsign-warning-input", Input).value = "w1abc"
         await pilot.press("enter")
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
 async def test_f2_over_station_callsign_warning_does_not_stack(app):
@@ -1273,18 +1324,18 @@ async def test_f2_over_station_callsign_warning_does_not_stack(app):
 
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", *"w1tst", "escape")
+        await pilot.press("f2", "backspace", "escape")
         assert not isinstance(app.screen, SettingsScreen)
-        assert station_callsign(app) == "NOCALL"
-        assert not settings_path.exists()
+        assert station_callsign(app) == "W1TST"
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
 async def test_cancel_button_cancels(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", *"w1tst")
+        await pilot.press("f2", "backspace")
         await pilot.click("#cancel")
-        assert station_callsign(app) == "NOCALL"
-        assert not settings_path.exists()
+        assert station_callsign(app) == "W1TST"
+        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
 async def test_closing_modal_keeps_entry_in_progress(app):
@@ -1300,6 +1351,7 @@ async def test_broken_settings_file_notifies_and_keeps_running(settings_path):
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test():
         assert station_callsign(app) == "NOCALL"
+        assert app.screen.id == "station-callsign-required"
         messages = [n.message for n in app._notifications]
         assert len(messages) == 1
         assert str(settings_path) in messages[0]

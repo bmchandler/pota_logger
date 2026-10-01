@@ -63,7 +63,7 @@ class SettingsScreen(ModalScreen[Settings | None]):
 
     def action_save(self) -> None:
         field = self.query_one("#station-callsign-input", Input)
-        # Blank is allowed: the status bar shows NOCALL until one is set.
+        # Blank is saved as is; the app then asks for a call again.
         text = field.value.strip()
         callsign = ""
         if text:

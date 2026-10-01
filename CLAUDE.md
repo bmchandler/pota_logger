@@ -80,8 +80,9 @@ updated in the same change whenever a rule changes.
   warning has its own modal (callsign_warning_screen.py) so the call can
   be edited there; the settings modal uses it for the station callsign.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
-  problem: missing fields, `check_ascii` on every field (with
-  `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
+  problem: no station callsign set (the app's `require_station_callsign`
+  block, which leads to Settings), missing fields, `check_ascii` on every
+  field (with `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
   unusual-CALL modal, then each of `WARNINGS` in order.
 - logbook.py holds the CSV storage: `append_entry` on each save,
   `load_entries` at start (entries plus a message per skipped row or
@@ -117,7 +118,9 @@ updated in the same change whenever a rule changes.
 ## Testing notes
 
 - Tests never touch the real `data/`: use the `settings_path` / `app`
-  fixtures in tests/conftest.py, which point at a temp dir.
+  fixtures in tests/conftest.py, which point at a temp dir. `app` has
+  station callsign `W1TST` saved; an app started on `settings_path`
+  alone has none, so it opens on the station-callsign-required block.
 - App tests are the slow part: about 1 second per `run_test`, plus
   about 0.1 second per `pilot.press` key. Set field values with `fill()`
   unless typing key by key is what's being tested. Unit tests (one per

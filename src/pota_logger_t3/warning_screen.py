@@ -7,6 +7,9 @@ from textual.widgets import Button, Label
 class WarningScreen(ModalScreen[bool]):
     """Show an entry warning. Dismisses with True to save anyway, or False
     to go back to the entry form.
+
+    With `can_go_back` False, it's a block instead: no Back button and no
+    Esc, so Enter (on `confirm_label`'s button) is the only way on.
     """
 
     DEFAULT_CSS = """
@@ -35,21 +38,32 @@ class WarningScreen(ModalScreen[bool]):
 
     BINDINGS = [("enter", "confirm", "Confirm"), ("escape", "cancel", "Back")]
 
-    def __init__(self, message: str) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        message: str,
+        confirm_label: str = "Confirm",
+        can_go_back: bool = True,
+        id: str | None = None,
+    ) -> None:
+        super().__init__(id=id)
         self.message = message
+        self.confirm_label = confirm_label
+        self.can_go_back = can_go_back
 
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Label(self.message, id="warning-message")
             with Horizontal(id="warning-buttons"):
                 # Mouse only, so Enter always confirms instead of pressing Back.
-                for button in (
-                    Button("Back", id="back"),
-                    Button("Confirm", id="confirm", variant="warning"),
-                ):
+                buttons = [Button(self.confirm_label, id="confirm", variant="warning")]
+                if self.can_go_back:
+                    buttons.insert(0, Button("Back", id="back"))
+                for button in buttons:
                     button.can_focus = False
                     yield button
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        return action != "cancel" or self.can_go_back
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm":
