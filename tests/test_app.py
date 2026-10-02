@@ -4,12 +4,12 @@ import pytest
 from textual.command import CommandPalette
 from textual.widgets import Button, DataTable, Input, Static
 
-from pota_logger_t3 import PotaLoggerApp, dates
-from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
-from pota_logger_t3.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
-from pota_logger_t3.settings import Settings, load_settings, save_settings
-from pota_logger_t3.settings_screen import SettingsScreen
-from pota_logger_t3.warning_screen import WarningScreen
+from pota_logger import PotaLoggerApp, dates
+from pota_logger.callsign_warning_screen import CallsignWarningScreen
+from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
+from pota_logger.settings import Settings, load_settings, save_settings
+from pota_logger.settings_screen import SettingsScreen
+from pota_logger.warning_screen import WarningScreen
 
 
 def station_callsign(app) -> str:

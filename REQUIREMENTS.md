@@ -1,4 +1,4 @@
-# POTA Logger T3 — Requirements
+# POTA Logger — Requirements
 
 ## Purpose
 

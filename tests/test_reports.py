@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.reports import parse_report
+from pota_logger.reports import parse_report
 
 
 @pytest.mark.parametrize(

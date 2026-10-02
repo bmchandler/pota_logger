@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from pota_logger_t3.callsign_guard import (
+from pota_logger.callsign_guard import (
     HOOK_MARKER,
     added_lines,
     callsign_pattern,
@@ -11,7 +11,7 @@ from pota_logger_t3.callsign_guard import (
     message_findings,
     staged_findings,
 )
-from pota_logger_t3.settings import Settings, save_settings
+from pota_logger.settings import Settings, save_settings
 
 CALL = "W1TST"
 

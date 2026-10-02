@@ -4,17 +4,17 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from pota_logger_t3.ascii_text import check_ascii, check_trimmed
-from pota_logger_t3.callsigns import parse_callsign
-from pota_logger_t3.dates import parse_time
-from pota_logger_t3.entry_form import FIELDS, OPTIONAL, REPORTS
-from pota_logger_t3.freq import in_us_band
-from pota_logger_t3.modes import parse_mode
-from pota_logger_t3.parks import parse_park
-from pota_logger_t3.power import parse_power
-from pota_logger_t3.reports import parse_report
-from pota_logger_t3.sidebands import check_sideband
-from pota_logger_t3.states import parse_state
+from pota_logger.ascii_text import check_ascii, check_trimmed
+from pota_logger.callsigns import parse_callsign
+from pota_logger.dates import parse_time
+from pota_logger.entry_form import FIELDS, OPTIONAL, REPORTS
+from pota_logger.freq import in_us_band
+from pota_logger.modes import parse_mode
+from pota_logger.parks import parse_park
+from pota_logger.power import parse_power
+from pota_logger.reports import parse_report
+from pota_logger.sidebands import check_sideband
+from pota_logger.states import parse_state
 
 # CSV columns: the entry fields in entry order, then the station callsign.
 COLUMNS = [name for name, _, _ in FIELDS] + ["STATION_CALLSIGN"]

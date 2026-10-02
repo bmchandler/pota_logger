@@ -3,8 +3,8 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
-from pota_logger_t3.ascii_text import check_ascii
-from pota_logger_t3.callsigns import parse_callsign
+from pota_logger.ascii_text import check_ascii
+from pota_logger.callsigns import parse_callsign
 
 
 class CallsignWarningScreen(ModalScreen[str | None]):

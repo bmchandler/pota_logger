@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from pota_logger_t3.power import format_power, parse_power
+from pota_logger.power import format_power, parse_power
 
 
 @pytest.mark.parametrize(

@@ -6,25 +6,25 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label
 
-from pota_logger_t3.ascii_text import check_ascii
-from pota_logger_t3.callsign_warning_screen import CallsignWarningScreen
-from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
-from pota_logger_t3.dates import default_date, parse_date, parse_time
-from pota_logger_t3.entry_warnings import (
+from pota_logger.ascii_text import check_ascii
+from pota_logger.callsign_warning_screen import CallsignWarningScreen
+from pota_logger.callsigns import is_usual_callsign, parse_callsign
+from pota_logger.dates import default_date, parse_date, parse_time
+from pota_logger.entry_warnings import (
     future_time,
     possible_dupe,
     state_on_non_us_park,
     voice_outside_range,
 )
-from pota_logger_t3.freq import parse_freq
-from pota_logger_t3.modes import parse_mode
-from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
-from pota_logger_t3.parks import parse_park
-from pota_logger_t3.power import parse_power
-from pota_logger_t3.reports import THREE_DIGIT_MODE, parse_report
-from pota_logger_t3.sidebands import check_sideband
-from pota_logger_t3.states import parse_state
-from pota_logger_t3.warning_screen import WarningScreen
+from pota_logger.freq import parse_freq
+from pota_logger.modes import parse_mode
+from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger.parks import parse_park
+from pota_logger.power import parse_power
+from pota_logger.reports import THREE_DIGIT_MODE, parse_report
+from pota_logger.sidebands import check_sideband
+from pota_logger.states import parse_state
+from pota_logger.warning_screen import WarningScreen
 
 # (name, placeholder, longest expected value) in paper-log entry order, for
 # the fields in the top row of the form.

@@ -3,7 +3,7 @@ import re
 from textual.app import App, ComposeResult
 from textual.widgets import Static
 
-from pota_logger_t3.status_bar import StatusBar
+from pota_logger.status_bar import StatusBar
 
 
 class StatusBarApp(App):

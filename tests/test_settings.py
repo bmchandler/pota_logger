@@ -2,7 +2,7 @@ import tomllib
 
 import pytest
 
-from pota_logger_t3.settings import Settings, StationCallsignError, load_settings, save_settings
+from pota_logger.settings import Settings, StationCallsignError, load_settings, save_settings
 
 
 def test_load_missing_file_returns_defaults(settings_path):

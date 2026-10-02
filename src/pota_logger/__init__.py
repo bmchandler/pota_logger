@@ -8,23 +8,23 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer, Static
 
-from pota_logger_t3.dates import format_date, format_time
-from pota_logger_t3.entry_form import FIELDS, EntryForm
-from pota_logger_t3.freq import format_freq
-from pota_logger_t3.logbook import append_entry, load_entries
-from pota_logger_t3.parks import MAX_LENGTH as PARK_MAX_LENGTH
-from pota_logger_t3.power import format_power
-from pota_logger_t3.settings import (
+from pota_logger.dates import format_date, format_time
+from pota_logger.entry_form import FIELDS, EntryForm
+from pota_logger.freq import format_freq
+from pota_logger.logbook import append_entry, load_entries
+from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger.power import format_power
+from pota_logger.settings import (
     SETTINGS_PATH,
     Settings,
     StationCallsignError,
     load_settings,
     save_settings,
 )
-from pota_logger_t3.settings_screen import SettingsScreen
-from pota_logger_t3.status_bar import StatusBar
-from pota_logger_t3.theme import POTA_THEME
-from pota_logger_t3.warning_screen import WarningScreen
+from pota_logger.settings_screen import SettingsScreen
+from pota_logger.status_bar import StatusBar
+from pota_logger.theme import POTA_THEME
+from pota_logger.warning_screen import WarningScreen
 
 
 # How parsed values are shown in the log table, and their widths when

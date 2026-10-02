@@ -95,7 +95,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pota-logger-t3"
+name = "pota-logger"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

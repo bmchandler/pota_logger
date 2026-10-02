@@ -1,7 +1,7 @@
 import pytest
 
-from pota_logger_t3 import PotaLoggerApp
-from pota_logger_t3.settings import Settings, save_settings
+from pota_logger import PotaLoggerApp
+from pota_logger.settings import Settings, save_settings
 
 
 @pytest.fixture

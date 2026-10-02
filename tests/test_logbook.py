@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from pota_logger_t3.logbook import append_entry, load_entries
+from pota_logger.logbook import append_entry, load_entries
 
 HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
 

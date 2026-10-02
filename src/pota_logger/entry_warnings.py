@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 
-from pota_logger_t3.dates import format_date, format_time
-from pota_logger_t3.freq import band_name, format_freq, voice_range
-from pota_logger_t3.sidebands import signal_edges
-from pota_logger_t3.states import US_STATES
+from pota_logger.dates import format_date, format_time
+from pota_logger.freq import band_name, format_freq, voice_range
+from pota_logger.sidebands import signal_edges
+from pota_logger.states import US_STATES
 
 CONFIRM_HINT = "Esc to correct, or confirm with Enter."
 

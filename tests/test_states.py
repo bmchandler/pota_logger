@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.states import US_STATES, parse_state
+from pota_logger.states import US_STATES, parse_state
 
 
 @pytest.mark.parametrize(

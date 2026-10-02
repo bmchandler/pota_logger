@@ -1,4 +1,4 @@
-from pota_logger_t3.freq import band_name, format_freq, voice_range
+from pota_logger.freq import band_name, format_freq, voice_range
 
 # Room a sideband signal takes beside the logged (dial) frequency.
 SIDEBAND_WIDTH = 3_000

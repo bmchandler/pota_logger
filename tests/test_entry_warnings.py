@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 
-from pota_logger_t3.entry_warnings import (
+from pota_logger.entry_warnings import (
     future_time,
     possible_dupe,
     state_on_non_us_park,

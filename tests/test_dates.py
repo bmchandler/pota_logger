@@ -2,8 +2,8 @@ from datetime import date, time
 
 import pytest
 
-from pota_logger_t3 import dates
-from pota_logger_t3.dates import default_date, format_date, format_time, parse_date, parse_time
+from pota_logger import dates
+from pota_logger.dates import default_date, format_date, format_time, parse_date, parse_time
 
 
 @pytest.mark.parametrize(

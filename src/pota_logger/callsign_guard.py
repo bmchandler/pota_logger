@@ -3,7 +3,7 @@
 The callsign comes from data/settings.toml, which git ignores, so the
 hooks themselves never contain it. Install with:
 
-    uv run python -m pota_logger_t3.callsign_guard install
+    uv run python -m pota_logger.callsign_guard install
 """
 
 import re
@@ -12,9 +12,9 @@ import sys
 import tomllib
 from pathlib import Path
 
-from pota_logger_t3.settings import SETTINGS_PATH, load_settings
+from pota_logger.settings import SETTINGS_PATH, load_settings
 
-HOOK_MARKER = "# pota_logger_t3 callsign guard"
+HOOK_MARKER = "# pota_logger callsign guard"
 HOOKS = {
     "pre-commit": "pre-commit",
     "commit-msg": 'commit-msg "$1"',
@@ -115,7 +115,7 @@ def install(repo: Path = Path(".")) -> int:
             return 1
         path.write_text(
             f"#!/bin/sh\n{HOOK_MARKER}\n"
-            f"exec uv run --quiet python -m pota_logger_t3.callsign_guard {command}\n"
+            f"exec uv run --quiet python -m pota_logger.callsign_guard {command}\n"
         )
         path.chmod(0o755)
         print(f"Installed {path}")

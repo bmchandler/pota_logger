@@ -3,10 +3,10 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from pota_logger_t3.ascii_text import check_ascii, check_trimmed
-from pota_logger_t3.callsigns import parse_callsign
+from pota_logger.ascii_text import check_ascii, check_trimmed
+from pota_logger.callsigns import parse_callsign
 
-# src/pota_logger_t3/settings.py -> project root
+# src/pota_logger/settings.py -> project root
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 SETTINGS_PATH = DATA_DIR / "settings.toml"
 

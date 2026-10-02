@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger_t3.callsigns import is_usual_callsign, parse_callsign
+from pota_logger.callsigns import is_usual_callsign, parse_callsign
 
 
 @pytest.mark.parametrize(

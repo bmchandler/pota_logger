@@ -1,4 +1,4 @@
-# POTA Logger T3
+# POTA Logger
 
 Textual TUI logbook for hunting POTA parks, managed with uv (Python 3.13).
 REQUIREMENTS.md is the source of truth for scope and field rules; keep it
@@ -6,10 +6,10 @@ updated in the same change whenever a rule changes.
 
 ## Commands
 
-- Run the app: `uv run pota-logger-t3`
+- Run the app: `uv run pota-logger`
 - Run tests: `uv run pytest`
 - Install the callsign guard git hooks (once per clone):
-  `uv run python -m pota_logger_t3.callsign_guard install`
+  `uv run python -m pota_logger.callsign_guard install`
 
 ## How we work
 
