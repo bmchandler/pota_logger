@@ -21,6 +21,9 @@ updated in the same change whenever a rule changes.
   the diff/stage/message and app behavior and gives a clear go-ahead to
   commit, in whatever natural phrasing ("Proceed", "Proceed with commit",
   "Looks good, proceed", "Go ahead and commit", etc.).
+- Don't `git push` after a commit unasked. The user pushes by hand,
+  or asks for a push, usually at the end of a session or after a few
+  commits.
 - Commit messages: short subject line, a body with details when useful,
   then the Co-Authored-By trailer. The first commit in a repo is always
   `Initial Commit`.
