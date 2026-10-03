@@ -69,17 +69,9 @@ To do:
   are fixed widths because DataTable doesn't redraw rows already drawn
   when a column widens; since the log is redrawn in full on each save,
   the width could be worked out from the entries at each redraw.
-- After editing is built: replace the possible-dupe warning (see
-  Warnings in Entry behavior) with a check for definite dupes only
-  (decided 2026-10-03). In practice "possible dupe" means little. A
-  definite dupe is an entry that matches another in every column but
-  COMMENT. Nothing is ever deleted automatically to be "helpful"; how
-  the operator is told and how a dupe is resolved (on entry, and among
-  saved rows at start) are worked out once in-app editing exists, since
-  editing is likely part of resolving one. Until then, the possible-dupe
-  warning stays as it is.
-- Speed up the test suite (assessed 2026-10-01: 541 tests in about 2
-  minutes). The 428 unit tests take under 2 seconds; the 113 app tests
+- After the editing plan below: speed up the test suite (assessed
+  2026-10-01: 541 tests in about 2 minutes; 607 in about 3 by
+  2026-10-03). The 428 unit tests take under 2 seconds; the 113 app tests
   (`run_test`) take the rest, about 1 second each, plus about 0.1 second
   per `pilot.press` key. No test is out of date; all match this file.
   Options, cheapest first:
@@ -100,18 +92,79 @@ To do:
     left to the unit tests. Less end-to-end coverage, so the operator
     decides.
 
-Not built yet, in the planned order:
+Not built yet, in the planned order (the editing plan, decided
+2026-10-04, then the rest). The aim: the log is where records are checked
+and fixed, with no need to open a CSV. Its status column shows each row's
+state, the form makes every change, and only the operator changes a
+record.
 
-1. Fixing a refused log row in the app (decided 2026-10-03), building on
-   Editing. Today a row refused on load (spaces around a value included)
-   stays skipped until fixed by hand, and the app never tidies or
-   rewrites a log file on its own, since automatic changes to a
-   hand-edited file could make a slip worse (e.g. a stray quote that
-   joins lines). Instead, a refused row that still splits into the right
-   columns loads as far as it can, ready to fix in the entry form like
-   any edit, so the operator needn't open the CSV. A row too broken to
-   split (wrong number of values, a stray quote) is still fixed by hand.
-   How such a row is shown in the log is decided then.
+1. Selecting a log row. Double-clicking a cell, or Enter on the
+   highlighted cell (DataTable's stock select, for keyboard use: Tab
+   into the log, arrow to a row, Enter), selects its whole row,
+   shown with the darker highlight a double-clicked cell gets today, but
+   across the row; the form shows that entry's values, read-only until
+   `f3` starts editing it. While a row is selected, Up and Down move the
+   selection, and the form follows. Esc steps back one level at a time:
+   from editing to the row still selected (changes dropped, no prompt),
+   then to no row selected, with the form ready for a new entry. A
+   saved edit stays on its row, selected. An entry partly typed when a
+   row is selected is put aside, and comes back when Esc leaves the
+   selection. The log otherwise looks as now when nothing is selected
+   (the cell highlight, the divider over the first saved row). `f3`
+   with no row selected says `Double-click a row (or Enter on it) to
+   select for editing first.`
+   - An edit gets every entry check and warning, changed fields or not,
+     as now; a COMMENT longer than the field takes still saves, and can
+     only be shortened.
+2. Marking edited rows. A row that was saved before the app started and
+   is edited is marked `✎` in the status column (this session only, like
+   `•`); this session's entries keep `•`.
+3. The app as the only source of truth for log files while it runs. It
+   keeps each file's lines as loaded (refused rows included) and writes
+   every save from that copy, so a change made to a log file by another
+   program while the app is open is overwritten, never merged, and a
+   save isn't refused because a row moved (as it is now). Other programs
+   and scripts may read the files while the app runs; edits belong
+   before or after.
+   - If a file can't be written, an error modal names it, says it's in
+     use by another program and should be closed, and that changes made
+     in that program will be lost (so they can be copied somewhere
+     first).
+   - No checking for other programs' lock or swap files. On Linux an
+     open file is rarely locked, so the app's write usually succeeds; if
+     an editor or spreadsheet then saves over it, that's left to the
+     operator.
+4. Deleting an entry. `f4 Delete` deletes the selected row, after a
+   confirm modal that takes Enter twice (the modal says so), so a quick
+   delete still works but one stray Enter doesn't. Esc cancels. Gone is
+   gone: no trash file or undo; backups are the operator's (e.g. a
+   scheduled backup, or git in `data/`).
+   Afterwards nothing is selected, and the form is ready for a new
+   entry.
+5. Fixing a refused log row in the app (decided 2026-10-03). A row
+   refused on load that still splits into the right columns shows in
+   the log with its values as they are in the file and an error marker
+   (e.g. `!`) in the status column, besides the notification at start.
+   Selected and edited like any row, its save runs every entry check and
+   replaces its lines in the file. It can be deleted too. A row too
+   broken to split (wrong number of values, a stray quote) is still fixed
+   by hand. The app never tidies or rewrites a log file on its own, since
+   automatic changes to a hand-edited file could make a slip worse (e.g.
+   a stray quote that joins lines). Open: where refused rows sort, as
+   their DATE or TIME may not read.
+6. Definite dupes, replacing the possible-dupe warning. A definite dupe
+   matches another entry in every column but COMMENT; "possible dupe"
+   meant little in practice. Nothing is ever deleted automatically.
+   - On Enter, a definite dupe is blocked with a modal saying the entry
+     is already logged, and to edit that one instead (e.g. to add to its
+     COMMENT). Its only button is `Roger Roger`; Enter or Esc closes it
+     too. The logged entry is then selected, ready for `f3`.
+   - An edit that turns an entry into a dupe of another is blocked the
+     same way.
+   - The blocked entry, as typed, is put aside, as when any row is
+     selected, so Esc brings it back.
+   - At start, saved rows that are definite dupes of each other are
+     marked (e.g. `=`) in the status column, to fix with edit or delete.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -137,6 +190,15 @@ Ideas considered and deferred:
   can't change their year. Reassess closer to release, e.g. for importing
   older logs from ADIF: take them gracefully, or still refuse them if
   that's much simpler.
+- Changing an entry's station callsign, e.g. if the operator forgot to
+  change it in Settings before a session. Kept as logged for now;
+  explore before release. For a second operator sharing the station
+  (e.g. Field Day), ADIF has a separate `OPERATOR` field, which may fit
+  better than changing the station callsign.
+- Bulk edits (e.g. PWR across a session) and undo: not planned. Entries
+  are copied from paper one at a time, so bulk edits add little and
+  raise the risk of mistakes; an entry is fixed by editing or deleting
+  it. Revisit only if real use calls for them.
 - A limit on digits in a callsign. ADIF sets none, and special-event
   calls use years and anniversaries (`W100AW`); the unusual-callsign
   warning covers typos like `W111111AB`.
@@ -264,7 +326,7 @@ Session-level value:
     W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
     the usual shorthand, not "duplicate"). Checks every entry in the log
     files, plus those saved this session. Esc goes back to CALL. To be
-    replaced by a definite-dupe check after editing is built (see To do).
+    replaced by a definite-dupe block (see Status and plan, item 6).
   - **Voice outside the voice range:** a voice signal runs outside its
     band's US voice (phone) range, using the Extra class edges (the
     widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
