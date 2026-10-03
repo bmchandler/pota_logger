@@ -16,7 +16,7 @@ from pota_logger.entry_warnings import (
     state_on_non_us_park,
     voice_outside_range,
 )
-from pota_logger.freq import parse_freq
+from pota_logger.freq import format_freq, parse_freq
 from pota_logger.modes import parse_mode
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.parks import parse_park
@@ -94,6 +94,18 @@ ASCII_EXAMPLES = {name: placeholder for name, placeholder, _ in FIELDS} | {
 # Fields that keep their value for the next entry.
 CARRY_FORWARD = {"PWR", "DATE"}
 
+# A saved entry's values as they'd be typed, to edit in the form; the rest
+# are shown as stored.
+ENTRY_FORMATTERS = {
+    "FREQ": format_freq,
+    "PWR": lambda watts: format(watts.normalize(), "f"),
+    "DATE": lambda day: f"{day:%y%m%d}",
+    "TIME": lambda when: f"{when:%H%M}",
+}
+
+# The form's border title while an entry is being edited.
+EDITING_TITLE = "Editing record - Esc to cancel"
+
 # Checks run after the unusual-CALL warning, in order: (field Esc goes back
 # to, check in entry_warnings.py).
 WARNINGS = [
@@ -135,6 +147,16 @@ class EntryForm(Vertical):
         /* All four sides: margin-bottom alone would reset the others. */
         margin: 1;
     }
+    /* While editing, a top border with the title takes the place of the
+       top margin, so nothing below moves. */
+    EntryForm.-editing {
+        border-top: solid $warning;
+        border-title-color: $warning;
+        margin: 0 1 0 1;
+    }
+    EntryForm.-editing.-scrolling {
+        margin: 0 1 1 1;
+    }
     EntryForm > Vertical {
         margin-bottom: 1;
     }
@@ -158,18 +180,34 @@ class EntryForm(Vertical):
         FREQ is in Hz, PWR is watts, MODE is uppercase, PARK is a full POTA
         reference (e.g. US-0464), DATE is a date, TIME is a time, and ST is
         uppercase (possibly blank); everything else is the trimmed text as
-        entered.
+        entered. STATION_CALLSIGN is the one set in Settings.
         """
 
         def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:
             super().__init__()
             self.values = values
 
+    class Edited(Message):
+        """Posted when Enter saves an edited entry, as Submitted does a new
+        one: `old` is the entry as it was, `new` as changed. The form stays
+        in edit mode until the app calls `finish_edit`, once it's saved.
+        """
+
+        def __init__(self, old: dict, new: dict) -> None:
+            super().__init__()
+            self.old = old
+            self.new = new
+
     def __init__(self) -> None:
         super().__init__()
         # Entries loaded at start and saved since, for the possible-dupe
         # warning.
         self.logged: list[dict] = []
+        # The logged entry being edited, if any, and what the form held
+        # (and where focus was) before, to put back after.
+        self.editing: dict | None = None
+        self.put_aside: dict[str, str] = {}
+        self.focus_before_edit = None
 
     def watch_show_horizontal_scrollbar(self, show: bool) -> None:
         self.set_class(show, "-scrolling")
@@ -196,6 +234,37 @@ class EntryForm(Vertical):
         for name, placeholder, _ in ROW_FIELDS:
             if name in REPORTS:
                 self.field(name).placeholder = CW_REPORT_PLACEHOLDER if on_cw else placeholder
+
+    def edit(self, entry: dict) -> None:
+        """Show a logged entry in the form to edit, putting aside what the
+        form held. Editing another entry meanwhile keeps that put aside.
+        """
+        if self.editing is None:
+            self.put_aside = {name: self.field(name).value for name, _, _ in FIELDS}
+            self.focus_before_edit = self.app.focused
+        self.editing = entry
+        for name, _, _ in FIELDS:
+            format_value = ENTRY_FORMATTERS.get(name, str)
+            self.field(name).value = format_value(entry[name])
+        self.show_report_placeholders()
+        self.border_title = EDITING_TITLE
+        self.add_class("-editing")
+        self.field("FREQ").focus()
+
+    def finish_edit(self) -> None:
+        """Leave edit mode, saved or cancelled, putting back what the form
+        held and where focus was.
+        """
+        self.editing = None
+        for name, value in self.put_aside.items():
+            self.field(name).value = value
+        self.show_report_placeholders()
+        self.border_title = None
+        self.remove_class("-editing")
+        if self.focus_before_edit is not None and self.focus_before_edit.is_attached:
+            self.focus_before_edit.focus()
+        else:
+            self.field("FREQ").focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()
@@ -253,8 +322,10 @@ class EntryForm(Vertical):
         self.check_warnings(values | {"CALL": call}, WARNINGS)
 
     def check_warnings(self, values: dict, warnings: list) -> None:
+        # An edited entry isn't checked against itself, e.g. as a dupe.
+        logged = [entry for entry in self.logged if entry is not self.editing]
         for index, (name, check) in enumerate(warnings):
-            message = check(values, self.logged)
+            message = check(values, logged)
             if message:
                 rest = warnings[index + 1 :]
 
@@ -269,6 +340,12 @@ class EntryForm(Vertical):
         self.submit(values)
 
     def submit(self, values: dict) -> None:
+        if self.editing is not None:
+            # An edited entry keeps the station callsign it was logged with.
+            new = values | {"STATION_CALLSIGN": self.editing["STATION_CALLSIGN"]}
+            self.post_message(self.Edited(self.editing, new))
+            return
+        values = values | {"STATION_CALLSIGN": self.app.settings.station_callsign}
         self.logged.append(values)
         self.post_message(self.Submitted(values))
         self.clear_for_next_entry()

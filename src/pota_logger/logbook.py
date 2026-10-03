@@ -1,4 +1,6 @@
 import csv
+import io
+import os
 import re
 from datetime import date
 from decimal import Decimal
@@ -58,6 +60,62 @@ def append_entry(log_dir: Path, values: dict, station_callsign: str) -> None:
         writer.writerow(to_row(values, station_callsign))
 
 
+BOM = "﻿"
+
+
+def find_row(path: Path, row: list[str]) -> tuple[str, list[str], int, int]:
+    """Find the first line(s) holding `row` below the header: the file's
+    byte-order mark (if any), its lines with their endings, and the
+    matched row's start and end line indexes. Raises ValueError if it
+    isn't there, e.g. after a hand edit while the app was open.
+    """
+    text = path.read_bytes().decode("utf-8")
+    bom = BOM if text.startswith(BOM) else ""
+    # newline="": split on \n, \r\n, or \r, as reading a log does, and keep
+    # each line's ending, so lines that aren't touched stay exactly as they
+    # were. A quoted COMMENT may span lines, so csv tells which lines make
+    # up each row.
+    lines = list(io.StringIO(text.removeprefix(BOM), newline=""))
+    reader = csv.reader(lines)
+    start = 0
+    for found in reader:
+        if found == row and start > 0:
+            return bom, lines, start, reader.line_num
+        start = reader.line_num
+    raise ValueError(f"{path} no longer holds this entry as it was loaded")
+
+
+def write_lines(path: Path, bom: str, lines: list[str]) -> None:
+    """Write a log file through a temporary file swapped in at the end, so
+    a crash midway can't leave it half-written.
+    """
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes((bom + "".join(lines)).encode("utf-8"))
+    os.replace(temporary, path)
+
+
+def replace_entry(log_dir: Path, old: dict, new: dict) -> None:
+    """Change a saved entry's row from `old` to `new` (each with its
+    STATION_CALLSIGN), touching no other line of the file. When DATE
+    changes, `new` is appended to its date's file before `old` is removed
+    from its own, so a crash between the two leaves a dupe, not a loss.
+    """
+    path = log_path(log_dir, old["DATE"])
+    bom, lines, start, end = find_row(path, to_row(old, old["STATION_CALLSIGN"]))
+    if new["DATE"] != old["DATE"]:
+        append_entry(log_dir, new, new["STATION_CALLSIGN"])
+        replacement = []
+    else:
+        # The row keeps its old line ending (or none, as the last line).
+        ending = lines[end - 1][len(lines[end - 1].rstrip("\r\n")) :]
+        text = io.StringIO()
+        csv.writer(text, lineterminator=ending).writerow(
+            to_row(new, new["STATION_CALLSIGN"])
+        )
+        replacement = [text.getvalue()]
+    write_lines(path, bom, lines[:start] + replacement + lines[end:])
+
+
 # Conversions back from stored text, strict enough not to misread a value
 # (e.g. a spreadsheet saving TIME 0053 as 53), then each field's own entry
 # rules, so a hand edit can't load what the entry form would refuse. Last,
@@ -85,9 +143,14 @@ def load_date(text: str) -> date:
     if len(text) != 8 or not DIGITS.fullmatch(text):
         raise ValueError(f"DATE {text!r} should be YYYYMMDD, like 20260925")
     try:
-        return date(int(text[:4]), int(text[4:6]), int(text[6:]))
+        day = date(int(text[:4]), int(text[4:6]), int(text[6:]))
     except ValueError:
         raise ValueError(f"DATE {text!r} isn't a real date") from None
+    # The entry form's YYMMDD covers only these, so an edit couldn't keep
+    # another year.
+    if not 2000 <= day.year <= 2099:
+        raise ValueError(f"DATE {text!r} isn't in 2000-2099, the years the entry form takes")
+    return day
 
 
 # Fields turned from stored text into values, in column order. The rest

@@ -89,8 +89,15 @@ updated in the same change whenever a rule changes.
   unusual-CALL modal, then each of `WARNINGS` in order.
 - logbook.py holds the CSV storage: `append_entry` on each save,
   `load_entries` at start (entries plus a message per skipped row or
-  file). The app keeps log files beside settings (`settings_path.parent`),
+  file), and `replace_entry` for an edit (only that row's lines change).
+  The app keeps log files beside settings (`settings_path.parent`),
   so the test fixtures' temp dir covers both.
+- Editing: `f3` calls `EntryForm.edit(entry)`; Enter runs the usual
+  checks, then `submit` posts `Edited(old, new)` instead of `Submitted`,
+  and the app's `on_entry_form_edited` saves it with `replace_entry`,
+  then calls `finish_edit`. Entries are matched by identity (`is`):
+  `session_entries`, `saved_entries`, and `EntryForm.logged` share the
+  same dicts. Every entry dict carries its `STATION_CALLSIGN`.
 - The log table shows `session_entries` (typed order) above
   `saved_entries` (newest first), and is redrawn in full on each save
   (`show_log`), since DataTable can't insert a row mid-table.

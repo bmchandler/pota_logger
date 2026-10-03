@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from pota_logger.logbook import append_entry, load_entries
+from pota_logger.logbook import append_entry, load_entries, replace_entry
 
 HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
 
@@ -127,6 +127,8 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",1953,", ",2460,"), "TIME '2460' isn't a real time (0000 to 2359)"),
         (ROW.replace("20260925", "2026-09-25"), "DATE '2026-09-25' should be YYYYMMDD, like 20260925"),
         (ROW.replace("20260925", "20260931"), "DATE '20260931' isn't a real date"),
+        (ROW.replace("20260925", "19991231"), "DATE '19991231' isn't in 2000-2099, the years the entry form takes"),
+        (ROW.replace("20260925", "21000101"), "DATE '21000101' isn't in 2000-2099, the years the entry form takes"),
         (ROW.replace("14285500", "14.2855"), "FREQ '14.2855' should be Hz, like 14074500"),
         (ROW.replace(",60,", ",60W,"), "PWR '60W' should be watts, like 60 or 0.5"),
         (ROW.replace(",W1TST", ""), "has 11 values, should have 12"),
@@ -212,3 +214,70 @@ def test_non_utf8_file_is_skipped_whole(log_dir):
     entries, problems = load_entries(log_dir)
     assert entries == []
     assert problems == [f"{log_dir / '20260925.csv'}: isn't plain text (UTF-8)"]
+
+
+# Changing a saved entry
+
+SAVED = ENTRY | {"STATION_CALLSIGN": "W1TST"}
+OTHER_ROW = ROW.replace(",W1ABC,", ",K2DEF,")
+
+
+def test_changed_entry_rewrites_only_its_row(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW + ROW + OTHER_ROW)
+    replace_entry(log_dir, SAVED, SAVED | {"COMMENT": "Nice, loud"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + OTHER_ROW + ROW.replace(",,", ',"Nice, loud",') + OTHER_ROW
+    )
+
+
+def test_change_leaves_other_lines_exactly_as_they_were(log_dir):
+    # A byte-order mark, \r\n endings, a blank line, a refused row, and a
+    # COMMENT spanning two lines, as a spreadsheet or hand edit may leave.
+    others = (
+        "14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,53,,W1TST\r\n"
+        "\r\n"
+        '14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,1953,"Two\r\nlines",W1TST\r\n'
+    )
+    original = "﻿" + HEADER.replace("\n", "\r\n") + others + ROW.replace("\n", "\r\n")
+    log_dir.mkdir(parents=True)
+    (log_dir / "20260925.csv").write_bytes(original.encode())
+    replace_entry(log_dir, SAVED, SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_bytes().decode() == original.replace(
+        ",W1ABC,", ",N3GHI,"
+    )
+
+
+def test_last_row_without_line_break_stays_without(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW.rstrip("\n"))
+    replace_entry(log_dir, SAVED, SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW.replace(",W1ABC,", ",N3GHI,").rstrip("\n")
+    )
+
+
+def test_only_the_first_of_identical_rows_changes(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW + ROW)
+    replace_entry(log_dir, SAVED, SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW.replace(",W1ABC,", ",N3GHI,") + ROW
+    )
+
+
+def test_new_date_moves_the_row_to_that_dates_file(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW + OTHER_ROW)
+    replace_entry(log_dir, SAVED, SAVED | {"DATE": date(2026, 9, 26)})
+    assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
+    assert (log_dir / "20260926.csv").read_text() == (
+        HEADER + ROW.replace("20260925", "20260926")
+    )
+
+
+def test_missing_row_changes_nothing(log_dir):
+    # E.g. the file was edited by hand while the app was open.
+    write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW)
+    with pytest.raises(ValueError, match="no longer holds this entry as it was loaded"):
+        replace_entry(log_dir, SAVED, SAVED | {"DATE": date(2026, 9, 26)})
+    assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
+    assert not (log_dir / "20260926.csv").exists()
+    assert sorted(path.name for path in log_dir.iterdir()) == ["20260925.csv"]
+

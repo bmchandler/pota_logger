@@ -11,7 +11,7 @@ from textual.widgets import Button, DataTable, Footer, Static
 from pota_logger.dates import format_date, format_time
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
-from pota_logger.logbook import append_entry, load_entries
+from pota_logger.logbook import append_entry, load_entries, replace_entry
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.power import format_power
 from pota_logger.settings import (
@@ -128,7 +128,10 @@ class PotaLoggerApp(App):
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("f2", "open_settings", "Settings"),
+        Binding("f3", "edit_entry", "Edit"),
         Binding("ctrl+s", "screenshot", "Screenshot"),
+        # Shown in the form's border title while editing, not the footer.
+        Binding("escape", "cancel_edit", "Cancel edit", show=False),
     ]
 
     def __init__(self, settings_path: Path = SETTINGS_PATH) -> None:
@@ -195,14 +198,59 @@ class PotaLoggerApp(App):
 
     def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
         try:
-            append_entry(self.log_dir, event.values, self.settings.station_callsign)
+            append_entry(self.log_dir, event.values, event.values["STATION_CALLSIGN"])
         except OSError as error:
             self.notify(
                 f"Couldn't save the entry to a file: {error}", severity="error", timeout=30
             )
         self.session_entries.append(event.values)
         self.show_log()
-        self.call_after_refresh(self.scroll_to_row, len(self.session_entries) - 1)
+        # Highlighted, so f3 edits the entry just typed. scroll_to_row
+        # brings it into view.
+        row = len(self.session_entries) - 1
+        self.query_one("#log-table", DataTable).move_cursor(row=row, scroll=False)
+        self.call_after_refresh(self.scroll_to_row, row)
+
+    def log_entries(self) -> list[dict]:
+        """The entries in the log table's order: this session's, then saved."""
+        return self.session_entries + self.saved_entries
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action == "cancel_edit":
+            return self.query_one(EntryForm).editing is not None
+        return True
+
+    def action_edit_entry(self) -> None:
+        # App bindings stay live under a modal; edit only from the main screen.
+        if len(self.screen_stack) > 1:
+            return
+        table = self.query_one("#log-table", DataTable)
+        if not table.row_count:
+            self.notify("No entry to edit yet.", severity="warning")
+            return
+        self.query_one(EntryForm).edit(self.log_entries()[table.cursor_row])
+
+    def action_cancel_edit(self) -> None:
+        self.query_one(EntryForm).finish_edit()
+
+    def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
+        try:
+            replace_entry(self.log_dir, event.old, event.new)
+        except (OSError, ValueError) as error:
+            # The form stays in edit mode, to try again or cancel.
+            self.notify(f"Couldn't save the change: {error}", severity="error", timeout=30)
+            return
+        # The entry keeps its place in the log until the next start, even if
+        # DATE or TIME changed.
+        form = self.query_one(EntryForm)
+        for entries in (self.session_entries, self.saved_entries, form.logged):
+            for index, entry in enumerate(entries):
+                if entry is event.old:
+                    entries[index] = event.new
+        self.show_log()
+        row = next(i for i, entry in enumerate(self.log_entries()) if entry is event.new)
+        self.query_one("#log-table", DataTable).move_cursor(row=row)
+        form.finish_edit()
 
     def show_log(self) -> None:
         # DataTable can't insert a row mid-table, so it's redrawn in full.

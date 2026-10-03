@@ -45,7 +45,8 @@ settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
-form in a narrow window. The visual layout is settled; wording tweaks
+form in a narrow window; editing a logged entry in the form (see
+Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
 To do:
@@ -101,20 +102,16 @@ To do:
 
 Not built yet, in the planned order:
 
-1. Editing a saved entry. After storage, since its hard parts are storage
-   ones: rewriting a CSV row, moving an entry to another date's file when
-   DATE changes, and re-checking dupes against the saved log (definite
-   dupes, once they replace possible ones; see To do).
-   Also fixing a refused log row in the app (decided 2026-10-03): until
-   editing exists, a row refused on load (spaces around a value included)
+1. Fixing a refused log row in the app (decided 2026-10-03), building on
+   Editing. Today a row refused on load (spaces around a value included)
    stays skipped until fixed by hand, and the app never tidies or
    rewrites a log file on its own, since automatic changes to a
    hand-edited file could make a slip worse (e.g. a stray quote that
-   joins lines). Once editing exists, a refused row that still splits
-   into the right columns loads as far as it can, ready to fix in the
-   entry form like any edit, so the operator needn't open the CSV. A row
-   too broken to split (wrong number of values, a stray quote) is still
-   fixed by hand. How such a row is shown in the log is decided then.
+   joins lines). Instead, a refused row that still splits into the right
+   columns loads as far as it can, ready to fix in the entry form like
+   any edit, so the operator needn't open the CSV. A row too broken to
+   split (wrong number of values, a stray quote) is still fixed by hand.
+   How such a row is shown in the log is decided then.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -135,6 +132,11 @@ Ideas considered and deferred:
 - Lining the narrow form's scrollbar up exactly with the input boxes.
   Textual's input borders put the visible edge partway into a cell, so
   it would take non-stock input borders; the stock look was kept.
+- Dates before 2000 (or after 2099). The entry form's YYMMDD covers
+  2000 to 2099, and log rows outside it are refused on load, so an edit
+  can't change their year. Reassess closer to release, e.g. for importing
+  older logs from ADIF: take them gracefully, or still refuse them if
+  that's much simpler.
 - A limit on digits in a callsign. ADIF sets none, and special-event
   calls use years and anniversaries (`W100AW`); the unusual-callsign
   warning covers typos like `W111111AB`.
@@ -210,8 +212,9 @@ Session-level value:
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The footer shows `^q Quit`, `f2 Settings`, and `^s Screenshot` (saves
-  an SVG of the screen to the Downloads folder).
+- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` (see Editing),
+  and `^s Screenshot` (saves an SVG of the screen to the Downloads
+  folder).
 - The footer's right end shows the terminal size as columns x rows
   (`120x30`), updated live as the window is resized.
 - No command palette (Textual's ctrl+p): "palette" is unfamiliar to most
@@ -276,12 +279,47 @@ Session-level value:
   - **Future date/time:** DATE plus TIME is later than the current UTC
     time. Esc goes back to DATE.
 
+## Editing
+
+- `f3 Edit` edits the entry highlighted in the log (reached with Tab and
+  the arrow keys, or a click). Any entry can be edited, this session's or
+  saved.
+- Its values show in the entry form as they'd be typed (FREQ
+  `14.285.500`, PARK `US-1234`, PWR `0.5`, DATE `260925`, TIME `1953`),
+  and the form's top border reads `Editing record - Esc to cancel` in the
+  warning color. The border takes the row of the form's top margin, so
+  nothing on screen moves. Whatever the form held (an entry partly
+  typed) is put aside.
+- Enter saves the change through every check and warning a new entry
+  gets, except that the entry isn't checked against itself (an unchanged
+  entry is no possible dupe). Esc cancels. Either way, the form gets back
+  what it held, and focus goes back where it was. `f3` on another row
+  while editing switches to that one.
+- The entry keeps its place in the log until the next start, even if
+  DATE or TIME changed, and the highlight stays on it; this session's
+  entries keep their `•`. It keeps the station callsign it was logged
+  with.
+- In its file, only its row changes; every other line stays exactly as
+  it was (refused rows, and a spreadsheet's `\r\n` endings or byte-order
+  mark, included). The file is written to a temporary file that's then
+  swapped in, so a crash can't leave it half-written. A changed DATE
+  moves the entry to that date's file: it's added there first, then
+  removed from the old one, so a crash in between leaves a dupe rather
+  than losing it.
+- If its row isn't in its file as loaded (edited by hand while the app
+  was open), nothing is saved: `Couldn't save the change: <file> no
+  longer holds this entry as it was loaded`, and the form stays in edit
+  mode, to cancel or try again after a restart.
+- A COMMENT longer than the field takes (from a file) is kept whole: it
+  can be shortened, but nothing can be added to it.
+
 ## Log view
 
 - Entries typed this session are shown at the top, in the order they were
   entered, even when their times are out of order, so they can be checked
   line by line against the paper log. Each new one goes below the last,
-  and the log scrolls to keep it in view.
+  and the log scrolls to keep it in view. It's highlighted, so `f3` edits
+  the entry just typed (see Editing).
 - The log's first column, with no header, holds a one-character status
   marker. For now, `•` marks entries typed this session; it isn't saved,
   so it's gone on the next start. The column moves with its row when the
@@ -346,25 +384,27 @@ Session-level value:
   value (`CALL ' W1ABC' should have no spaces around it, like W1ABC`;
   spaces inside a COMMENT are fine); a blank column other than ST or
   COMMENT (STATION_CALLSIGN included, as no entry is saved without one);
-  FREQ, PWR, and DATE as numbers (FREQ in Hz, DATE as YYYYMMDD; e.g. TIME
-  `53`, as a spreadsheet may save `0053`, is refused rather than read as
-  05:03); each field's entry rules that refuse a value (FREQ in a band,
-  MODE, CALL and STATION_CALLSIGN's shape, PARK, ST, SNT and RCD against
-  MODE, PWR's range, TIME); each value in its stored form, the "Stored
-  as" column in Entry fields: lowercase is refused (`MODE 'usb' should
-  be uppercase, like USB`), and so is any other form the entry form
-  would take, or a number written another way (`PARK '1234' should be
-  'US-1234' in a log file`, likewise PARK `US1234`, PWR `.5` or `60.0`,
-  FREQ `014285500`); DATE matching the file's name (`DATE '20260924'
-  should match the file name, 20260925.csv`); then SSB near a voice
-  edge. Entry warnings (unusual call, possible dupe, and the rest)
-  aren't checked: a saved entry was confirmed when entered, or edited by
-  hand on purpose. COMMENT's length isn't checked either: the entry
-  form's limit (100 characters today) is just what fits in view, not a
-  rule about the data (ADIF sets no limit), and it moves whenever the
-  form's width does. If the field were later narrowed to, say, 80, every
-  saved 100-character COMMENT would be refused on load; widened, nothing
-  breaks either way. So any length loads.
+  FREQ, PWR, and DATE as numbers (FREQ in Hz, DATE as YYYYMMDD in 2000
+  to 2099, the years the entry form's YYMMDD takes, so an edit keeps the
+  year; e.g. TIME `53`, as a spreadsheet may save `0053`, is refused
+  rather than read as 05:03); each field's entry rules that refuse a
+  value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape, PARK,
+  ST, SNT and RCD against MODE, PWR's range, TIME); each value in its
+  stored form, the "Stored as" column in Entry fields: lowercase is
+  refused (`MODE 'usb' should be uppercase, like USB`), and so is any
+  other form the entry form would take, or a number written another way
+  (`PARK '1234' should be 'US-1234' in a log file`, likewise PARK
+  `US1234`, PWR `.5` or `60.0`, FREQ `014285500`); DATE matching the
+  file's name (`DATE '20260924' should match the file name,
+  20260925.csv`); then SSB near a voice edge. Entry warnings (unusual
+  call, possible dupe, and the rest) aren't checked: a saved entry was
+  confirmed when entered, or edited by hand on purpose. COMMENT's length
+  isn't checked either: the entry form's limit (100 characters today) is
+  just what fits in view, not a rule about the data (ADIF sets no
+  limit), and it moves whenever the form's width does. If the field were
+  later narrowed to, say, 80, every saved 100-character COMMENT would be
+  refused on load; widened, nothing breaks either way. So any length
+  loads.
 - Other files in `data/` (anything not named `YYYYMMDD.csv`) are ignored.
 
 ## Export

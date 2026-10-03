@@ -29,12 +29,12 @@ async def test_uses_pota_theme(app):
         assert app.theme == "pota"
 
 
-async def test_footer_shows_quit_settings_and_screenshot(app):
+async def test_footer_shows_quit_settings_edit_and_screenshot(app):
     async with app.run_test():
         shown = [
             key for key, active in app.screen.active_bindings.items() if active.binding.show
         ]
-        assert shown == ["ctrl+q", "f2", "ctrl+s"]
+        assert shown == ["ctrl+q", "f2", "f3", "ctrl+s"]
 
 
 async def test_footer_shows_terminal_size_and_follows_resize(app):
@@ -1095,6 +1095,166 @@ async def test_unreadable_row_is_skipped_with_notification(app, settings_path):
         assert [n.message for n in app._notifications] == [
             f"Skipped {path} row 2: TIME '53' should be HHMM, like 2123"
         ]
+
+
+
+# Editing
+
+LOG_HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
+K1AAA_ROW = "14285500,USB,K1AAA,US-1234,NJ,59,57,60,20260925,2100,,W1TST\n"
+K1BBB_ROW = "7030000,CW,K1BBB,US-5678,,599,579,0.5,20260925,1900,Loud,W1TST\n"
+
+
+def write_two_saved(settings_path):
+    """K1AAA then K1BBB in the log, newest first; K1BBB is the second row."""
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    path = settings_path.parent / "20260925.csv"
+    path.write_text(LOG_HEADER + K1AAA_ROW + K1BBB_ROW)
+    return path
+
+
+async def edit_row(app, pilot, row: int) -> None:
+    app.query_one("#log-table", DataTable).move_cursor(row=row)
+    await pilot.press("f3")
+
+
+async def test_f3_shows_the_highlighted_entry_to_edit(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        assert field_values(app) == {
+            "FREQ": "7.030.000",
+            "MODE": "CW",
+            "CALL": "K1BBB",
+            "PARK": "US-5678",
+            "ST": "",
+            "SNT": "599",
+            "RCD": "579",
+            "PWR": "0.5",
+            "DATE": "260925",
+            "TIME": "1900",
+            "COMMENT": "Loud",
+        }
+        form = app.query_one(EntryForm)
+        assert form.border_title == "Editing record - Esc to cancel"
+        assert app.focused.id == "field-freq"
+
+
+async def test_editing_title_takes_the_top_margins_place(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test(size=(107, 24)) as pilot:
+        comment = app.query_one("#field-comment", Input).region
+        await edit_row(app, pilot, 0)
+        assert app.query_one("#field-comment", Input).region == comment
+        strips = app.screen._compositor.render_strips()
+        # The row below the status bar, where the top margin was.
+        assert "Editing record - Esc to cancel" in "".join(seg.text for seg in strips[1])
+
+
+async def test_escape_cancels_edit_and_puts_back_the_entry_in_progress(app, settings_path):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, {"FREQ": "14.074", "CALL": "W1ABC"})
+        typed = field_values(app)
+        app.query_one("#field-call", Input).focus()
+        await edit_row(app, pilot, 1)
+        await pilot.press("escape")
+        assert field_values(app) == typed
+        assert app.query_one(EntryForm).border_title is None
+        assert app.focused.id == "field-call"
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+async def test_enter_saves_the_edit_in_place(app, settings_path):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        # Not checked against itself: an unchanged CALL is no possible dupe.
+        fill(app, {"COMMENT": "Loud, QSB"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_calls(app) == ["K1AAA", "K1BBB"]
+        assert table_rows(app)[1][-1] == "Loud, QSB"
+        assert app.query_one("#log-table", DataTable).cursor_row == 1
+        assert app.query_one(EntryForm).border_title is None
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW.replace(
+        "Loud", '"Loud, QSB"'
+    )
+
+
+async def test_edit_keeps_a_comment_longer_than_the_field_takes(app, settings_path):
+    comment = "x" * (COMMENT_LENGTH + 20)
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW.replace(",,", f",{comment},"))
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"TIME": "2105"})
+        await pilot.press("enter")
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(",,", f",{comment},").replace(
+        "2100", "2105"
+    )
+
+
+async def test_edited_session_entry_stays_marked_in_typed_place(app, settings_path):
+    async with app.run_test() as pilot:
+        for call in ["W1ABC", "K2DEF"]:
+            fill(app, ENTRY | {"CALL": call})
+            await pilot.press("enter")
+        await edit_row(app, pilot, 0)
+        fill(app, {"CALL": "N3GHI", "DATE": "260924"})
+        await pilot.press("enter")
+        assert table_calls(app) == ["N3GHI", "K2DEF"]
+        assert table_markers(app) == ["•", "•"]
+        # Back to a fresh entry, with PWR and DATE as carried forward.
+        assert field_values(app)["CALL"] == ""
+        assert field_values(app)["DATE"] == "260925"
+    # A new DATE moves it to that date's file.
+    assert "N3GHI" in (settings_path.parent / "20260924.csv").read_text()
+    assert "N3GHI" not in (settings_path.parent / "20260925.csv").read_text()
+
+
+async def test_edit_goes_through_entry_checks(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"TIME": "2460"})
+        await pilot.press("enter")
+        assert app.focused.id == "field-time"
+        assert app.query_one(EntryForm).editing is not None
+
+
+async def test_edit_that_cant_be_saved_stays_in_edit_mode(app, settings_path):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        # Edited by hand while the app was open.
+        path.write_text(LOG_HEADER + K1BBB_ROW)
+        fill(app, {"TIME": "2105"})
+        await pilot.press("enter")
+        assert list(app._notifications)[-1].message == (
+            f"Couldn't save the change: {path} no longer holds this entry as it was loaded"
+        )
+        assert app.query_one(EntryForm).editing is not None
+        assert table_calls(app) == ["K1AAA", "K1BBB"]
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW
+
+
+async def test_new_entry_is_highlighted_for_f3(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        for call in ["W1ABC", "K2DEF"]:
+            fill(app, ENTRY | {"CALL": call})
+            await pilot.press("enter")
+        assert app.query_one("#log-table", DataTable).cursor_row == 1
+        await pilot.press("f3")
+        assert field_values(app)["CALL"] == "K2DEF"
+
+
+async def test_f3_with_an_empty_log_says_so(app):
+    async with app.run_test() as pilot:
+        await pilot.press("f3")
+        assert list(app._notifications)[-1].message == "No entry to edit yet."
+        assert app.query_one(EntryForm).editing is None
 
 
 # Quitting
