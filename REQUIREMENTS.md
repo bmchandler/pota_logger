@@ -39,9 +39,10 @@ the log table (this session's entries as typed, marked `•`, above the
 saved ones newest first, with a divider between; see Log view); CSV
 storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
-value (see Storage and Settings); the status bar; the settings
-modal, with the station callsign checked like CALL and required before
-any entry is saved (see Session-level value); a light
+value, each held to exactly what the app writes, and hand-tested in Vim
+and LibreOffice Calc (see Storage and Settings); the status bar; the
+settings modal, with the station callsign checked like CALL and
+required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window. The visual layout is settled; wording tweaks
@@ -49,14 +50,6 @@ can still come up as they're noticed.
 
 To do:
 
-- Hand-test loading after editing a log file by hand (in Vim or ST4, and
-  after a spreadsheet save): a fixed row loads, a broken row is skipped
-  with a notification naming the file and row. Tried so far: a comma at
-  the start of a line, a wrong TIME, and an extra header column were
-  reported; MODE, ST, SNT, RCD, and PWR against their rules were not,
-  and now are (still to re-test by hand, along with COMMENT, and the
-  exact-form checks: spaces, lowercase, short forms, DATE against the
-  file name).
 - Later, with other visual tweaks: show notifications (errors and
   warnings) higher up, at the bottom right of the log area, above the
   Settings and Quit buttons. Their long stay is good, but stacked at the
@@ -64,17 +57,17 @@ To do:
   at the edge but unreadable, which could frustrate a newer operator.
   Textual's notifications sit in its ToastRack, which CSS can move
   (e.g. a bottom margin), a small override of stock looks.
-- After the hand test: decouple COMMENT's input limit from the log's
-  view of it (decided 2026-10-03). Today the limit is what fits in the
-  field's view (100 characters), and the log column is that same fixed
-  width, so a longer COMMENT from a file is cut off. Instead, the log's
-  COMMENT column widens to the longest COMMENT shown, so the operator
-  always sees the whole of each one, whatever the entry limit is now or
-  later (see Storage: any length loads). The input could also take a set
-  cap (e.g. 100, scrolling within the field if wider than its view). Log columns are fixed widths because DataTable
-  doesn't redraw rows already drawn when a column widens; since the log
-  is redrawn in full on each save, the width could be worked out from
-  the entries at each redraw.
+- Decouple COMMENT's input limit from the log's view of it (decided
+  2026-10-03). Today the limit is what fits in the field's view (100
+  characters), and the log column is that same fixed width, so a longer
+  COMMENT from a file is cut off. Instead, the log's COMMENT column
+  widens to the longest COMMENT shown, so the operator always sees the
+  whole of each one, whatever the entry limit is now or later (see
+  Storage: any length loads). The input could also take a set cap (e.g.
+  100, scrolling within the field if wider than its view). Log columns
+  are fixed widths because DataTable doesn't redraw rows already drawn
+  when a column widens; since the log is redrawn in full on each save,
+  the width could be worked out from the entries at each redraw.
 - After editing is built: replace the possible-dupe warning (see
   Warnings in Entry behavior) with a check for definite dupes only
   (decided 2026-10-03). In practice "possible dupe" means little. A
@@ -108,18 +101,7 @@ To do:
 
 Not built yet, in the planned order:
 
-1. Checking data files at start. Operators (especially once the app is
-   shared) may hand-edit `data/settings.toml` or the log CSVs, so at
-   start every file is checked against the same rules as entry, and the
-   operator is notified of anything wrong, naming the file and line or
-   row. One standard for all data files, extending the CSV rule in
-   Storage. Only the entry rules that refuse a value apply: warnings are
-   for the entry form only, and a value from a file is taken as meant.
-   Built, for log rows (see Storage) and `data/settings.toml` (see
-   Settings), each value held to exactly what the app writes; only the
-   hand test in To do is left. Comes before editing, so loading is a
-   safety net for the rows editing rewrites.
-2. Editing a saved entry. After storage, since its hard parts are storage
+1. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log (definite
    dupes, once they replace possible ones; see To do).
@@ -205,8 +187,8 @@ Session-level value:
 - A settings modal holds app-wide settings, starting with the station
   callsign. Future settings go there too.
 - Settings are saved in `data/settings.toml`.
-- At start, the file is checked (see "Checking data files at start" in
-  Status and plan). Invalid TOML is reported as `Couldn't read <file>:
+- At start, the file is checked like the log files (see Storage).
+  Invalid TOML is reported as `Couldn't read <file>:
   <error>`. The station callsign gets CALL's checks that refuse a value
   (plain ASCII, then its shape), with CALL's messages naming the
   `station_callsign` key: `<file>: station_callsign 'W1' doesn't look
@@ -348,11 +330,15 @@ Session-level value:
   without its line break, one is added before appending.
 - Loading accepts what a spreadsheet may add when saving: a UTF-8
   byte-order mark, `\r\n` line endings, and blank lines.
-- If a hand edit breaks loading, show an error naming the offending file and
-  row number (see "Checking data files at start" in Status and plan): a
-  wrong header row (the file is skipped), a file that isn't UTF-8 text
-  (skipped), or a row that fails a check (the row is skipped). Skipped
-  rows stay in the file, to be fixed by hand.
+- Operators (especially once the app is shared) may hand-edit the log
+  files or `data/settings.toml`, so at start every data file is checked
+  against the entry rules that refuse a value: one standard for all data
+  files (see Settings for its file). Warnings are for the entry form
+  only; a value from a file is taken as meant.
+- If a hand edit breaks loading, show an error naming the offending file
+  and row number: a wrong header row (the file is skipped), a file that
+  isn't UTF-8 text (skipped), or a row that fails a check (the row is
+  skipped). Skipped rows stay in the file, to be fixed by hand.
 - A hand edit is held to the strictest rule: every value must be
   written exactly as the app writes it, so nothing is tidied up on load.
 - A row's checks, stopping at the first problem: the number of values;
