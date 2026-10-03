@@ -123,6 +123,16 @@ Not built yet, in the planned order:
    ones: rewriting a CSV row, moving an entry to another date's file when
    DATE changes, and re-checking dupes against the saved log (definite
    dupes, once they replace possible ones; see To do).
+   Also fixing a refused log row in the app (decided 2026-10-03): until
+   editing exists, a row refused on load (spaces around a value included)
+   stays skipped until fixed by hand, and the app never tidies or
+   rewrites a log file on its own, since automatic changes to a
+   hand-edited file could make a slip worse (e.g. a stray quote that
+   joins lines). Once editing exists, a refused row that still splits
+   into the right columns loads as far as it can, ready to fix in the
+   entry form like any edit, so the operator needn't open the CSV. A row
+   too broken to split (wrong number of values, a stray quote) is still
+   fixed by hand. How such a row is shown in the log is decided then.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
