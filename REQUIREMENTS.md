@@ -75,6 +75,15 @@ To do:
   doesn't redraw rows already drawn when a column widens; since the log
   is redrawn in full on each save, the width could be worked out from
   the entries at each redraw.
+- After editing is built: replace the possible-dupe warning (see
+  Warnings in Entry behavior) with a check for definite dupes only
+  (decided 2026-10-03). In practice "possible dupe" means little. A
+  definite dupe is an entry that matches another in every column but
+  COMMENT. Nothing is ever deleted automatically to be "helpful"; how
+  the operator is told and how a dupe is resolved (on entry, and among
+  saved rows at start) are worked out once in-app editing exists, since
+  editing is likely part of resolving one. Until then, the possible-dupe
+  warning stays as it is.
 - Speed up the test suite (assessed 2026-10-01: 541 tests in about 2
   minutes). The 428 unit tests take under 2 seconds; the 113 app tests
   (`run_test`) take the rest, about 1 second each, plus about 0.1 second
@@ -112,7 +121,8 @@ Not built yet, in the planned order:
    safety net for the rows editing rewrites.
 2. Editing a saved entry. After storage, since its hard parts are storage
    ones: rewriting a CSV row, moving an entry to another date's file when
-   DATE changes, and re-checking dupes against the saved log.
+   DATE changes, and re-checking dupes against the saved log (definite
+   dupes, once they replace possible ones; see To do).
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -258,7 +268,8 @@ Session-level value:
     logged, since POTA counts that contact once. Reads `Possible dupe:
     W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
     the usual shorthand, not "duplicate"). Checks every entry in the log
-    files, plus those saved this session. Esc goes back to CALL.
+    files, plus those saved this session. Esc goes back to CALL. To be
+    replaced by a definite-dupe check after editing is built (see To do).
   - **Voice outside the voice range:** a voice signal runs outside its
     band's US voice (phone) range, using the Extra class edges (the
     widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
