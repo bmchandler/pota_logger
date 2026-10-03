@@ -64,14 +64,14 @@ To do:
   at the edge but unreadable, which could frustrate a newer operator.
   Textual's notifications sit in its ToastRack, which CSS can move
   (e.g. a bottom margin), a small override of stock looks.
-- Possible: decouple COMMENT's input limit from the log's view of it.
-  Today the limit is what fits in the field's view (100 characters), and
-  the log column is that same fixed width. Instead, the input could take
-  a set cap (e.g. 100, scrolling within the field if wider than its
-  view), while the log's COMMENT column widens to the longest COMMENT
-  shown, so the operator always sees the whole of each one, whether the
-  cap goes up or down later or a file holds a longer one (see Storage:
-  any length loads). Log columns are fixed widths because DataTable
+- After the hand test: decouple COMMENT's input limit from the log's
+  view of it (decided 2026-10-03). Today the limit is what fits in the
+  field's view (100 characters), and the log column is that same fixed
+  width, so a longer COMMENT from a file is cut off. Instead, the log's
+  COMMENT column widens to the longest COMMENT shown, so the operator
+  always sees the whole of each one, whatever the entry limit is now or
+  later (see Storage: any length loads). The input could also take a set
+  cap (e.g. 100, scrolling within the field if wider than its view). Log columns are fixed widths because DataTable
   doesn't redraw rows already drawn when a column widens; since the log
   is redrawn in full on each save, the width could be worked out from
   the entries at each redraw.
