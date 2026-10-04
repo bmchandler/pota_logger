@@ -1388,20 +1388,98 @@ async def test_edit_goes_through_entry_checks(app, settings_path):
         assert app.query_one(EntryForm).editing is not None
 
 
-async def test_edit_that_cant_be_saved_stays_in_edit_mode(app, settings_path):
+async def test_hand_edit_while_open_is_overwritten_by_the_next_save(app, settings_path):
     path = write_two_saved(settings_path)
     async with app.run_test() as pilot:
         await edit_row(app, pilot, 0)
-        # Edited by hand while the app was open.
-        path.write_text(LOG_HEADER + K1BBB_ROW)
+        # Edited by hand while the app was open: rows swapped, one changed.
+        path.write_text(LOG_HEADER + K1BBB_ROW.replace("Loud", "Hand") + K1AAA_ROW)
         fill(app, {"TIME": "2105"})
         await pilot.press("enter")
-        assert list(app._notifications)[-1].message == (
-            f"Couldn't save the change: {path} no longer holds this entry as it was loaded"
+        assert app.query_one(EntryForm).editing is None
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace("2100", "2105") + K1BBB_ROW
+
+
+def fail_to_write(monkeypatch, error=PermissionError(13, "Permission denied")):
+    """Make every log file write fail, by default for permissions."""
+
+    def replace(source, target):
+        raise error
+
+    monkeypatch.setattr("pota_logger.logbook.os.replace", replace)
+
+
+WRITE_FAILED_MESSAGE = (
+    "Couldn't save to 20260925.csv:\n"
+    "Permission Denied - Check file system\n"
+    "permissions on file.\n"
+    "Enter to try again, or Esc to go back."
+)
+
+
+async def test_write_failed_for_another_reason_says_to_close_other_programs(
+    app, monkeypatch
+):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        fail_to_write(monkeypatch, OSError(16, "Device or resource busy"))
+        await pilot.press("enter")
+        assert app.screen.message == (
+            "Couldn't save to 20260925.csv:\n"
+            "Close all programs that have the file\n"
+            "open. Changes made there will be lost, so\n"
+            "copy them somewhere first if desired.\n"
+            "Never edit a raw log during app use.\n"
+            "Enter to try again, or Esc to go back."
         )
-        assert app.query_one(EntryForm).editing is not None
-        assert table_calls(app) == ["K1AAA", "K1BBB"]
-    assert path.read_text() == LOG_HEADER + K1BBB_ROW
+
+
+async def test_failed_write_opens_modal_and_esc_keeps_the_entry_typed(
+    app, settings_path, monkeypatch
+):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        typed = field_values(app)
+        fail_to_write(monkeypatch)
+        await pilot.press("enter")
+        assert app.screen.message == WRITE_FAILED_MESSAGE
+        await pilot.press("escape")
+        assert field_values(app) == typed
+        assert table_rows(app) == []
+        assert app.query_one(EntryForm).logged == []
+    assert not (settings_path.parent / "20260925.csv").exists()
+
+
+async def test_enter_in_write_failed_modal_tries_again(app, settings_path, monkeypatch):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        fail_to_write(monkeypatch)
+        await pilot.press("enter")
+        # Still failing: the modal comes back.
+        await pilot.press("enter")
+        assert app.screen.message == WRITE_FAILED_MESSAGE
+        monkeypatch.undo()
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == [ENTRY_ROW]
+        assert field_values(app)["CALL"] == ""
+    assert "W1ABC" in (settings_path.parent / "20260925.csv").read_text()
+
+
+async def test_failed_edit_write_stays_in_edit_mode(app, settings_path, monkeypatch):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"TIME": "2105"})
+        fail_to_write(monkeypatch)
+        await pilot.press("enter")
+        assert app.screen.message == WRITE_FAILED_MESSAGE
+        await pilot.press("escape")
+        form = app.query_one(EntryForm)
+        assert form.editing is not None
+        assert field_values(app)["TIME"] == "2105"
+        assert table_markers(app) == ["", ""]
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
 
 
 async def test_new_entry_is_highlighted_but_not_selected(app, settings_path):

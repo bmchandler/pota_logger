@@ -87,11 +87,16 @@ updated in the same change whenever a rule changes.
   block, which leads to Settings), missing fields, `check_ascii` on every
   field (with `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
   unusual-CALL modal, then each of `WARNINGS` in order.
-- logbook.py holds the CSV storage: `append_entry` on each save,
-  `load_entries` at start (entries plus a message per skipped row or
-  file), and `replace_entry` for an edit (only that row's lines change).
-  The app keeps log files beside settings (`settings_path.parent`),
-  so the test fixtures' temp dir covers both.
+- logbook.py holds the CSV storage, `Logbook` (`app.logbook`): `load`
+  at start (entries plus a message per skipped row or file) keeps each
+  file's lines in `files`, the only source of truth while the app runs;
+  `append` on each save and `replace` for an edit (only that row's lines
+  change) rewrite the whole file from that copy. A failed write raises
+  `LogWriteError` with the `writes` left, which the app's `save` retries
+  from a modal (Esc: nothing saved; the form keeps the entry, as it's
+  cleared only by `EntryForm.entry_saved`). The app keeps log files
+  beside settings (`settings_path.parent`), so the test fixtures' temp
+  dir covers both.
 - Selecting and editing: the log's `CellSelected` (double-click, or
   Enter) sets `app.selected`, switches the table to a row cursor with
   the `-selected` class, and calls `EntryForm.show(entry)` (fields
@@ -99,11 +104,11 @@ updated in the same change whenever a rule changes.
   selection, or snaps back to the edited row while editing. `f3` calls
   `EntryForm.edit()`; Enter runs the usual checks, then `submit` posts
   `Edited(old, new)` instead of `Submitted`, and the app's
-  `on_entry_form_edited` saves it with `replace_entry`, then calls
+  `on_entry_form_edited` saves it with `Logbook.replace`, then calls
   `finish_edit(new)`. Esc (`action_step_back`) goes from editing to
-  selected (`finish_edit`), then to none (`EntryForm.hide`). Entries are matched by identity (`is`):
-  `session_entries`, `saved_entries`, and `EntryForm.logged` share the
-  same dicts. Every entry dict carries its `STATION_CALLSIGN`.
+  selected (`finish_edit`), then to none (`EntryForm.hide`). Entries are
+  matched by identity (`is`): `session_entries`, `saved_entries`, and
+  `EntryForm.logged` share the same dicts. Every entry dict carries its `STATION_CALLSIGN`.
 - The log table shows `session_entries` (typed order) above
   `saved_entries` (newest first), and is redrawn in full on each save
   (`show_log`), since DataTable can't insert a row mid-table.

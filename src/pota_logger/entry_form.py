@@ -181,7 +181,8 @@ class EntryForm(Vertical):
         FREQ is in Hz, PWR is watts, MODE is uppercase, PARK is a full POTA
         reference (e.g. US-0464), DATE is a date, TIME is a time, and ST is
         uppercase (possibly blank); everything else is the trimmed text as
-        entered. STATION_CALLSIGN is the one set in Settings.
+        entered. STATION_CALLSIGN is the one set in Settings. The form
+        keeps the entry until the app calls `entry_saved`, once it's saved.
         """
 
         def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:
@@ -377,8 +378,10 @@ class EntryForm(Vertical):
             self.post_message(self.Edited(self.editing, new))
             return
         values = values | {"STATION_CALLSIGN": self.app.settings.station_callsign}
-        self.logged.append(values)
         self.post_message(self.Submitted(values))
+
+    def entry_saved(self, values: dict) -> None:
+        self.logged.append(values)
         self.clear_for_next_entry()
 
     def clear_for_next_entry(self) -> None:

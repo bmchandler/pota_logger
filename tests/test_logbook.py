@@ -1,9 +1,11 @@
+import os
 from datetime import date, time
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
-from pota_logger.logbook import append_entry, load_entries, replace_entry
+from pota_logger.logbook import Logbook, LogWriteError
 
 HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
 
@@ -27,6 +29,25 @@ ROW = "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,,W1TST\n"
 @pytest.fixture
 def log_dir(tmp_path):
     return tmp_path / "data"
+
+
+def loaded(log_dir) -> Logbook:
+    book = Logbook(log_dir)
+    book.load()
+    return book
+
+
+# Each as the app does it on a fresh start.
+def load_entries(log_dir):
+    return Logbook(log_dir).load()
+
+
+def append_entry(log_dir, values, station_callsign):
+    loaded(log_dir).append(values | {"STATION_CALLSIGN": station_callsign})
+
+
+def replace_entry(log_dir, old, new):
+    loaded(log_dir).replace(old, new)
 
 
 def write_log(log_dir, name, text):
@@ -273,11 +294,102 @@ def test_new_date_moves_the_row_to_that_dates_file(log_dir):
 
 
 def test_missing_row_changes_nothing(log_dir):
-    # E.g. the file was edited by hand while the app was open.
     write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW)
-    with pytest.raises(ValueError, match="no longer holds this entry as it was loaded"):
+    with pytest.raises(ValueError, match="doesn't hold this entry"):
         replace_entry(log_dir, SAVED, SAVED | {"DATE": date(2026, 9, 26)})
     assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
-    assert not (log_dir / "20260926.csv").exists()
     assert sorted(path.name for path in log_dir.iterdir()) == ["20260925.csv"]
 
+
+# The app's copy of the files, as the only source of truth while it runs
+
+
+def test_change_by_another_program_is_overwritten_on_append(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW)
+    book = loaded(log_dir)
+    write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW)
+    book.append(SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW + ROW.replace(",W1ABC,", ",N3GHI,")
+    )
+
+
+def test_change_saves_even_if_the_row_moved_in_the_file(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW + OTHER_ROW)
+    book = loaded(log_dir)
+    write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW + ROW)
+    book.replace(SAVED, SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW.replace(",W1ABC,", ",N3GHI,") + OTHER_ROW
+    )
+
+
+def test_refused_rows_and_files_are_kept_when_saving(log_dir):
+    refused = ROW.replace(",1953,", ",53,")
+    write_log(log_dir, "20260925.csv", HEADER + refused + ROW)
+    write_log(log_dir, "20260926.csv", "not a header\n")
+    book = loaded(log_dir)
+    book.replace(SAVED, SAVED | {"CALL": "N3GHI"})
+    book.append(SAVED | {"DATE": date(2026, 9, 26)})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + refused + ROW.replace(",W1ABC,", ",N3GHI,")
+    )
+    assert (log_dir / "20260926.csv").read_text() == (
+        "not a header\n" + ROW.replace("20260925", "20260926")
+    )
+
+
+def test_non_utf8_file_isnt_saved_to(log_dir):
+    original = (HEADER + ROW).encode() + b"caf\xe9\n"
+    log_dir.mkdir(parents=True)
+    (log_dir / "20260925.csv").write_bytes(original)
+    with pytest.raises(ValueError, match="isn't plain text"):
+        append_entry(log_dir, ENTRY, "W1TST")
+    assert (log_dir / "20260925.csv").read_bytes() == original
+
+
+def fail_to_write(monkeypatch, name):
+    """Make writing the file called `name` fail, as if it were locked."""
+    real_replace = os.replace
+
+    def replace(source, target):
+        if Path(target).name == name:
+            raise PermissionError(13, "Permission denied")
+        real_replace(source, target)
+
+    monkeypatch.setattr("pota_logger.logbook.os.replace", replace)
+
+
+def test_failed_write_changes_nothing_and_can_be_tried_again(log_dir, monkeypatch):
+    write_log(log_dir, "20260925.csv", HEADER + ROW)
+    book = loaded(log_dir)
+    fail_to_write(monkeypatch, "20260925.csv")
+    with pytest.raises(LogWriteError) as caught:
+        book.append(SAVED | {"CALL": "N3GHI"})
+    assert caught.value.path == log_dir / "20260925.csv"
+    assert caught.value.error.strerror == "Permission denied"
+    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW
+    assert book.files[log_dir / "20260925.csv"] == ("", [HEADER, ROW])
+    # No temporary file left behind.
+    assert sorted(path.name for path in log_dir.iterdir()) == ["20260925.csv"]
+    monkeypatch.undo()
+    book.write(caught.value.writes)
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW + ROW.replace(",W1ABC,", ",N3GHI,")
+    )
+
+
+def test_failed_move_tries_again_only_whats_left(log_dir, monkeypatch):
+    # Added to the new date's file, then the old file can't be written:
+    # trying again doesn't add it twice.
+    write_log(log_dir, "20260925.csv", HEADER + ROW + OTHER_ROW)
+    book = loaded(log_dir)
+    fail_to_write(monkeypatch, "20260925.csv")
+    with pytest.raises(LogWriteError) as caught:
+        book.replace(SAVED, SAVED | {"DATE": date(2026, 9, 26)})
+    monkeypatch.undo()
+    book.write(caught.value.writes)
+    assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
+    assert (log_dir / "20260926.csv").read_text() == (
+        HEADER + ROW.replace("20260925", "20260926")
+    )

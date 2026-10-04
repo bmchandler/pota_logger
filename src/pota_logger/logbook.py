@@ -41,79 +41,162 @@ def to_row(values: dict, station_callsign: str) -> list[str]:
     return [stored[name] for name in COLUMNS]
 
 
-def append_entry(log_dir: Path, values: dict, station_callsign: str) -> None:
-    """Append an entry to the file for its DATE, with a header if it's new."""
-    path = log_path(log_dir, values["DATE"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing = path.read_bytes() if path.exists() else b""
-    is_new = not existing
-    # A hand edit may leave the last line without its line break, which
-    # would join the new row onto it.
-    needs_break = not is_new and not existing.endswith(b"\n")
-    # "\n" line endings, so the file reads cleanly in any text editor.
-    with path.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, lineterminator="\n")
-        if is_new:
-            writer.writerow(COLUMNS)
-        if needs_break:
-            f.write("\n")
-        writer.writerow(to_row(values, station_callsign))
+BOM = "\ufeff"
 
 
-BOM = "﻿"
-
-
-def find_row(path: Path, row: list[str]) -> tuple[str, list[str], int, int]:
-    """Find the first line(s) holding `row` below the header: the file's
-    byte-order mark (if any), its lines with their endings, and the
-    matched row's start and end line indexes. Raises ValueError if it
-    isn't there, e.g. after a hand edit while the app was open.
+def row_line(row: list[str], ending: str = "\n") -> str:
+    """A CSV row as a line of text; a COMMENT with a comma or quote is
+    quoted. "\n" line endings, so the file reads cleanly in any text editor.
     """
-    text = path.read_bytes().decode("utf-8")
-    bom = BOM if text.startswith(BOM) else ""
-    # newline="": split on \n, \r\n, or \r, as reading a log does, and keep
-    # each line's ending, so lines that aren't touched stay exactly as they
-    # were. A quoted COMMENT may span lines, so csv tells which lines make
-    # up each row.
-    lines = list(io.StringIO(text.removeprefix(BOM), newline=""))
+    text = io.StringIO()
+    csv.writer(text, lineterminator=ending).writerow(row)
+    return text.getvalue()
+
+
+def find_row(path: Path, lines: list[str], row: list[str]) -> tuple[int, int]:
+    """Find the first line(s) holding `row` below the header: the matched
+    row's start and end line indexes. A quoted COMMENT may span lines, so
+    csv tells which lines make up each row. Raises ValueError if it isn't
+    there.
+    """
     reader = csv.reader(lines)
     start = 0
     for found in reader:
         if found == row and start > 0:
-            return bom, lines, start, reader.line_num
+            return start, reader.line_num
         start = reader.line_num
-    raise ValueError(f"{path} no longer holds this entry as it was loaded")
+    raise ValueError(f"{path} doesn't hold this entry")
 
 
 def write_lines(path: Path, bom: str, lines: list[str]) -> None:
     """Write a log file through a temporary file swapped in at the end, so
     a crash midway can't leave it half-written.
     """
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_bytes((bom + "".join(lines)).encode("utf-8"))
-    os.replace(temporary, path)
+    try:
+        temporary.write_bytes((bom + "".join(lines)).encode("utf-8"))
+        os.replace(temporary, path)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
-def replace_entry(log_dir: Path, old: dict, new: dict) -> None:
-    """Change a saved entry's row from `old` to `new` (each with its
-    STATION_CALLSIGN), touching no other line of the file. When DATE
-    changes, `new` is appended to its date's file before `old` is removed
-    from its own, so a crash between the two leaves a dupe, not a loss.
+# A file's new contents, to write: its path, byte-order mark (if any), and
+# lines.
+Write = tuple[Path, str, list[str]]
+
+
+class LogWriteError(Exception):
+    """A log file couldn't be written. `writes` are the ones not done yet,
+    that one first, for `Logbook.write` to try again.
     """
-    path = log_path(log_dir, old["DATE"])
-    bom, lines, start, end = find_row(path, to_row(old, old["STATION_CALLSIGN"]))
-    if new["DATE"] != old["DATE"]:
-        append_entry(log_dir, new, new["STATION_CALLSIGN"])
-        replacement = []
-    else:
-        # The row keeps its old line ending (or none, as the last line).
-        ending = lines[end - 1][len(lines[end - 1].rstrip("\r\n")) :]
-        text = io.StringIO()
-        csv.writer(text, lineterminator=ending).writerow(
-            to_row(new, new["STATION_CALLSIGN"])
-        )
-        replacement = [text.getvalue()]
-    write_lines(path, bom, lines[:start] + replacement + lines[end:])
+
+    def __init__(self, path: Path, error: OSError, writes: list[Write]) -> None:
+        super().__init__(f"{path}: {error}")
+        self.path = path
+        self.error = error
+        self.writes = writes
+
+
+class Logbook:
+    """The log files in `log_dir`, as the app's own copy of each one's lines
+    (refused rows included), loaded at start. Every save changes that copy
+    and writes the whole file from it, so a change made to a file by
+    another program while the app runs is overwritten, never merged.
+    """
+
+    def __init__(self, log_dir: Path) -> None:
+        self.log_dir = log_dir
+        # Each file's byte-order mark (if any) and lines, with their endings.
+        self.files: dict[Path, tuple[str, list[str]]] = {}
+        # Files that aren't UTF-8 text, so they can't be kept as lines.
+        self.unreadable: set[Path] = set()
+
+    def write(self, writes: list[Write]) -> None:
+        """Write each file in turn, keeping each as the app's copy once
+        written. Raises LogWriteError at the first that can't be.
+        """
+        for index, (path, bom, lines) in enumerate(writes):
+            try:
+                write_lines(path, bom, lines)
+            except OSError as error:
+                raise LogWriteError(path, error, writes[index:]) from error
+            self.files[path] = (bom, lines)
+
+    def appended(self, values: dict) -> Write:
+        """The file for an entry's DATE with the entry added at the end,
+        and a header first if the file is new or empty.
+        """
+        path = log_path(self.log_dir, values["DATE"])
+        if path in self.unreadable:
+            raise ValueError(f"{path} isn't plain text (UTF-8), so it's left for a fix by hand")
+        bom, lines = self.files.get(path, ("", []))
+        lines = list(lines) or [row_line(COLUMNS)]
+        # A hand edit may leave the last line without its line break, which
+        # would join the new row onto it.
+        if not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += "\n"
+        lines.append(row_line(to_row(values, values["STATION_CALLSIGN"])))
+        return path, bom, lines
+
+    def append(self, values: dict) -> None:
+        """Add an entry (with its STATION_CALLSIGN) to its DATE's file."""
+        self.write([self.appended(values)])
+
+    def replace(self, old: dict, new: dict) -> None:
+        """Change a saved entry's row from `old` to `new` (each with its
+        STATION_CALLSIGN), touching no other line of the file. When DATE
+        changes, `new` is added to its date's file before `old` is removed
+        from its own, so a crash between the two leaves a dupe, not a loss.
+        """
+        path = log_path(self.log_dir, old["DATE"])
+        if path not in self.files:
+            raise ValueError(f"{path} doesn't hold this entry")
+        bom, lines = self.files[path]
+        start, end = find_row(path, lines, to_row(old, old["STATION_CALLSIGN"]))
+        if new["DATE"] != old["DATE"]:
+            writes = [self.appended(new), (path, bom, lines[:start] + lines[end:])]
+        else:
+            # The row keeps its old line ending (or none, as the last line).
+            ending = lines[end - 1][len(lines[end - 1].rstrip("\r\n")) :]
+            replacement = row_line(to_row(new, new["STATION_CALLSIGN"]), ending)
+            writes = [(path, bom, lines[:start] + [replacement] + lines[end:])]
+        self.write(writes)
+
+    def load(self) -> tuple[list[dict], list[str]]:
+        """Every entry in the log files, oldest file first, and a message
+        for each row (or file) that couldn't be read, naming the file and
+        row. Rows that can't be read are skipped, but kept in the app's
+        copy of the file.
+        """
+        entries, problems = [], []
+        for path in sorted(self.log_dir.glob(LOG_FILE_PATTERN)):
+            try:
+                text = path.read_bytes().decode("utf-8")
+            except UnicodeDecodeError:
+                self.unreadable.add(path)
+                problems.append(f"{path}: isn't plain text (UTF-8)")
+                continue
+            # A spreadsheet may add a byte-order mark when saving.
+            bom = BOM if text.startswith(BOM) else ""
+            # newline="": split on \n, \r\n, or \r, keeping each line's
+            # ending, so lines that aren't touched stay exactly as they were.
+            lines = list(io.StringIO(text.removeprefix(BOM), newline=""))
+            self.files[path] = (bom, lines)
+            reader = csv.reader(lines)
+            header = next(reader, None)
+            if header != COLUMNS:
+                problems.append(f"{path} row 1: header should be {','.join(COLUMNS)}")
+                continue
+            for row in reader:
+                if not row:  # a blank line, e.g. left at the end by an editor
+                    continue
+                try:
+                    entries.append(from_row(row, path.stem))
+                except ValueError as error:
+                    problems.append(f"{path} row {reader.line_num}: {error}")
+        return entries, problems
 
 
 # Conversions back from stored text, strict enough not to misread a value
@@ -209,34 +292,3 @@ def from_row(row: list[str], file_date: str) -> dict:
         raise ValueError(f"DATE {day!r} should match the file name, {file_date}.csv")
     check_sideband(values["FREQ"], values["MODE"])
     return values
-
-
-def load_entries(log_dir: Path) -> tuple[list[dict], list[str]]:
-    """Every entry in the log files, oldest file first, and a message for
-    each row (or file) that couldn't be read, naming the file and row.
-    Rows that can't be read are skipped; the file itself is left as is.
-    """
-    entries, problems = [], []
-    for path in sorted(log_dir.glob(LOG_FILE_PATTERN)):
-        # utf-8-sig: a spreadsheet may add a byte-order mark when saving.
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            reader = csv.reader(f)
-            file_entries, file_problems = [], []
-            try:
-                header = next(reader, None)
-                if header != COLUMNS:
-                    problems.append(f"{path} row 1: header should be {','.join(COLUMNS)}")
-                    continue
-                for row in reader:
-                    if not row:  # a blank line, e.g. left at the end by an editor
-                        continue
-                    try:
-                        file_entries.append(from_row(row, path.stem))
-                    except ValueError as error:
-                        file_problems.append(f"{path} row {reader.line_num}: {error}")
-            except UnicodeDecodeError:
-                problems.append(f"{path}: isn't plain text (UTF-8)")
-                continue
-            entries.extend(file_entries)
-            problems.extend(file_problems)
-    return entries, problems

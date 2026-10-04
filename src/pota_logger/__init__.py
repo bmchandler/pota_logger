@@ -11,7 +11,7 @@ from textual.widgets import Button, DataTable, Footer, Static
 from pota_logger.dates import format_date, format_time
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
-from pota_logger.logbook import append_entry, load_entries, replace_entry
+from pota_logger.logbook import Logbook, LogWriteError
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.power import format_power
 from pota_logger.settings import (
@@ -67,6 +67,24 @@ DIVIDER_STYLE = "overline"
 
 # f3 with no log row selected.
 SELECT_FIRST = "Double-click a record or press Enter when log area has focus first."
+
+# When a log file can't be written: Enter tries again, Esc goes back with
+# nothing saved. One message when permissions are at fault, the other for
+# anything else, most likely another program holding the file.
+WRITE_FAILED_PERMISSION = (
+    "Couldn't save to {name}:\n"
+    "Permission Denied - Check file system\n"
+    "permissions on file.\n"
+    "Enter to try again, or Esc to go back."
+)
+WRITE_FAILED = (
+    "Couldn't save to {name}:\n"
+    "Close all programs that have the file\n"
+    "open. Changes made there will be lost, so\n"
+    "copy them somewhere first if desired.\n"
+    "Never edit a raw log during app use.\n"
+    "Enter to try again, or Esc to go back."
+)
 
 # Shown, as a block, while no station callsign is set: at start, on Enter
 # in the form, and when Settings is left without one.
@@ -154,7 +172,7 @@ class PotaLoggerApp(App):
         self.theme = POTA_THEME.name
         self.settings_path = settings_path
         # Log files sit beside the settings, in data/.
-        self.log_dir = settings_path.parent
+        self.logbook = Logbook(settings_path.parent)
         self.settings_error: str | None = None
         # A refused station callsign from the file, shown in Settings to
         # correct (most likely a slip) until a call is saved.
@@ -196,7 +214,7 @@ class PotaLoggerApp(App):
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
-        entries, problems = load_entries(self.log_dir)
+        entries, problems = self.logbook.load()
         self.query_one(EntryForm).logged.extend(entries)
         # Saved entries newest first; entries typed this session go above
         # them in the order typed, to check against the paper log.
@@ -214,14 +232,44 @@ class PotaLoggerApp(App):
         if not self.settings.station_callsign:
             self.require_station_callsign()
 
-    def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
+    def save(self, write, saved, failed: str) -> None:
+        """Run `write` (a Logbook change), then `saved` once it's written. If
+        a file can't be written, a modal offers to try again; Esc leaves
+        things as they were (the entry still in the form). A `failed`
+        notification covers anything else that stops the save.
+        """
         try:
-            append_entry(self.log_dir, event.values, event.values["STATION_CALLSIGN"])
-        except OSError as error:
-            self.notify(
-                f"Couldn't save the entry to a file: {error}", severity="error", timeout=30
-            )
-        self.session_entries.append(event.values)
+            write()
+        except LogWriteError as error:
+            message = (
+                WRITE_FAILED_PERMISSION
+                if isinstance(error.error, PermissionError)
+                else WRITE_FAILED
+            ).format(name=error.path.name)
+            # `error` itself is cleared when this block ends.
+            writes = error.writes
+
+            def try_again(retry: bool) -> None:
+                if retry:
+                    self.save(lambda: self.logbook.write(writes), saved, failed)
+
+            # No id: trying again may open the next one before this one's gone.
+            self.push_screen(WarningScreen(message, confirm_label="Try again"), try_again)
+        except ValueError as error:
+            self.notify(f"{failed}: {error}", severity="error", timeout=30)
+        else:
+            saved()
+
+    def on_entry_form_submitted(self, event: EntryForm.Submitted) -> None:
+        self.save(
+            lambda: self.logbook.append(event.values),
+            lambda: self.entry_saved(event.values),
+            "Couldn't save the entry",
+        )
+
+    def entry_saved(self, values: dict) -> None:
+        self.query_one(EntryForm).entry_saved(values)
+        self.session_entries.append(values)
         self.show_log()
         # Highlighted, so f3 edits the entry just typed. scroll_to_row
         # brings it into view.
@@ -299,12 +347,15 @@ class PotaLoggerApp(App):
         form.hide()
 
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
-        try:
-            replace_entry(self.log_dir, event.old, event.new)
-        except (OSError, ValueError) as error:
-            # The form stays in edit mode, to try again or cancel.
-            self.notify(f"Couldn't save the change: {error}", severity="error", timeout=30)
-            return
+        # Until it's saved, the form stays in edit mode, to try again or
+        # cancel.
+        self.save(
+            lambda: self.logbook.replace(event.old, event.new),
+            lambda: self.edit_saved(event),
+            "Couldn't save the change",
+        )
+
+    def edit_saved(self, event: EntryForm.Edited) -> None:
         # The entry keeps its place in the log until the next start, even if
         # DATE or TIME changed, and stays selected.
         form = self.query_one(EntryForm)

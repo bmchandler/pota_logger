@@ -41,7 +41,8 @@ this session marked `✎`; see Log view); CSV
 storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
 value, each held to exactly what the app writes, and hand-tested in Vim
-and LibreOffice Calc (see Storage and Settings); the status bar; the
+and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
+while it runs, the only source of truth for the log files; the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -99,29 +100,14 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. The app as the only source of truth for log files while it runs. It
-   keeps each file's lines as loaded (refused rows included) and writes
-   every save from that copy, so a change made to a log file by another
-   program while the app is open is overwritten, never merged, and a
-   save isn't refused because a row moved (as it is now). Other programs
-   and scripts may read the files while the app runs; edits belong
-   before or after.
-   - If a file can't be written, an error modal names it, says it's in
-     use by another program and should be closed, and that changes made
-     in that program will be lost (so they can be copied somewhere
-     first).
-   - No checking for other programs' lock or swap files. On Linux an
-     open file is rarely locked, so the app's write usually succeeds; if
-     an editor or spreadsheet then saves over it, that's left to the
-     operator.
-2. Deleting an entry. `f4 Delete` deletes the selected row, after a
+1. Deleting an entry. `f4 Delete` deletes the selected row, after a
    confirm modal that takes Enter twice (the modal says so), so a quick
    delete still works but one stray Enter doesn't. Esc cancels. Gone is
    gone: no trash file or undo; backups are the operator's (e.g. a
    scheduled backup, or git in `data/`).
    Afterwards nothing is selected, and the form is ready for a new
    entry.
-3. Fixing a refused log row in the app (decided 2026-10-03). A row
+2. Fixing a refused log row in the app (decided 2026-10-03). A row
    refused on load that still splits into the right columns shows in
    the log with its values as they are in the file and an error marker
    (e.g. `!`) in the status column, besides the notification at start.
@@ -132,7 +118,7 @@ record.
    automatic changes to a hand-edited file could make a slip worse (e.g.
    a stray quote that joins lines). Open: where refused rows sort, as
    their DATE or TIME may not read.
-4. Definite dupes, replacing the possible-dupe warning. A definite dupe
+3. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT; "possible dupe"
    meant little in practice. Nothing is ever deleted automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
@@ -366,10 +352,6 @@ Session-level value:
   moves the entry to that date's file: it's added there first, then
   removed from the old one, so a crash in between leaves a dupe rather
   than losing it.
-- If its row isn't in its file as loaded (edited by hand while the app
-  was open), nothing is saved: `Couldn't save the change: <file> no
-  longer holds this entry as it was loaded`, and the form stays in edit
-  mode, to cancel or try again after a restart.
 - A COMMENT longer than the field takes (from a file) is kept whole: it
   can be shortened, but nothing can be added to it.
 
@@ -423,8 +405,32 @@ Session-level value:
   full timestamp is its DATE plus its TIME, and it's stored in the file named
   for its DATE.
 - Files should stay readable and editable by hand.
-- Each entry is appended to its date's file when saved (Enter), and every
+- Each entry is added to its date's file when saved (Enter), and every
   log file is loaded at start. A new file starts with the header row.
+- While it runs, the app is the only source of truth for the log files.
+  It keeps each file's lines as loaded (refused rows and files with a
+  wrong header included) and writes every save from that copy, the whole
+  file through a temporary file swapped in. So a change made to a log
+  file by another program while the app is open is overwritten, never
+  merged, and an edit saves even if its row moved in the file. Other
+  programs and scripts may read the files while the app runs; edits
+  belong before or after. There's no checking for other programs' lock
+  or swap files: on Linux an open file is rarely locked, so the app's
+  write usually succeeds; if an editor or spreadsheet then saves over
+  it, that's left to the operator.
+- A file that isn't UTF-8 text isn't kept, so nothing is saved to it
+  (`Couldn't save the entry: <file> isn't plain text (UTF-8), so it's
+  left for a fix by hand`); the entry stays in the form.
+- If a file can't be written, nothing changes and a modal says so:
+  `Couldn't save to 20260925.csv:`, then for a permissions error
+  `Permission Denied - Check file system permissions on file.`, or for
+  anything else `Close all programs that have the file open. Changes
+  made there will be lost, so copy them somewhere first if desired.
+  Never edit a raw log during app use.`, and last `Enter to try again,
+  or Esc to go back.` Esc leaves a new entry typed
+  in the form, or an edit in edit mode. When an edit moves an entry to
+  another date's file and only the old file fails, trying again finishes
+  just that part; given up, both files hold it (a dupe, not a loss).
 - Written with `\n` line endings; a COMMENT with a comma or quote is
   quoted, CSV style (`"Nice, loud"`). If a hand edit left the last line
   without its line break, one is added before appending.
