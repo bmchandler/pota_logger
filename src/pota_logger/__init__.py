@@ -46,6 +46,10 @@ DISPLAY_LENGTHS = {
 # header. Kept to one character so the column can later show other states.
 SESSION_MARKER = "•"
 
+# Marks saved entries (from the log files at start) edited this session.
+# Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
+EDITED_MARKER = "✎"
+
 # The log's columns, (label, width): the marker, then the fields. Fixed
 # widths: DataTable doesn't redraw rows it already drew when an auto-width
 # column widens, which left the first entry truncated.
@@ -200,6 +204,8 @@ class PotaLoggerApp(App):
             entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
         )
         self.session_entries: list[dict] = []
+        # Saved entries edited this session, marked in the log.
+        self.edited_entries: list[dict] = []
         # The entry whose log row is selected, shown in the form.
         self.selected: dict | None = None
         self.show_log()
@@ -302,7 +308,17 @@ class PotaLoggerApp(App):
         # The entry keeps its place in the log until the next start, even if
         # DATE or TIME changed, and stays selected.
         form = self.query_one(EntryForm)
-        for entries in (self.session_entries, self.saved_entries, form.logged):
+        # Marked edited once; edited again, the mark carries over below.
+        if any(entry is event.old for entry in self.saved_entries) and not any(
+            entry is event.old for entry in self.edited_entries
+        ):
+            self.edited_entries.append(event.old)
+        for entries in (
+            self.session_entries,
+            self.saved_entries,
+            self.edited_entries,
+            form.logged,
+        ):
             for index, entry in enumerate(entries):
                 if entry is event.old:
                     entries[index] = event.new
@@ -318,9 +334,15 @@ class PotaLoggerApp(App):
         # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
         table.clear()
-        saved_rows = [log_row(entry) for entry in self.saved_entries]
-        if self.session_entries and saved_rows:
-            saved_rows[0] = log_row(self.saved_entries[0], style=DIVIDER_STYLE)
+        saved_rows = [
+            log_row(
+                entry,
+                EDITED_MARKER if any(entry is edited for edited in self.edited_entries) else "",
+                # The divider, over the first saved row.
+                DIVIDER_STYLE if self.session_entries and index == 0 else "",
+            )
+            for index, entry in enumerate(self.saved_entries)
+        ]
         table.add_rows(
             [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
         )

@@ -108,8 +108,9 @@ updated in the same change whenever a rule changes.
   `saved_entries` (newest first), and is redrawn in full on each save
   (`show_log`), since DataTable can't insert a row mid-table.
   Its first column, with no header, is the status marker
-  (`SESSION_MARKER` on session entries); tests' `table_rows` leaves it
-  out (and strips padding), and `table_markers` reads it. When there
+  (`SESSION_MARKER` on session entries, `EDITED_MARKER` on saved ones in
+  `edited_entries`); tests' `table_rows` leaves it out (and strips
+  padding), and `table_markers` reads it. When there
   are session entries, the first saved row is overlined as a divider
   (`DIVIDER_STYLE`).
 - Log cells are Rich `Text` built by `log_cell`, padded a space each

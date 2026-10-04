@@ -1310,6 +1310,41 @@ async def test_enter_saves_the_edit_in_place_and_stays_selected(app, settings_pa
     )
 
 
+async def test_edited_saved_entry_is_marked(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        fill(app, {"COMMENT": "Loud, QSB"})
+        await pilot.press("enter")
+        assert table_markers(app) == ["", "✎"]
+        # Edited again, it stays marked once.
+        await pilot.press("f3")
+        fill(app, {"COMMENT": "Loud"})
+        await pilot.press("enter")
+        assert table_markers(app) == ["", "✎"]
+        assert len(app.edited_entries) == 1
+
+
+async def test_edit_mark_and_divider_share_the_first_saved_row(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        await edit_row(app, pilot, 1)
+        fill(app, {"COMMENT": "QSB"})
+        await pilot.press("enter")
+        assert table_markers(app) == ["•", "✎", ""]
+        assert divider_rows(app) == [1]
+
+
+async def test_cancelled_edit_leaves_no_mark(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        await pilot.press("escape")
+        assert table_markers(app) == ["", ""]
+
+
 async def test_edit_keeps_a_comment_longer_than_the_field_takes(app, settings_path):
     comment = "x" * (COMMENT_LENGTH + 20)
     path = write_two_saved(settings_path)

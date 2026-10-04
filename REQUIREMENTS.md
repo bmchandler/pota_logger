@@ -36,7 +36,8 @@ Future (not now):
 Built: the entry form with every planned field (COMMENT included), its
 field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
 the log table (this session's entries as typed, marked `•`, above the
-saved ones newest first, with a divider between; see Log view); CSV
+saved ones newest first, with a divider between, and saved ones edited
+this session marked `✎`; see Log view); CSV
 storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
 value, each held to exactly what the app writes, and hand-tested in Vim
@@ -98,10 +99,7 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Marking edited rows. A row that was saved before the app started and
-   is edited is marked `✎` in the status column (this session only, like
-   `•`); this session's entries keep `•`.
-2. The app as the only source of truth for log files while it runs. It
+1. The app as the only source of truth for log files while it runs. It
    keeps each file's lines as loaded (refused rows included) and writes
    every save from that copy, so a change made to a log file by another
    program while the app is open is overwritten, never merged, and a
@@ -116,14 +114,14 @@ record.
      open file is rarely locked, so the app's write usually succeeds; if
      an editor or spreadsheet then saves over it, that's left to the
      operator.
-3. Deleting an entry. `f4 Delete` deletes the selected row, after a
+2. Deleting an entry. `f4 Delete` deletes the selected row, after a
    confirm modal that takes Enter twice (the modal says so), so a quick
    delete still works but one stray Enter doesn't. Esc cancels. Gone is
    gone: no trash file or undo; backups are the operator's (e.g. a
    scheduled backup, or git in `data/`).
    Afterwards nothing is selected, and the form is ready for a new
    entry.
-4. Fixing a refused log row in the app (decided 2026-10-03). A row
+3. Fixing a refused log row in the app (decided 2026-10-03). A row
    refused on load that still splits into the right columns shows in
    the log with its values as they are in the file and an error marker
    (e.g. `!`) in the status column, besides the notification at start.
@@ -134,7 +132,7 @@ record.
    automatic changes to a hand-edited file could make a slip worse (e.g.
    a stray quote that joins lines). Open: where refused rows sort, as
    their DATE or TIME may not read.
-5. Definite dupes, replacing the possible-dupe warning. A definite dupe
+4. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT; "possible dupe"
    meant little in practice. Nothing is ever deleted automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
@@ -357,8 +355,9 @@ Session-level value:
   no row selected, with the form's entry put aside back, and focus on the
   field last typed in.
 - A saved edit stays on its row, selected, and keeps its place in the log
-  until the next start, even if DATE or TIME changed; this session's
-  entries keep their `•`. It keeps the station callsign it was logged
+  until the next start, even if DATE or TIME changed. A saved entry
+  (from the log files at start) is marked `✎` once edited; this
+  session's entries keep their `•`. It keeps the station callsign it was logged
   with.
 - In its file, only its row changes; every other line stays exactly as
   it was (refused rows, and a spreadsheet's `\r\n` endings or byte-order
@@ -383,10 +382,11 @@ Session-level value:
   so the form stays ready for the next entry; Tab into the log and Enter
   selects it (see Editing).
 - The log's first column, with no header, holds a one-character status
-  marker. For now, `•` marks entries typed this session; it isn't saved,
-  so it's gone on the next start. The column moves with its row when the
-  log is sorted, so the marks survive a Sort. Later it may show other
-  states, like an entry not yet uploaded to QRZ.
+  marker. `•` marks entries typed this session, and `✎` saved entries
+  edited this session; neither is saved, so they're gone on the next
+  start. The column moves with its row when the log is sorted, so the
+  marks survive a Sort. Later it may show other states, like an entry
+  not yet uploaded to QRZ.
 - Below them, the saved entries (from the log files at start) are shown
   newest first by UTC timestamp (DATE, then TIME). Entries with the same
   timestamp keep their file order. On the next start, this session's
