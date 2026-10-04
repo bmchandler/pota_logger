@@ -101,9 +101,63 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Definite dupes, replacing the possible-dupe warning. A definite dupe
-   matches another entry in every column but COMMENT; "possible dupe"
-   meant little in practice. Nothing is ever deleted automatically.
+1. Record IDs (decided 2026-10-04). Each log row gets a UUID (version 4,
+   random) that never changes, so the app can tell one record saved
+   twice from two contacts that look alike.
+   - Why: an edit that changes DATE is two writes (added to the new
+     date's file, then removed from the old one). If the second write
+     fails and the operator gives up, or the app dies between the two,
+     both files hold the entry: its before and after, differing in DATE,
+     so a definite-dupe check misses it. And a bug in the current build
+     (found 2026-10-04): if the second write fails, Esc on the modal,
+     then Enter on the edit still open, the edit starts over and adds
+     the row to the new date's file a second time, an exact dupe the app
+     made itself and the log doesn't show until the next start. (Enter
+     on the modal, to try again, is fine: it finishes just the second
+     write.) A stopgap fix without IDs was considered and dropped, as
+     IDs come next and fix it more simply.
+   - The column is `UUIDv4`; its place is settled when built (e.g.
+     last). A new entry gets a fresh ID when saved; an edit, a DATE move
+     included, keeps it.
+   - Adding a row is skipped when its ID is already in that file, so
+     saving again after a failed write can't add it twice. Test: a DATE
+     move whose second write fails, then the edit saved again, leaves
+     one row in the new file.
+   - At start, rows sharing an ID are marked in the status column: the
+     same in every column (a row copied, a file merged twice) or not (an
+     unfinished move, or two versions of one record). Which to keep is
+     the operator's call, with edit or delete; nothing is resolved
+     automatically.
+   - A blank ID (a row added by hand) is filled in with a new one, and
+     the file is rewritten with it, at start. This is the one exception
+     to the app never tidying a log file on its own: an ID can't be
+     fixed in the app (it has no field) and is tedious and error-prone
+     to make by hand. Every other problem, e.g. a STATION_CALLSIGN that
+     doesn't read, is still refused and shown for the operator to fix.
+   - An ID that isn't blank must be a UUID as the app writes it, or the
+     row is refused, like any other value. A typo that still leaves a
+     valid UUID makes the row look like a new record; that isn't caught.
+   - The ID stays in the CSV and isn't exported to ADIF. If ADIF import
+     ever needs to match records already logged, it would go in an
+     `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own
+     data.
+   - No upgrade of existing files: before the first release, `data/` is
+     cleared as needed.
+   - Considered instead: a journal file noting each move until it's done
+     (repairs on its own at start, but a second file and more startup
+     logic); one file per year (a move is one write, but gives up daily
+     files); and a possible-dupe warning across nearby dates (false
+     alarms on real contacts alike in every field). UUID version 7 or a
+     ULID would sort by when the entry was typed, which means little for
+     entries copied from paper later. Version 4's 122 random bits make
+     a chance collision negligible, even across merged files.
+   - Open, to settle when built: when a blank ID is filled in but the
+     file can't be written (the same modal as a save, or a
+     notification); whether a refused row with a blank ID gets one too.
+2. Definite dupes, replacing the possible-dupe warning. A definite dupe
+   matches another entry in every column but COMMENT and `UUIDv4`;
+   "possible dupe" meant little in practice. Nothing is ever deleted
+   automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
      is already logged, and to edit that one instead (e.g. to add to its
      COMMENT). Its only button is `Roger Roger`; Enter or Esc closes it
@@ -439,6 +493,8 @@ Session-level value:
   in the form, or an edit in edit mode. When an edit moves an entry to
   another date's file and only the old file fails, trying again finishes
   just that part; given up, both files hold it (a dupe, not a loss).
+  Known bug, fixed by record IDs (see Status and plan, item 1): given
+  up there, saving the edit again adds it to the new date's file twice.
 - Written with `\n` line endings; a COMMENT with a comma or quote is
   quoted, CSV style (`"Nice, loud"`). If a hand edit left the last line
   without its line break, one is added before appending.
@@ -533,3 +589,4 @@ Session-level value:
   - ST `NA` means no state: `STATE` is left out.
   - PWR is the operator's power: `TX_PWR` in watts.
   - The station callsign is `STATION_CALLSIGN`.
+  - The record ID (planned; see Status and plan) isn't exported.
