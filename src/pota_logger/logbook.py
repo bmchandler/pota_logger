@@ -5,11 +5,12 @@ import re
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 from pota_logger.ascii_text import check_ascii, check_trimmed
 from pota_logger.callsigns import parse_callsign
 from pota_logger.dates import parse_time
-from pota_logger.entry_form import FIELDS, OPTIONAL, REPORTS
+from pota_logger.entry_form import ENTRY_FORMATTERS, FIELDS, OPTIONAL, PARSERS, REPORTS
 from pota_logger.freq import in_us_band
 from pota_logger.modes import parse_mode
 from pota_logger.parks import parse_park
@@ -29,16 +30,23 @@ def log_path(log_dir: Path, day: date) -> Path:
     return log_dir / f"{day:%Y%m%d}.csv"
 
 
+# Each parsed value's stored form, where it isn't the text itself.
+STORED_FORMS = {
+    "FREQ": str,
+    "PWR": lambda watts: format(watts.normalize(), "f"),
+    "DATE": lambda day: f"{day:%Y%m%d}",
+    "TIME": lambda when: f"{when:%H%M}",
+}
+
+
+def stored_text(name: str, value) -> str:
+    return STORED_FORMS.get(name, str)(value)
+
+
 def to_row(values: dict, station_callsign: str) -> list[str]:
     """An entry's CSV row, in COLUMNS order, each value in its stored form."""
-    stored = values | {
-        "FREQ": str(values["FREQ"]),
-        "PWR": format(values["PWR"].normalize(), "f"),
-        "DATE": f"{values['DATE']:%Y%m%d}",
-        "TIME": f"{values['TIME']:%H%M}",
-        "STATION_CALLSIGN": station_callsign,
-    }
-    return [stored[name] for name in COLUMNS]
+    stored = values | {"STATION_CALLSIGN": station_callsign}
+    return [stored_text(name, stored[name]) for name in COLUMNS]
 
 
 BOM = "\ufeff"
@@ -82,6 +90,32 @@ def write_lines(path: Path, bom: str, lines: list[str]) -> None:
         raise
 
 
+class Problem(NamedTuple):
+    """Something wrong in a log row: the column at fault, what's wrong,
+    and, if saving it from the entry form fixes it, how.
+    """
+
+    field: str
+    message: str
+    note: str = ""
+
+
+# Said of a STATION_CALLSIGN that doesn't read, as it has no field in the
+# entry form.
+FIX_BY_HAND = "It can't be fixed in the app: fix it by hand, or delete the record."
+
+
+class Refused(NamedTuple):
+    """A row refused on load that still splits into COLUMNS: its values as
+    text, its file and line, and every problem found in it.
+    """
+
+    row: dict[str, str]
+    path: Path
+    line: int
+    problems: list[Problem]
+
+
 # A file's new contents, to write: its path, byte-order mark (if any), and
 # lines.
 Write = tuple[Path, str, list[str]]
@@ -112,6 +146,9 @@ class Logbook:
         self.files: dict[Path, tuple[str, list[str]]] = {}
         # Files that aren't UTF-8 text, so they can't be kept as lines.
         self.unreadable: set[Path] = set()
+        # Rows refused on load that still split into COLUMNS, to show and
+        # fix in the app.
+        self.refused: list[Refused] = []
 
     def write(self, writes: list[Write]) -> None:
         """Write each file in turn, keeping each as the app's copy once
@@ -148,12 +185,26 @@ class Logbook:
         """A saved entry's file, that file's byte-order mark and lines, and
         the entry's start and end line indexes in them.
         """
-        path = log_path(self.log_dir, entry["DATE"])
+        refused = next((found.path for found in self.refused if found.row is entry), None)
+        if refused is not None:
+            # Its values as they are in the file, which may not match its
+            # DATE.
+            path, row = refused, [entry[name] for name in COLUMNS]
+        else:
+            path = log_path(self.log_dir, entry["DATE"])
+            row = to_row(entry, entry["STATION_CALLSIGN"])
         if path not in self.files:
             raise ValueError(f"{path} doesn't hold this entry")
         bom, lines = self.files[path]
-        start, end = find_row(path, lines, to_row(entry, entry["STATION_CALLSIGN"]))
+        start, end = find_row(path, lines, row)
         return path, bom, lines, start, end
+
+    def is_refused(self, entry: dict) -> bool:
+        return self.refusal(entry) is not None
+
+    def refusal(self, entry: dict) -> Refused | None:
+        """Why an entry was refused on load, if it was."""
+        return next((found for found in self.refused if found.row is entry), None)
 
     def delete(self, entry: dict) -> None:
         """Remove a saved entry's row, touching no other line of the file."""
@@ -162,12 +213,13 @@ class Logbook:
 
     def replace(self, old: dict, new: dict) -> None:
         """Change a saved entry's row from `old` to `new` (each with its
-        STATION_CALLSIGN), touching no other line of the file. When DATE
-        changes, `new` is added to its date's file before `old` is removed
-        from its own, so a crash between the two leaves a dupe, not a loss.
+        STATION_CALLSIGN), touching no other line of the file. `old` may be
+        a refused row. When DATE moves it to another file, `new` is added to
+        its date's file before `old` is removed from its own, so a crash
+        between the two leaves a dupe, not a loss.
         """
         path, bom, lines, start, end = self.located(old)
-        if new["DATE"] != old["DATE"]:
+        if log_path(self.log_dir, new["DATE"]) != path:
             writes = [self.appended(new), (path, bom, lines[:start] + lines[end:])]
         else:
             # The row keeps its old line ending (or none, as the last line).
@@ -179,8 +231,9 @@ class Logbook:
     def load(self) -> tuple[list[dict], list[str]]:
         """Every entry in the log files, oldest file first, and a message
         for each row (or file) that couldn't be read, naming the file and
-        row. Rows that can't be read are skipped, but kept in the app's
-        copy of the file.
+        row. Rows that can't be read are kept in the app's copy of the
+        file; those that still split into COLUMNS go in `refused`, the
+        rest are skipped.
         """
         entries, problems = [], []
         for path in sorted(self.log_dir.glob(LOG_FILE_PATTERN)):
@@ -205,9 +258,16 @@ class Logbook:
                 if not row:  # a blank line, e.g. left at the end by an editor
                     continue
                 try:
-                    entries.append(from_row(row, path.stem))
+                    values, row_problems = check_row(row, path.stem)
                 except ValueError as error:
                     problems.append(f"{path} row {reader.line_num}: {error}")
+                    continue
+                if row_problems:
+                    self.refused.append(
+                        Refused(dict(zip(COLUMNS, row)), path, reader.line_num, row_problems)
+                    )
+                else:
+                    entries.append(values)
         return entries, problems
 
 
@@ -264,43 +324,123 @@ LOADERS = {
 }
 
 
-def check_stored_form(name: str, text: str, stored: str) -> None:
-    """Refuse a value that loads, but isn't written as the app writes it:
-    a short form the entry form takes (PARK 1234), lowercase, or a number
-    written another way (PWR .5, FREQ with a leading zero).
+def stored_form_problem(name: str, text: str, stored: str) -> str:
+    """Why a value that loads isn't written as the app writes it: a short
+    form the entry form takes (PARK 1234), lowercase, or a number written
+    another way (PWR .5, FREQ with a leading zero).
     """
-    if text == stored:
-        return
     if text.upper() == stored:
-        raise ValueError(f"{name} {text!r} should be uppercase, like {stored}")
-    raise ValueError(f"{name} {text!r} should be {stored!r} in a log file")
+        return f"{name} {text!r} should be uppercase, like {stored}"
+    return f"{name} {text!r} should be {stored!r} in a log file"
 
 
-def from_row(row: list[str], file_date: str) -> dict:
+def check_row(row: list[str], file_date: str) -> tuple[dict, list[Problem]]:
     """An entry from its CSV row in the file for `file_date` (YYYYMMDD),
     checked against the entry form's rules that refuse a value, and held
-    to exactly what the app writes. Its warnings aren't checked: a saved
+    to exactly what the app writes, with every problem found. Each column
+    is checked on its own; a check that depends on another column (SNT and
+    RCD on MODE, the sideband on FREQ and MODE, the file on DATE) is left
+    out while that column is at fault. Warnings aren't checked: a saved
     entry was either confirmed when entered, or hand-edited on purpose.
 
-    Raises ValueError naming what's wrong.
+    Raises ValueError if the row doesn't split into COLUMNS.
     """
     if len(row) != len(COLUMNS):
         raise ValueError(f"has {len(row)} values, should have {len(COLUMNS)}")
-    values = dict(zip(COLUMNS, row))
+    texts = dict(zip(COLUMNS, row))
+    values: dict = {}
+    problems = []
     for name in COLUMNS:
-        check_ascii(name, values[name])
-        check_trimmed(name, values[name])
-    missing = [name for name in COLUMNS if not values[name] and name not in OPTIONAL]
-    if missing:
-        raise ValueError(f"Missing: {', '.join(missing)}")
-    for name, load in LOADERS.items():
-        values[name] = load(values[name]) if values[name] else ""
-    for name in REPORTS:
-        values[name] = parse_report(name, values[name], values["MODE"])
-    for name, text, stored in zip(COLUMNS, row, to_row(values, values["STATION_CALLSIGN"])):
-        check_stored_form(name, text, stored)
-    day = f"{values['DATE']:%Y%m%d}"
-    if day != file_date:
-        raise ValueError(f"DATE {day!r} should match the file name, {file_date}.csv")
-    check_sideband(values["FREQ"], values["MODE"])
-    return values
+        text = texts[name]
+        try:
+            check_ascii(name, text)
+            check_trimmed(name, text)
+            if not text:
+                if name not in OPTIONAL:
+                    raise ValueError(f"Missing: {name}")
+                values[name] = ""
+            elif name in LOADERS:
+                values[name] = LOADERS[name](text)
+            elif name in REPORTS:
+                if "MODE" in values:
+                    values[name] = parse_report(name, text, values["MODE"])
+            else:
+                values[name] = text
+        except ValueError as error:
+            note = FIX_BY_HAND if name == "STATION_CALLSIGN" else ""
+            problems.append(Problem(name, str(error), note))
+    for name in COLUMNS:
+        if name in values:
+            stored = stored_text(name, values[name])
+            if texts[name] != stored:
+                message = stored_form_problem(name, texts[name], stored)
+                problems.append(Problem(name, message, f"Saving makes it {stored}."))
+    if "DATE" in values:
+        day = f"{values['DATE']:%Y%m%d}"
+        if day != file_date:
+            problems.append(
+                Problem(
+                    "DATE",
+                    f"DATE {day!r} should match the file name, {file_date}.csv",
+                    f"Saving moves it to {day}.csv.",
+                )
+            )
+    if "FREQ" in values and "MODE" in values:
+        try:
+            check_sideband(values["FREQ"], values["MODE"])
+        except ValueError as error:
+            problems.append(Problem("MODE", str(error)))
+    if problems:
+        problems = with_form_notes(texts, problems)
+    return values, problems
+
+
+def with_form_notes(row: dict[str, str], problems: list[Problem]) -> list[Problem]:
+    """Note how saving fixes each problem in a field that the entry form
+    would take as shown there (e.g. FREQ 14.250, read as MHz), as it does
+    a stored-form problem.
+    """
+    shown = refused_texts(row)
+    try:
+        mode = parse_mode(shown["MODE"].strip())
+    except ValueError:
+        mode = None
+    noted = []
+    for problem in problems:
+        text = shown.get(problem.field, "").strip()
+        if not problem.note and text:
+            try:
+                check_ascii(problem.field, text)
+                if problem.field in REPORTS:
+                    if mode is None:
+                        raise ValueError
+                    value = parse_report(problem.field, text, mode)
+                else:
+                    value = PARSERS[problem.field](text)
+            except (KeyError, ValueError):
+                pass
+            else:
+                problem = problem._replace(
+                    note=f"Saving makes it {stored_text(problem.field, value)}."
+                )
+        noted.append(problem)
+    return noted
+
+
+# A refused row's fields that are shown in the form as they'd be typed,
+# when they read; the rest are shown as they are in the file. TIME is left
+# as it is: TIME 53 could be 00:53 or 05:03.
+REFUSED_LOADERS = {"FREQ": load_freq, "PWR": load_power, "DATE": load_date}
+
+
+def refused_texts(row: dict[str, str]) -> dict[str, str]:
+    """A refused row's values for the entry form, to fix."""
+    texts = {}
+    for name, _, _ in FIELDS:
+        texts[name] = row[name]
+        if name in REFUSED_LOADERS:
+            try:
+                texts[name] = ENTRY_FORMATTERS[name](REFUSED_LOADERS[name](row[name]))
+            except (ValueError, ArithmeticError):
+                pass
+    return texts

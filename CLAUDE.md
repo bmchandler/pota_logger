@@ -94,7 +94,14 @@ updated in the same change whenever a rule changes.
   change) rewrite the whole file from that copy. A failed write raises
   `LogWriteError` with the `writes` left, which the app's `save` retries
   from a modal (Esc: nothing saved; the form keeps the entry, as it's
-  cleared only by `EntryForm.entry_saved`). The app keeps log files
+  cleared only by `EntryForm.entry_saved`). `check_row` finds every
+  `Problem` in a row (field, message, note on what saving fixes). Rows
+  refused on load that split into COLUMNS are kept in `Logbook.refused`
+  (`Refused`: a dict of raw text, file, line, problems), shown at the top
+  of `saved_entries` marked `!` (`REFUSED_MARKER`), with their problems
+  listed below COMMENT when selected (the app's `entry_view`, then
+  `EntryForm.show`), and fixed or deleted like any entry; check
+  `Logbook.is_refused` before formatting an entry's values. The app keeps log files
   beside settings (`settings_path.parent`), so the test fixtures' temp
   dir covers both.
 - Selecting and editing: the log's `CellSelected` (double-click, or

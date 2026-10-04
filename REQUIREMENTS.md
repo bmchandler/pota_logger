@@ -42,7 +42,8 @@ storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
 value, each held to exactly what the app writes, and hand-tested in Vim
 and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
-while it runs, the only source of truth for the log files; deleting an entry (see Editing); the status bar; the
+while it runs, the only source of truth for the log files; deleting an entry (see Editing); fixing or deleting a row refused on
+load, in the app (see Storage); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -100,18 +101,7 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Fixing a refused log row in the app (decided 2026-10-03). A row
-   refused on load that still splits into the right columns shows in
-   the log with its values as they are in the file and an error marker
-   (e.g. `!`) in the status column, besides the notification at start.
-   Selected and edited like any row, its save runs every entry check and
-   replaces its lines in the file. It can be deleted too. A row too
-   broken to split (wrong number of values, a stray quote) is still fixed
-   by hand. The app never tidies or rewrites a log file on its own, since
-   automatic changes to a hand-edited file could make a slip worse (e.g.
-   a stray quote that joins lines). Open: where refused rows sort, as
-   their DATE or TIME may not read.
-2. Definite dupes, replacing the possible-dupe warning. A definite dupe
+1. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT; "possible dupe"
    meant little in practice. Nothing is ever deleted automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
@@ -312,6 +302,17 @@ Session-level value:
   and the form follows. Whatever the form held (an entry partly typed) is
   put aside. With no row selected, the log looks as before (the cell
   highlight, the divider over the first saved row).
+- Once a row is selected, a single click on another row selects it
+  (stock DataTable: with a row cursor, a click moves it). A habitual
+  double-click there can select the wrong row: the first click selects,
+  the form changes height when the two rows list different refused-row
+  problems (or one lists none), the log shifts, and the second click lands
+  on whatever row moved under it. Kept as stock (decided 2026-10-04):
+  DataTable has no click-to-select option, and the alternatives (a
+  single click that only highlights, select on the first click with a
+  fixed space for the problem list, or the list over the log) each cost
+  more than one click once selecting. Revisit if newer operators trip
+  on it.
 - `f3 Edit` edits the selected entry; with none selected it says
   `Double-click a record or press Enter when log area has focus first.`
   (The log's cell highlight is always there, so Enter only selects once
@@ -369,13 +370,15 @@ Session-level value:
   so the form stays ready for the next entry; Tab into the log and Enter
   selects it (see Editing).
 - The log's first column, with no header, holds a one-character status
-  marker. `•` marks entries typed this session, and `✎` saved entries
-  edited this session; neither is saved, so they're gone on the next
-  start. The column moves with its row when the log is sorted, so the
+  marker. `•` marks entries typed this session, `✎` saved entries edited
+  this session, and `!` rows refused on load. Marks aren't saved: `•`
+  and `✎` are gone on the next start, while `!` comes back until the row
+  is fixed. The column moves with its row when the log is sorted, so the
   marks survive a Sort. Later it may show other states, like an entry
   not yet uploaded to QRZ.
-- Below them, the saved entries (from the log files at start) are shown
-  newest first by UTC timestamp (DATE, then TIME). Entries with the same
+- Below them, any rows refused on load, marked `!` (see Storage), then
+  the saved entries (from the log files at start), newest first by UTC
+  timestamp (DATE, then TIME). Entries with the same
   timestamp keep their file order. On the next start, this session's
   entries are sorted in with the rest.
 - A thin divider separates this session's entries, as typed, from the
@@ -448,8 +451,45 @@ Session-level value:
   only; a value from a file is taken as meant.
 - If a hand edit breaks loading, show an error naming the offending file
   and row number: a wrong header row (the file is skipped), a file that
-  isn't UTF-8 text (skipped), or a row that fails a check (the row is
-  skipped). Skipped rows stay in the file, to be fixed by hand.
+  isn't UTF-8 text (skipped), or a row that fails a check. Skipped rows
+  and files stay in the file, to be fixed by hand.
+- A row that fails a check but still splits into the right columns is
+  refused, not skipped, and every problem in it is found (each column on
+  its own; a check that depends on a column at fault is left out: SNT and
+  RCD on MODE, the sideband on FREQ and MODE, the file on DATE). It shows
+  in the log marked `!`, with its values as they are in the file. All
+  refused rows sit at the top of the saved entries, in file order,
+  whatever they were refused for (a DATE or TIME that doesn't read has
+  no place in the sorted order, and at the top they're seen). Rather
+  than a notification per row, one at start sums them up: `2 records
+  refused, marked ! at the top of the log. Select one to see why.`
+- A selected refused row lists its problems below COMMENT, in the error
+  color, under `Refused from 20260925.csv row 4:`, one line each (`- TIME
+  '53' should be HHMM, like 2123.`), and each field at fault gets
+  Textual's stock invalid border (dimmed while read-only; it goes once
+  the field is changed). The form grows by those lines, moving the log
+  down, only while a refused row is selected. The list stays as found in
+  the file while editing; Enter runs the entry checks as usual. A problem
+  that saving fixes on its own says how: `Saving makes it US-1234.`
+  whenever the entry form would take the value as shown there (a short
+  form, lowercase, spaces around it, a number written another way, or
+  FREQ `14.250`, read as MHz), or `Saving moves it to 20260924.csv.` (a
+  DATE in another date's file).
+- The form shows a refused row's FREQ, PWR, and DATE as they'd be typed
+  when they read (FREQ `7030000` as `7.030.000`), and every other value
+  as it is in the file (TIME `53` stays `53`: it could be 00:53 or
+  05:03). It's edited (`f3`) like any entry, through every entry check,
+  and its save replaces its lines in its file (or moves it to its DATE's
+  file); then it's marked `✎`, its list goes, and it joins the entries
+  checked for dupes. Its STATION_CALLSIGN, which has no field in the
+  form, is stored as it reads (`w1tst` as `W1TST`); one that doesn't
+  read at all is listed with `It can't be fixed in the app: fix it by
+  hand, or delete the record.`, and `f3` says so too. It can be deleted
+  (`f4`) like any entry. A row too broken to split (wrong number of
+  values, a stray quote) is skipped, with its own notification, to fix
+  by hand. The app never tidies or rewrites a log file on its own, since
+  automatic changes to a hand-edited file could make a slip worse (e.g.
+  a stray quote that joins lines).
 - A hand edit is held to the strictest rule: every value must be
   written exactly as the app writes it, so nothing is tidied up on load.
 - A row's checks, stopping at the first problem: the number of values;

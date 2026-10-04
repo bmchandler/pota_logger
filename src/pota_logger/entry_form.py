@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date, time
 from decimal import Decimal
 
@@ -5,7 +6,8 @@ from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Input, Label
+from rich.text import Text
+from textual.widgets import Input, Label, Static
 
 from pota_logger.ascii_text import check_ascii
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
@@ -161,6 +163,18 @@ class EntryForm(Vertical):
     EntryForm > Vertical {
         margin-bottom: 1;
     }
+    /* What's wrong with a row refused on load, below COMMENT, only while
+       one is shown. */
+    EntryForm #refused-problems {
+        display: none;
+        height: auto;
+        color: $error;
+        margin: 0 0 1 0;
+        padding: 0 1;
+    }
+    EntryForm #refused-problems.-shown {
+        display: block;
+    }
     EntryForm Horizontal, EntryForm Vertical {
         height: auto;
     }
@@ -221,6 +235,7 @@ class EntryForm(Vertical):
             for name, placeholder, max_length in ROW_FIELDS:
                 yield labeled_input(name, placeholder, max_length)
         yield labeled_input("COMMENT", "", COMMENT_LENGTH)
+        yield Static(id="refused-problems")
 
     def field(self, name: str) -> Input:
         return self.query_one(f"#field-{name.lower()}", Input)
@@ -251,18 +266,39 @@ class EntryForm(Vertical):
         if isinstance(event.widget, Input) and self.shown is None:
             self.last_field = event.widget
 
-    def show(self, entry: dict) -> None:
+    def show(
+        self,
+        entry: dict,
+        texts: dict[str, str] | None = None,
+        problems: Sequence[tuple[str, str]] = (),
+    ) -> None:
         """Show a logged entry, read-only, putting aside what the form held.
-        Showing another entry meanwhile keeps that put aside.
+        Showing another entry meanwhile keeps that put aside. For a row
+        refused on load, `texts` are the values to show (not the entry's
+        own as they'd be typed), and `problems` are (field, line) pairs
+        listed below COMMENT, each field marked invalid; a line with no
+        field is a heading.
         """
         if self.shown is None:
             self.put_aside = {name: self.field(name).value for name, _, _ in FIELDS}
         self.shown = entry
         for name, _, _ in FIELDS:
-            format_value = ENTRY_FORMATTERS.get(name, str)
-            self.field(name).value = format_value(entry[name])
+            if texts is None:
+                self.field(name).value = ENTRY_FORMATTERS.get(name, str)(entry[name])
+            else:
+                self.field(name).value = texts[name]
             self.field(name).disabled = True
+        self.show_problems(problems)
         self.show_report_placeholders()
+
+    def show_problems(self, problems: Sequence[tuple[str, str]]) -> None:
+        listed = self.query_one("#refused-problems", Static)
+        # Text, not str, so a value with brackets isn't read as markup.
+        listed.update(Text("\n".join(line for _, line in problems)))
+        listed.set_class(bool(problems), "-shown")
+        at_fault = {field for field, _ in problems}
+        for name, _, _ in FIELDS:
+            self.field(name).set_class(name in at_fault, "-invalid")
 
     def edit(self) -> None:
         """Edit the entry shown."""
@@ -274,14 +310,19 @@ class EntryForm(Vertical):
         self.add_class("-editing")
         self.field("FREQ").focus()
 
-    def finish_edit(self, entry: dict) -> None:
+    def finish_edit(
+        self,
+        entry: dict,
+        texts: dict[str, str] | None = None,
+        problems: Sequence[tuple[str, str]] = (),
+    ) -> None:
         """Leave edit mode, saved or cancelled, showing the entry (as saved,
         or as it was) read-only again.
         """
         self.editing = None
         self.border_title = None
         self.remove_class("-editing")
-        self.show(entry)
+        self.show(entry, texts, problems)
 
     def hide(self) -> None:
         """Stop showing a logged entry, putting back what the form held,
@@ -292,6 +333,7 @@ class EntryForm(Vertical):
             self.field(name).value = value
         for name, _, _ in FIELDS:
             self.field(name).disabled = False
+        self.show_problems([])
         self.show_report_placeholders()
         if self.last_field is not None:
             self.last_field.focus()

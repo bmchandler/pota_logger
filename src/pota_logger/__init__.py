@@ -12,7 +12,8 @@ from pota_logger.dates import format_date, format_time
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
-from pota_logger.logbook import Logbook, LogWriteError
+from pota_logger.callsigns import parse_callsign
+from pota_logger.logbook import Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.power import format_power
 from pota_logger.settings import (
@@ -46,6 +47,10 @@ DISPLAY_LENGTHS = {
 # Marks entries typed this session in the log's first column, which has no
 # header. Kept to one character so the column can later show other states.
 SESSION_MARKER = "•"
+
+# Marks rows refused on load, shown as they are in the file, to fix (or
+# delete) in the app.
+REFUSED_MARKER = "!"
 
 # Marks saved entries (from the log files at start) edited this session.
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
@@ -111,11 +116,15 @@ def log_cell(value: str, width: int, style: str = "") -> Text:
     return Text(f" {value:<{width}} ", style=style)
 
 
-def log_row(values: dict, marker: str = "", style: str = "") -> list[Text]:
-    """An entry's cells in the log table: its marker, then FIELDS order."""
-    shown = values | {
-        name: format_value(values[name]) for name, format_value in FORMATTERS.items()
-    }
+def log_row(values: dict, marker: str = "", style: str = "", as_is: bool = False) -> list[Text]:
+    """An entry's cells in the log table: its marker, then FIELDS order.
+    `as_is` shows a refused row's values as they are in the file.
+    """
+    shown = values
+    if not as_is:
+        shown = values | {
+            name: format_value(values[name]) for name, format_value in FORMATTERS.items()
+        }
     cells = [marker] + [shown[name] for name, _, _ in FIELDS]
     return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, LOG_COLUMNS)]
 
@@ -226,9 +235,10 @@ class PotaLoggerApp(App):
             self.notify(self.settings_error, severity="error", timeout=30)
         entries, problems = self.logbook.load()
         self.query_one(EntryForm).logged.extend(entries)
-        # Saved entries newest first; entries typed this session go above
-        # them in the order typed, to check against the paper log.
-        self.saved_entries = sorted(
+        # Saved entries newest first, under any refused rows (in file order,
+        # to be seen and fixed); entries typed this session go above them in
+        # the order typed, to check against the paper log.
+        self.saved_entries = [found.row for found in self.logbook.refused] + sorted(
             entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
         )
         self.session_entries: list[dict] = []
@@ -237,6 +247,15 @@ class PotaLoggerApp(App):
         # The entry whose log row is selected, shown in the form.
         self.selected: dict | None = None
         self.show_log()
+        if self.logbook.refused:
+            count = len(self.logbook.refused)
+            records = "record" if count == 1 else "records"
+            self.notify(
+                f"{count} {records} refused, marked {REFUSED_MARKER} at the top of the "
+                "log. Select one to see why.",
+                severity="error",
+                timeout=30,
+            )
         for problem in problems:
             self.notify(f"Skipped {problem}", severity="error", timeout=30)
         if not self.settings.station_callsign:
@@ -302,7 +321,7 @@ class PotaLoggerApp(App):
         self.selected = self.log_entries()[event.coordinate.row]
         table.cursor_type = "row"
         table.add_class("-selected")
-        self.query_one(EntryForm).show(self.selected)
+        self.query_one(EntryForm).show(self.selected, *self.entry_view(self.selected))
         table.focus()
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
@@ -321,7 +340,22 @@ class PotaLoggerApp(App):
         entry = self.log_entries()[table.cursor_row]
         if entry is not self.selected:
             self.selected = entry
-            form.show(entry)
+            form.show(entry, *self.entry_view(entry))
+
+    def entry_view(self, entry: dict) -> tuple[dict[str, str] | None, list[tuple[str, str]]]:
+        """What the form shows for a refused row, besides the row itself:
+        its values as texts, and its problems as (field, line) pairs under
+        a heading naming its file and row. For any other entry, shown as
+        it'd be typed, nothing.
+        """
+        refusal = self.logbook.refusal(entry)
+        if refusal is None:
+            return None, []
+        problems = [("", f"Refused from {refusal.path.name} row {refusal.line}:")] + [
+            (problem.field, f"- {problem.message}. {problem.note}".rstrip())
+            for problem in refusal.problems
+        ]
+        return refused_texts(entry), problems
 
     def log_row_of(self, entry: dict) -> int:
         return next(i for i, logged in enumerate(self.log_entries()) if logged is entry)
@@ -336,6 +370,18 @@ class PotaLoggerApp(App):
         if self.selected is None:
             self.notify(SELECT_FIRST, severity="warning")
             return
+        if self.logbook.is_refused(self.selected):
+            # The form has no field for it, and an edit keeps it.
+            try:
+                self.refused_station_callsign(self.selected)
+            except ValueError as error:
+                self.notify(
+                    f"{error}. That can't be fixed in the app: fix it by hand, "
+                    "or delete the record.",
+                    severity="warning",
+                    timeout=30,
+                )
+                return
         # While editing, the form keeps focus; the log still scrolls.
         self.query_one("#log-table", DataTable).can_focus = False
         form.edit()
@@ -349,9 +395,11 @@ class PotaLoggerApp(App):
             self.notify(SELECT_FIRST, severity="warning")
             return
         entry = self.selected
-        shown = entry | {
-            name: format_value(entry[name]) for name, format_value in FORMATTERS.items()
-        }
+        shown = entry
+        if not self.logbook.is_refused(entry):
+            shown = entry | {
+                name: format_value(entry[name]) for name, format_value in FORMATTERS.items()
+            }
 
         def confirmed(delete: bool) -> None:
             if delete:
@@ -381,7 +429,7 @@ class PotaLoggerApp(App):
         if table.row_count:
             table.move_cursor(row=min(row, table.row_count - 1))
         if form.editing is not None:
-            form.finish_edit(entry)
+            form.finish_edit(entry, *self.entry_view(entry))
             table.can_focus = True
         self.leave_selection()
 
@@ -392,7 +440,7 @@ class PotaLoggerApp(App):
         table = self.query_one("#log-table", DataTable)
         form = self.query_one(EntryForm)
         if form.editing is not None:
-            form.finish_edit(self.selected)
+            form.finish_edit(self.selected, *self.entry_view(self.selected))
             table.can_focus = True
             table.focus()
             return
@@ -406,7 +454,18 @@ class PotaLoggerApp(App):
         table.remove_class("-selected")
         self.query_one(EntryForm).hide()
 
+    def refused_station_callsign(self, row: dict) -> str:
+        """A refused row's STATION_CALLSIGN as stored, if it reads (e.g.
+        `w1tst` as W1TST); raises ValueError if not.
+        """
+        text = row["STATION_CALLSIGN"]
+        if not text.isascii() or text != text.strip() or not text:
+            raise ValueError(f"STATION_CALLSIGN {text!r} isn't a callsign")
+        return parse_callsign(text, "STATION_CALLSIGN")
+
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
+        if self.logbook.is_refused(event.old):
+            event.new["STATION_CALLSIGN"] = self.refused_station_callsign(event.old)
         # Until it's saved, the form stays in edit mode, to try again or
         # cancel.
         self.save(
@@ -419,6 +478,9 @@ class PotaLoggerApp(App):
         # The entry keeps its place in the log until the next start, even if
         # DATE or TIME changed, and stays selected.
         form = self.query_one(EntryForm)
+        # A fixed refused row joins the entries checked for dupes.
+        if self.logbook.is_refused(event.old):
+            form.logged.append(event.new)
         # Marked edited once; edited again, the mark carries over below.
         if any(entry is event.old for entry in self.saved_entries) and not any(
             entry is event.old for entry in self.edited_entries
@@ -448,15 +510,23 @@ class PotaLoggerApp(App):
         saved_rows = [
             log_row(
                 entry,
-                EDITED_MARKER if any(entry is edited for edited in self.edited_entries) else "",
+                self.saved_marker(entry),
                 # The divider, over the first saved row.
                 DIVIDER_STYLE if self.session_entries and index == 0 else "",
+                as_is=self.logbook.is_refused(entry),
             )
             for index, entry in enumerate(self.saved_entries)
         ]
         table.add_rows(
             [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
         )
+
+    def saved_marker(self, entry: dict) -> str:
+        if self.logbook.is_refused(entry):
+            return REFUSED_MARKER
+        if any(entry is edited for edited in self.edited_entries):
+            return EDITED_MARKER
+        return ""
 
     def scroll_to_row(self, index: int) -> None:
         """Scroll the log just enough to show a row, from the top."""

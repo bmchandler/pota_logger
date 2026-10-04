@@ -1085,18 +1085,17 @@ async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
         assert isinstance(app.screen, WarningScreen)
 
 
-async def test_unreadable_row_is_skipped_with_notification(app, settings_path):
+async def test_row_too_broken_to_split_is_skipped_with_notification(app, settings_path):
     path = settings_path.parent / "20260925.csv"
     path.write_text(
         "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
-        "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,53,,W1TST\n"
+        "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,W1TST\n"
     )
     async with app.run_test():
         assert table_rows(app) == []
         assert [n.message for n in app._notifications] == [
-            f"Skipped {path} row 2: TIME '53' should be HHMM, like 2123"
+            f"Skipped {path} row 2: has 11 values, should have 12"
         ]
-
 
 
 # Editing
@@ -1579,6 +1578,164 @@ async def test_failed_delete_write_keeps_the_entry(app, settings_path, monkeypat
         assert table_calls(app) == ["K1AAA", "K1BBB"]
         assert app.selected is app.saved_entries[1]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+# Refused rows, fixed in the app
+
+REFUSED_ROW = "7030000,cw,K1BBB,1234,,599,579,.5,20260925,53,Loud,W1TST\n"
+
+
+def write_refused(settings_path, refused=REFUSED_ROW):
+    """K1AAA on 2026-09-26, then K1BBB refused in 2026-09-25's file."""
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    (settings_path.parent / "20260926.csv").write_text(
+        LOG_HEADER + K1AAA_ROW.replace("20260925", "20260926")
+    )
+    path = settings_path.parent / "20260925.csv"
+    path.write_text(LOG_HEADER + refused)
+    return path
+
+
+async def test_refused_row_shown_as_is_and_marked_at_the_top(app, settings_path):
+    write_refused(settings_path)
+    async with app.run_test():
+        # Above K1AAA, though K1AAA is newer.
+        assert table_calls(app) == ["K1BBB", "K1AAA"]
+        assert table_markers(app) == ["!", ""]
+        assert table_rows(app)[0] == REFUSED_ROW.rstrip().split(",")[:-1]
+        assert [n.message for n in app._notifications] == [
+            "1 record refused, marked ! at the top of the log. Select one to see why."
+        ]
+
+
+async def test_refused_rows_stay_under_session_entries(app, settings_path):
+    write_refused(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        assert table_calls(app) == ["W1ABC", "K1BBB", "K1AAA"]
+        assert table_markers(app) == ["•", "!", ""]
+        assert divider_rows(app) == [1]
+
+
+async def test_selected_refused_row_shows_what_reads_as_typed(app, settings_path):
+    write_refused(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 0)
+        assert field_values(app) == K1BBB_VALUES | {
+            "MODE": "cw",
+            "PARK": "1234",
+            "TIME": "53",
+        }
+        # Esc out of editing shows it the same way.
+        await pilot.press("f3", "escape")
+        assert field_values(app)["TIME"] == "53"
+
+
+def problem_lines(app) -> list[str]:
+    """The refused-row problems listed below COMMENT; [] while hidden."""
+    listed = app.query_one("#refused-problems")
+    return str(listed.render()).splitlines() if listed.display else []
+
+
+def invalid_fields(app) -> list[str]:
+    return [
+        name
+        for name, _, _ in FIELDS
+        if app.query_one(f"#field-{name.lower()}").has_class("-invalid")
+    ]
+
+
+async def test_refused_rows_are_summed_up_in_one_notification(app, settings_path):
+    write_refused(settings_path, REFUSED_ROW + REFUSED_ROW.replace("K1BBB", "K2CCC"))
+    async with app.run_test():
+        assert [n.message for n in app._notifications] == [
+            "2 records refused, marked ! at the top of the log. Select one to see why."
+        ]
+
+
+async def test_selected_refused_row_lists_its_problems(app, settings_path):
+    write_refused(settings_path)
+    async with app.run_test() as pilot:
+        assert problem_lines(app) == []
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Refused from 20260925.csv row 2:",
+            "- TIME '53' should be HHMM, like 2123.",
+            "- MODE 'cw' should be uppercase, like CW. Saving makes it CW.",
+            "- PARK '1234' should be 'US-1234' in a log file. Saving makes it US-1234.",
+            "- PWR '.5' should be '0.5' in a log file. Saving makes it 0.5.",
+        ]
+        assert invalid_fields(app) == ["MODE", "PARK", "PWR", "TIME"]
+        # The list stays while editing, as found in the file; a field's red
+        # border goes once it's changed (stock Input behavior).
+        await pilot.press("f3")
+        fill(app, {"TIME": "0053"})
+        assert len(problem_lines(app)) == 5
+        assert invalid_fields(app) == ["MODE", "PARK", "PWR"]
+        # Gone with another row selected, or none.
+        await pilot.press("escape", "down")
+        assert problem_lines(app) == []
+        assert invalid_fields(app) == []
+        await pilot.press("up", "escape")
+        assert problem_lines(app) == []
+
+
+async def test_problem_list_goes_once_the_row_is_fixed(app, settings_path):
+    write_refused(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"TIME": "0053"})
+        await pilot.press("enter")
+        assert table_markers(app)[0] == "✎"
+        assert problem_lines(app) == []
+        assert invalid_fields(app) == []
+
+
+async def test_fixed_refused_row_is_saved_in_place_and_marked_edited(app, settings_path):
+    path = write_refused(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"TIME": "0053"})
+        await pilot.press("enter")
+        assert table_calls(app) == ["K1BBB", "K1AAA"]
+        assert table_markers(app) == ["✎", ""]
+        assert table_rows(app)[0][1] == "CW"
+        # Now among the entries checked for dupes.
+        assert any(entry["CALL"] == "K1BBB" for entry in app.query_one(EntryForm).logged)
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW.replace("1900", "0053").replace(
+        "US-5678", "US-1234"
+    )
+
+
+async def test_refused_row_can_be_deleted(app, settings_path):
+    path = write_refused(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 0)
+        await pilot.press("f4", "enter", "enter")
+        assert table_calls(app) == ["K1AAA"]
+    assert path.read_text() == LOG_HEADER
+
+
+async def test_refused_rows_station_callsign_is_stored_as_read(app, settings_path):
+    path = write_refused(settings_path, K1BBB_ROW.replace("W1TST", "w1tst"))
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        await pilot.press("enter")
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW
+
+
+async def test_refused_rows_unreadable_station_callsign_cant_be_fixed_in_app(
+    app, settings_path
+):
+    write_refused(settings_path, K1BBB_ROW.replace("W1TST", "123"))
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        assert app.query_one(EntryForm).editing is None
+        assert list(app._notifications)[-1].message == (
+            "STATION_CALLSIGN '123' doesn't look like a callsign, like W1ABC. That can't "
+            "be fixed in the app: fix it by hand, or delete the record."
+        )
 
 
 async def test_new_entry_is_highlighted_but_not_selected(app, settings_path):
