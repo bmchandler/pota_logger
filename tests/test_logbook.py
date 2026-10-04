@@ -393,3 +393,23 @@ def test_failed_move_tries_again_only_whats_left(log_dir, monkeypatch):
     assert (log_dir / "20260926.csv").read_text() == (
         HEADER + ROW.replace("20260925", "20260926")
     )
+
+
+# Deleting a saved entry
+
+
+def test_delete_removes_only_its_row(log_dir):
+    original = "\ufeff" + HEADER + OTHER_ROW + ROW.replace("\n", "\r\n") + OTHER_ROW
+    log_dir.mkdir(parents=True)
+    (log_dir / "20260925.csv").write_bytes(original.encode())
+    loaded(log_dir).delete(SAVED)
+    assert (log_dir / "20260925.csv").read_bytes().decode() == (
+        "\ufeff" + HEADER + OTHER_ROW + OTHER_ROW
+    )
+
+
+def test_delete_of_a_missing_row_changes_nothing(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + OTHER_ROW)
+    with pytest.raises(ValueError, match="doesn't hold this entry"):
+        loaded(log_dir).delete(SAVED)
+    assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW

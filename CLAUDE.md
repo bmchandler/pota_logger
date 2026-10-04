@@ -106,7 +106,9 @@ updated in the same change whenever a rule changes.
   `Edited(old, new)` instead of `Submitted`, and the app's
   `on_entry_form_edited` saves it with `Logbook.replace`, then calls
   `finish_edit(new)`. Esc (`action_step_back`) goes from editing to
-  selected (`finish_edit`), then to none (`EntryForm.hide`). Entries are
+  selected (`finish_edit`), then to none (`EntryForm.hide`). `f4`
+  confirms with `DeleteScreen` (Enter twice), then `Logbook.delete` and
+  the app's `entry_deleted`. Entries are
   matched by identity (`is`): `session_entries`, `saved_entries`, and
   `EntryForm.logged` share the same dicts. Every entry dict carries its `STATION_CALLSIGN`.
 - The log table shows `session_entries` (typed order) above

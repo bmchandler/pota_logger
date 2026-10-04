@@ -42,7 +42,7 @@ storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
 value, each held to exactly what the app writes, and hand-tested in Vim
 and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
-while it runs, the only source of truth for the log files; the status bar; the
+while it runs, the only source of truth for the log files; deleting an entry (see Editing); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -100,14 +100,7 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Deleting an entry. `f4 Delete` deletes the selected row, after a
-   confirm modal that takes Enter twice (the modal says so), so a quick
-   delete still works but one stray Enter doesn't. Esc cancels. Gone is
-   gone: no trash file or undo; backups are the operator's (e.g. a
-   scheduled backup, or git in `data/`).
-   Afterwards nothing is selected, and the form is ready for a new
-   entry.
-2. Fixing a refused log row in the app (decided 2026-10-03). A row
+1. Fixing a refused log row in the app (decided 2026-10-03). A row
    refused on load that still splits into the right columns shows in
    the log with its values as they are in the file and an error marker
    (e.g. `!`) in the status column, besides the notification at start.
@@ -118,7 +111,7 @@ record.
    automatic changes to a hand-edited file could make a slip worse (e.g.
    a stray quote that joins lines). Open: where refused rows sort, as
    their DATE or TIME may not read.
-3. Definite dupes, replacing the possible-dupe warning. A definite dupe
+2. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT; "possible dupe"
    meant little in practice. Nothing is ever deleted automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
@@ -240,8 +233,8 @@ Session-level value:
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` (see Editing),
-  and `^s Screenshot` (saves an SVG of the screen to the Downloads
+- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` and `f4 Delete`
+  (see Editing), and `^s Screenshot` (saves an SVG of the screen to the Downloads
   folder).
 - The footer's right end shows the terminal size as columns x rows
   (`120x30`), updated live as the window is resized.
@@ -354,6 +347,18 @@ Session-level value:
   than losing it.
 - A COMMENT longer than the field takes (from a file) is kept whole: it
   can be shortened, but nothing can be added to it.
+- `f4 Delete` deletes the selected entry (with none selected it says the
+  same as `f3`), editing or not: the edit goes with it. A confirm modal
+  names it (`Delete this record?`, then e.g. `K1BBB on 7.030.000 CW`,
+  `2026.09.25 19:00 UTC`, `Gone is gone: there's no undo.`) and takes
+  Enter (or its Delete button) twice, so a quick delete still works but
+  one stray Enter doesn't: its last line reads `Enter twice to delete,
+  or Esc to keep it.`, then `Enter again to delete, or Esc to keep it.`
+  Esc (or Back) keeps it, still selected. Gone is gone: no trash file
+  or undo; backups are the operator's (e.g. a scheduled backup, or git
+  in `data/`). Only its row leaves its file, as with a change, and a
+  failed write gets the same modal. Afterwards nothing is selected, and
+  the form is ready for a new entry, with what it held before put back.
 
 ## Log view
 

@@ -9,6 +9,7 @@ from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger.dates import format_date, format_time
+from pota_logger.delete_screen import DeleteScreen
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
 from pota_logger.logbook import Logbook, LogWriteError
@@ -65,7 +66,15 @@ LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
 # without overline support just draws no divider.
 DIVIDER_STYLE = "overline"
 
-# f3 with no log row selected.
+# What the delete modal says, above its Enter-twice line.
+DELETE_MESSAGE = (
+    "Delete this record?\n"
+    "{CALL} on {FREQ} {MODE}\n"
+    "{DATE} {TIME} UTC\n"
+    "Gone is gone: there's no undo."
+)
+
+# f3 or f4 with no log row selected.
 SELECT_FIRST = "Double-click a record or press Enter when log area has focus first."
 
 # When a log file can't be written: Enter tries again, Esc goes back with
@@ -161,6 +170,7 @@ class PotaLoggerApp(App):
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("f2", "open_settings", "Settings"),
         Binding("f3", "edit_entry", "Edit"),
+        Binding("f4", "delete_entry", "Delete"),
         Binding("ctrl+s", "screenshot", "Screenshot"),
         # Shown in the form's border title while editing, not the footer.
         Binding("escape", "step_back", "Back", show=False),
@@ -330,6 +340,51 @@ class PotaLoggerApp(App):
         self.query_one("#log-table", DataTable).can_focus = False
         form.edit()
 
+    def action_delete_entry(self) -> None:
+        # App bindings stay live under a modal; delete only from the main
+        # screen. Allowed while editing: the edit goes with the entry.
+        if len(self.screen_stack) > 1:
+            return
+        if self.selected is None:
+            self.notify(SELECT_FIRST, severity="warning")
+            return
+        entry = self.selected
+        shown = entry | {
+            name: format_value(entry[name]) for name, format_value in FORMATTERS.items()
+        }
+
+        def confirmed(delete: bool) -> None:
+            if delete:
+                self.save(
+                    lambda: self.logbook.delete(entry),
+                    lambda: self.entry_deleted(entry),
+                    "Couldn't delete the entry",
+                )
+
+        self.push_screen(DeleteScreen(DELETE_MESSAGE.format(**shown)), confirmed)
+
+    def entry_deleted(self, entry: dict) -> None:
+        """Drop a deleted entry from the log, leaving nothing selected and
+        the form ready for a new entry (what it held before put back).
+        """
+        form = self.query_one(EntryForm)
+        for entries in (
+            self.session_entries,
+            self.saved_entries,
+            self.edited_entries,
+            form.logged,
+        ):
+            entries[:] = [logged for logged in entries if logged is not entry]
+        table = self.query_one("#log-table", DataTable)
+        row = table.cursor_row
+        self.show_log()
+        if table.row_count:
+            table.move_cursor(row=min(row, table.row_count - 1))
+        if form.editing is not None:
+            form.finish_edit(entry)
+            table.can_focus = True
+        self.leave_selection()
+
     def action_step_back(self) -> None:
         """Esc: from editing to the row still selected (changes dropped),
         then to no row selected, with the form as it was before.
@@ -341,10 +396,15 @@ class PotaLoggerApp(App):
             table.can_focus = True
             table.focus()
             return
+        self.leave_selection()
+
+    def leave_selection(self) -> None:
+        """No row selected, with the form as it was before."""
+        table = self.query_one("#log-table", DataTable)
         self.selected = None
         table.cursor_type = "cell"
         table.remove_class("-selected")
-        form.hide()
+        self.query_one(EntryForm).hide()
 
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
         # Until it's saved, the form stays in edit mode, to try again or

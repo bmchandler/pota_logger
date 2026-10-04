@@ -144,17 +144,29 @@ class Logbook:
         """Add an entry (with its STATION_CALLSIGN) to its DATE's file."""
         self.write([self.appended(values)])
 
+    def located(self, entry: dict) -> tuple[Path, str, list[str], int, int]:
+        """A saved entry's file, that file's byte-order mark and lines, and
+        the entry's start and end line indexes in them.
+        """
+        path = log_path(self.log_dir, entry["DATE"])
+        if path not in self.files:
+            raise ValueError(f"{path} doesn't hold this entry")
+        bom, lines = self.files[path]
+        start, end = find_row(path, lines, to_row(entry, entry["STATION_CALLSIGN"]))
+        return path, bom, lines, start, end
+
+    def delete(self, entry: dict) -> None:
+        """Remove a saved entry's row, touching no other line of the file."""
+        path, bom, lines, start, end = self.located(entry)
+        self.write([(path, bom, lines[:start] + lines[end:])])
+
     def replace(self, old: dict, new: dict) -> None:
         """Change a saved entry's row from `old` to `new` (each with its
         STATION_CALLSIGN), touching no other line of the file. When DATE
         changes, `new` is added to its date's file before `old` is removed
         from its own, so a crash between the two leaves a dupe, not a loss.
         """
-        path = log_path(self.log_dir, old["DATE"])
-        if path not in self.files:
-            raise ValueError(f"{path} doesn't hold this entry")
-        bom, lines = self.files[path]
-        start, end = find_row(path, lines, to_row(old, old["STATION_CALLSIGN"]))
+        path, bom, lines, start, end = self.located(old)
         if new["DATE"] != old["DATE"]:
             writes = [self.appended(new), (path, bom, lines[:start] + lines[end:])]
         else:
