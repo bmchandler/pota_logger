@@ -1113,31 +1113,116 @@ def write_two_saved(settings_path):
     return path
 
 
+async def select_row(app, pilot, row: int) -> None:
+    """Tab into the log, move to a row, and select it with Enter."""
+    table = app.query_one("#log-table", DataTable)
+    table.focus()
+    table.move_cursor(row=row)
+    await pilot.press("enter")
+
+
 async def edit_row(app, pilot, row: int) -> None:
-    app.query_one("#log-table", DataTable).move_cursor(row=row)
+    await select_row(app, pilot, row)
     await pilot.press("f3")
 
 
-async def test_f3_shows_the_highlighted_entry_to_edit(app, settings_path):
+K1BBB_VALUES = {
+    "FREQ": "7.030.000",
+    "MODE": "CW",
+    "CALL": "K1BBB",
+    "PARK": "US-5678",
+    "ST": "",
+    "SNT": "599",
+    "RCD": "579",
+    "PWR": "0.5",
+    "DATE": "260925",
+    "TIME": "1900",
+    "COMMENT": "Loud",
+}
+
+
+def form_disabled(app) -> bool:
+    """Whether every field is read-only (disabled); False if all are not."""
+    states = {field.disabled for field in app.query_one(EntryForm).query(Input)}
+    assert len(states) == 1
+    return states.pop()
+
+
+async def test_enter_on_a_log_row_shows_its_entry_read_only(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 1)
+        assert field_values(app) == K1BBB_VALUES
+        assert form_disabled(app)
+        table = app.query_one("#log-table", DataTable)
+        assert table.cursor_type == "row"
+        assert table.has_class("-selected")
+        assert app.focused is table
+        assert app.query_one(EntryForm).border_title is None
+
+
+async def test_shown_entry_has_no_placeholders_until_edited(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 1)
+        # ST is blank: its NJ hint would read like a value.
+        assert app.query_one("#field-st", Input).placeholder == ""
+        await pilot.press("f3")
+        assert app.query_one("#field-st", Input).placeholder == "NJ"
+        assert report_placeholders(app) == ["599", "599"]
+
+
+async def test_double_click_selects_a_row(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        # Below the header, on the second row.
+        await pilot.click("#log-table", offset=(10, 2))
+        await pilot.click("#log-table", offset=(10, 2))
+        assert field_values(app)["CALL"] == "K1BBB"
+        assert app.query_one("#log-table", DataTable).cursor_type == "row"
+
+
+async def test_single_click_only_highlights(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await pilot.click("#log-table", offset=(10, 2))
+        assert app.selected is None
+        assert not form_disabled(app)
+
+
+async def test_up_and_down_move_the_selection_and_the_form_follows(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 0)
+        assert field_values(app)["CALL"] == "K1AAA"
+        await pilot.press("down")
+        assert field_values(app)["CALL"] == "K1BBB"
+        await pilot.press("up")
+        assert field_values(app)["CALL"] == "K1AAA"
+        assert form_disabled(app)
+
+
+async def test_f3_edits_the_selected_entry(app, settings_path):
     write_two_saved(settings_path)
     async with app.run_test() as pilot:
         await edit_row(app, pilot, 1)
-        assert field_values(app) == {
-            "FREQ": "7.030.000",
-            "MODE": "CW",
-            "CALL": "K1BBB",
-            "PARK": "US-5678",
-            "ST": "",
-            "SNT": "599",
-            "RCD": "579",
-            "PWR": "0.5",
-            "DATE": "260925",
-            "TIME": "1900",
-            "COMMENT": "Loud",
-        }
+        assert field_values(app) == K1BBB_VALUES
+        assert not form_disabled(app)
         form = app.query_one(EntryForm)
         assert form.border_title == "Editing record - Esc to cancel"
         assert app.focused.id == "field-freq"
+        # Still shown selected, with the darker highlight.
+        assert app.query_one("#log-table", DataTable).has_class("-selected")
+
+
+async def test_f3_with_no_row_selected_says_how_to_select(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f3")
+        assert list(app._notifications)[-1].message == (
+            "Double-click a record or press Enter when log area has focus first."
+        )
+        assert app.query_one(EntryForm).editing is None
 
 
 async def test_editing_title_takes_the_top_margins_place(app, settings_path):
@@ -1151,21 +1236,59 @@ async def test_editing_title_takes_the_top_margins_place(app, settings_path):
         assert "Editing record - Esc to cancel" in "".join(seg.text for seg in strips[1])
 
 
-async def test_escape_cancels_edit_and_puts_back_the_entry_in_progress(app, settings_path):
+async def test_escape_steps_back_from_editing_to_selected_to_entry_in_progress(
+    app, settings_path
+):
     path = write_two_saved(settings_path)
     async with app.run_test() as pilot:
         fill(app, {"FREQ": "14.074", "CALL": "W1ABC"})
         typed = field_values(app)
         app.query_one("#field-call", Input).focus()
         await edit_row(app, pilot, 1)
+        fill(app, {"COMMENT": "Changed"})
+        # Editing to selected: the change is dropped, no prompt.
         await pilot.press("escape")
-        assert field_values(app) == typed
+        assert field_values(app) == K1BBB_VALUES
+        assert form_disabled(app)
         assert app.query_one(EntryForm).border_title is None
+        table = app.query_one("#log-table", DataTable)
+        assert app.focused is table
+        # Selected to none: the entry in progress comes back.
+        await pilot.press("escape")
+        assert app.selected is None
+        assert field_values(app) == typed
+        assert not form_disabled(app)
+        assert table.cursor_type == "cell"
+        assert not table.has_class("-selected")
         assert app.focused.id == "field-call"
     assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
 
 
-async def test_enter_saves_the_edit_in_place(app, settings_path):
+async def test_selecting_another_row_keeps_the_entry_in_progress(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, {"CALL": "W1ABC"})
+        await select_row(app, pilot, 0)
+        await pilot.press("down", "escape")
+        assert field_values(app)["CALL"] == "W1ABC"
+
+
+async def test_log_cursor_stays_on_the_entry_being_edited(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        table = app.query_one("#log-table", DataTable)
+        # The form keeps focus, and a click on another row doesn't move off
+        # the entry being edited.
+        assert not table.can_focus
+        await pilot.click("#log-table", offset=(10, 2))
+        await pilot.pause()
+        assert table.cursor_row == 0
+        assert app.focused.id == "field-freq"
+        assert field_values(app)["CALL"] == "K1AAA"
+
+
+async def test_enter_saves_the_edit_in_place_and_stays_selected(app, settings_path):
     path = write_two_saved(settings_path)
     async with app.run_test() as pilot:
         await edit_row(app, pilot, 1)
@@ -1175,8 +1298,13 @@ async def test_enter_saves_the_edit_in_place(app, settings_path):
         assert not isinstance(app.screen, WarningScreen)
         assert table_calls(app) == ["K1AAA", "K1BBB"]
         assert table_rows(app)[1][-1] == "Loud, QSB"
-        assert app.query_one("#log-table", DataTable).cursor_row == 1
+        table = app.query_one("#log-table", DataTable)
+        assert table.cursor_row == 1
+        assert app.focused is table
         assert app.query_one(EntryForm).border_title is None
+        assert field_values(app) == K1BBB_VALUES | {"COMMENT": "Loud, QSB"}
+        assert form_disabled(app)
+        assert app.selected is app.saved_entries[1]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW.replace(
         "Loud", '"Loud, QSB"'
     )
@@ -1205,7 +1333,9 @@ async def test_edited_session_entry_stays_marked_in_typed_place(app, settings_pa
         await pilot.press("enter")
         assert table_calls(app) == ["N3GHI", "K2DEF"]
         assert table_markers(app) == ["•", "•"]
-        # Back to a fresh entry, with PWR and DATE as carried forward.
+        # Esc leaves the selection: a fresh entry, PWR and DATE carried
+        # forward.
+        await pilot.press("escape")
         assert field_values(app)["CALL"] == ""
         assert field_values(app)["DATE"] == "260925"
     # A new DATE moves it to that date's file.
@@ -1239,22 +1369,20 @@ async def test_edit_that_cant_be_saved_stays_in_edit_mode(app, settings_path):
     assert path.read_text() == LOG_HEADER + K1BBB_ROW
 
 
-async def test_new_entry_is_highlighted_for_f3(app, settings_path):
+async def test_new_entry_is_highlighted_but_not_selected(app, settings_path):
     write_two_saved(settings_path)
     async with app.run_test() as pilot:
         for call in ["W1ABC", "K2DEF"]:
             fill(app, ENTRY | {"CALL": call})
             await pilot.press("enter")
-        assert app.query_one("#log-table", DataTable).cursor_row == 1
-        await pilot.press("f3")
+        table = app.query_one("#log-table", DataTable)
+        assert table.cursor_row == 1
+        assert app.selected is None
+        assert app.focused.id == "field-freq"
+        # Tab into the log and Enter selects it.
+        table.focus()
+        await pilot.press("enter", "f3")
         assert field_values(app)["CALL"] == "K2DEF"
-
-
-async def test_f3_with_an_empty_log_says_so(app):
-    async with app.run_test() as pilot:
-        await pilot.press("f3")
-        assert list(app._notifications)[-1].message == "No entry to edit yet."
-        assert app.query_one(EntryForm).editing is None
 
 
 # Quitting

@@ -61,6 +61,9 @@ LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
 # without overline support just draws no divider.
 DIVIDER_STYLE = "overline"
 
+# f3 with no log row selected.
+SELECT_FIRST = "Double-click a record or press Enter when log area has focus first."
+
 # Shown, as a block, while no station callsign is set: at start, on Enter
 # in the form, and when Settings is left without one.
 STATION_CALLSIGN_REQUIRED = (
@@ -95,6 +98,13 @@ class PotaLoggerApp(App):
            entry form's side margins. */
         width: 100%;
         height: 1fr;
+    }
+    /* A selected row keeps the focused cursor's darker highlight while
+       the form has focus. */
+    #log-table.-selected > .datatable--cursor {
+        background: $block-cursor-background;
+        color: $block-cursor-foreground;
+        text-style: $block-cursor-text-style;
     }
     #button-bar {
         height: auto;
@@ -131,7 +141,7 @@ class PotaLoggerApp(App):
         Binding("f3", "edit_entry", "Edit"),
         Binding("ctrl+s", "screenshot", "Screenshot"),
         # Shown in the form's border title while editing, not the footer.
-        Binding("escape", "cancel_edit", "Cancel edit", show=False),
+        Binding("escape", "step_back", "Back", show=False),
     ]
 
     def __init__(self, settings_path: Path = SETTINGS_PATH) -> None:
@@ -190,6 +200,8 @@ class PotaLoggerApp(App):
             entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
         )
         self.session_entries: list[dict] = []
+        # The entry whose log row is selected, shown in the form.
+        self.selected: dict | None = None
         self.show_log()
         for problem in problems:
             self.notify(f"Skipped {problem}", severity="error", timeout=30)
@@ -216,22 +228,69 @@ class PotaLoggerApp(App):
         return self.session_entries + self.saved_entries
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action == "cancel_edit":
-            return self.query_one(EntryForm).editing is not None
+        if action == "step_back":
+            return self.selected is not None
         return True
+
+    def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
+        """Double-click, or Enter, on a cell selects its row."""
+        table = self.query_one("#log-table", DataTable)
+        self.selected = self.log_entries()[event.coordinate.row]
+        table.cursor_type = "row"
+        table.add_class("-selected")
+        self.query_one(EntryForm).show(self.selected)
+        table.focus()
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """The selection follows the row cursor, except while editing,
+        when the cursor stays on the entry being edited.
+        """
+        if self.selected is None:
+            return
+        table = self.query_one("#log-table", DataTable)
+        form = self.query_one(EntryForm)
+        if form.editing is not None:
+            row = self.log_row_of(self.selected)
+            if table.cursor_row != row:
+                table.move_cursor(row=row, scroll=False)
+            return
+        entry = self.log_entries()[table.cursor_row]
+        if entry is not self.selected:
+            self.selected = entry
+            form.show(entry)
+
+    def log_row_of(self, entry: dict) -> int:
+        return next(i for i, logged in enumerate(self.log_entries()) if logged is entry)
 
     def action_edit_entry(self) -> None:
         # App bindings stay live under a modal; edit only from the main screen.
         if len(self.screen_stack) > 1:
             return
-        table = self.query_one("#log-table", DataTable)
-        if not table.row_count:
-            self.notify("No entry to edit yet.", severity="warning")
+        form = self.query_one(EntryForm)
+        if form.editing is not None:
             return
-        self.query_one(EntryForm).edit(self.log_entries()[table.cursor_row])
+        if self.selected is None:
+            self.notify(SELECT_FIRST, severity="warning")
+            return
+        # While editing, the form keeps focus; the log still scrolls.
+        self.query_one("#log-table", DataTable).can_focus = False
+        form.edit()
 
-    def action_cancel_edit(self) -> None:
-        self.query_one(EntryForm).finish_edit()
+    def action_step_back(self) -> None:
+        """Esc: from editing to the row still selected (changes dropped),
+        then to no row selected, with the form as it was before.
+        """
+        table = self.query_one("#log-table", DataTable)
+        form = self.query_one(EntryForm)
+        if form.editing is not None:
+            form.finish_edit(self.selected)
+            table.can_focus = True
+            table.focus()
+            return
+        self.selected = None
+        table.cursor_type = "cell"
+        table.remove_class("-selected")
+        form.hide()
 
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
         try:
@@ -241,16 +300,19 @@ class PotaLoggerApp(App):
             self.notify(f"Couldn't save the change: {error}", severity="error", timeout=30)
             return
         # The entry keeps its place in the log until the next start, even if
-        # DATE or TIME changed.
+        # DATE or TIME changed, and stays selected.
         form = self.query_one(EntryForm)
         for entries in (self.session_entries, self.saved_entries, form.logged):
             for index, entry in enumerate(entries):
                 if entry is event.old:
                     entries[index] = event.new
+        self.selected = event.new
         self.show_log()
-        row = next(i for i, entry in enumerate(self.log_entries()) if entry is event.new)
-        self.query_one("#log-table", DataTable).move_cursor(row=row)
-        form.finish_edit()
+        table = self.query_one("#log-table", DataTable)
+        table.move_cursor(row=self.log_row_of(event.new))
+        form.finish_edit(event.new)
+        table.can_focus = True
+        table.focus()
 
     def show_log(self) -> None:
         # DataTable can't insert a row mid-table, so it's redrawn in full.

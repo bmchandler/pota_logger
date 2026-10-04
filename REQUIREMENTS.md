@@ -45,8 +45,8 @@ settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
-form in a narrow window; editing a logged entry in the form (see
-Editing). The visual layout is settled; wording tweaks
+form in a narrow window; selecting a log row and editing its entry in
+the form (see Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
 To do:
@@ -98,28 +98,10 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Selecting a log row. Double-clicking a cell, or Enter on the
-   highlighted cell (DataTable's stock select, for keyboard use: Tab
-   into the log, arrow to a row, Enter), selects its whole row,
-   shown with the darker highlight a double-clicked cell gets today, but
-   across the row; the form shows that entry's values, read-only until
-   `f3` starts editing it. While a row is selected, Up and Down move the
-   selection, and the form follows. Esc steps back one level at a time:
-   from editing to the row still selected (changes dropped, no prompt),
-   then to no row selected, with the form ready for a new entry. A
-   saved edit stays on its row, selected. An entry partly typed when a
-   row is selected is put aside, and comes back when Esc leaves the
-   selection. The log otherwise looks as now when nothing is selected
-   (the cell highlight, the divider over the first saved row). `f3`
-   with no row selected says `Double-click a row (or Enter on it) to
-   select for editing first.`
-   - An edit gets every entry check and warning, changed fields or not,
-     as now; a COMMENT longer than the field takes still saves, and can
-     only be shortened.
-2. Marking edited rows. A row that was saved before the app started and
+1. Marking edited rows. A row that was saved before the app started and
    is edited is marked `✎` in the status column (this session only, like
    `•`); this session's entries keep `•`.
-3. The app as the only source of truth for log files while it runs. It
+2. The app as the only source of truth for log files while it runs. It
    keeps each file's lines as loaded (refused rows included) and writes
    every save from that copy, so a change made to a log file by another
    program while the app is open is overwritten, never merged, and a
@@ -134,14 +116,14 @@ record.
      open file is rarely locked, so the app's write usually succeeds; if
      an editor or spreadsheet then saves over it, that's left to the
      operator.
-4. Deleting an entry. `f4 Delete` deletes the selected row, after a
+3. Deleting an entry. `f4 Delete` deletes the selected row, after a
    confirm modal that takes Enter twice (the modal says so), so a quick
    delete still works but one stray Enter doesn't. Esc cancels. Gone is
    gone: no trash file or undo; backups are the operator's (e.g. a
    scheduled backup, or git in `data/`).
    Afterwards nothing is selected, and the form is ready for a new
    entry.
-5. Fixing a refused log row in the app (decided 2026-10-03). A row
+4. Fixing a refused log row in the app (decided 2026-10-03). A row
    refused on load that still splits into the right columns shows in
    the log with its values as they are in the file and an error marker
    (e.g. `!`) in the status column, besides the notification at start.
@@ -152,7 +134,7 @@ record.
    automatic changes to a hand-edited file could make a slip worse (e.g.
    a stray quote that joins lines). Open: where refused rows sort, as
    their DATE or TIME may not read.
-6. Definite dupes, replacing the possible-dupe warning. A definite dupe
+5. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT; "possible dupe"
    meant little in practice. Nothing is ever deleted automatically.
    - On Enter, a definite dupe is blocked with a modal saying the entry
@@ -343,22 +325,39 @@ Session-level value:
 
 ## Editing
 
-- `f3 Edit` edits the entry highlighted in the log (reached with Tab and
-  the arrow keys, or a click). Any entry can be edited, this session's or
-  saved.
+- Selecting a log row: double-click a cell, or Enter on the highlighted
+  cell (DataTable's stock select, for keyboard use: Tab into the log,
+  arrow to a row, Enter). The whole row is then shown with the darker
+  highlight of the focused cursor, kept while the form has focus. The
+  form shows that entry's values, read-only (Textual's stock disabled
+  fields, with no placeholders, since a hint in a dimmed field reads like
+  a value), and focus stays in the log. Up and Down move the selection,
+  and the form follows. Whatever the form held (an entry partly typed) is
+  put aside. With no row selected, the log looks as before (the cell
+  highlight, the divider over the first saved row).
+- `f3 Edit` edits the selected entry; with none selected it says
+  `Double-click a record or press Enter when log area has focus first.`
+  (The log's cell highlight is always there, so Enter only selects once
+  Tab or Shift+Tab has moved focus to the log.) Any entry can be edited,
+  this session's or saved.
 - Its values show in the entry form as they'd be typed (FREQ
   `14.285.500`, PARK `US-1234`, PWR `0.5`, DATE `260925`, TIME `1953`),
-  and the form's top border reads `Editing record - Esc to cancel` in the
-  warning color. The border takes the row of the form's top margin, so
-  nothing on screen moves. Whatever the form held (an entry partly
-  typed) is put aside.
+  focus goes to FREQ, and the form's top border reads `Editing record -
+  Esc to cancel` in the warning color. The border takes the row of the
+  form's top margin, so nothing on screen moves.
+- While editing, the form has focus: the log can't take it (so Tab stays
+  in the form), and its highlight stays on the entry being edited, even
+  if another row is clicked. The log still scrolls with the mouse wheel,
+  to read other entries.
 - Enter saves the change through every check and warning a new entry
-  gets, except that the entry isn't checked against itself (an unchanged
-  entry is no possible dupe). Esc cancels. Either way, the form gets back
-  what it held, and focus goes back where it was. `f3` on another row
-  while editing switches to that one.
-- The entry keeps its place in the log until the next start, even if
-  DATE or TIME changed, and the highlight stays on it; this session's
+  gets, changed fields or not, except that the entry isn't checked
+  against itself (an unchanged entry is no possible dupe).
+- Esc steps back one level at a time: from editing to the row still
+  selected (changes dropped, no prompt; focus back in the log), then to
+  no row selected, with the form's entry put aside back, and focus on the
+  field last typed in.
+- A saved edit stays on its row, selected, and keeps its place in the log
+  until the next start, even if DATE or TIME changed; this session's
   entries keep their `•`. It keeps the station callsign it was logged
   with.
 - In its file, only its row changes; every other line stays exactly as
@@ -380,8 +379,9 @@ Session-level value:
 - Entries typed this session are shown at the top, in the order they were
   entered, even when their times are out of order, so they can be checked
   line by line against the paper log. Each new one goes below the last,
-  and the log scrolls to keep it in view. It's highlighted, so `f3` edits
-  the entry just typed (see Editing).
+  and the log scrolls to keep it in view. It's highlighted, not selected,
+  so the form stays ready for the next entry; Tab into the log and Enter
+  selects it (see Editing).
 - The log's first column, with no header, holds a one-character status
   marker. For now, `•` marks entries typed this session; it isn't saved,
   so it's gone on the next start. The column moves with its row when the

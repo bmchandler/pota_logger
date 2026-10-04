@@ -1,6 +1,7 @@
 from datetime import date, time
 from decimal import Decimal
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
@@ -203,11 +204,13 @@ class EntryForm(Vertical):
         # Entries loaded at start and saved since, for the possible-dupe
         # warning.
         self.logged: list[dict] = []
-        # The logged entry being edited, if any, and what the form held
-        # (and where focus was) before, to put back after.
+        # The logged entry shown (its log row selected), read-only until
+        # it's edited; then also `editing`. What the form held before, and
+        # the field last typed in, come back when it's no longer shown.
+        self.shown: dict | None = None
         self.editing: dict | None = None
         self.put_aside: dict[str, str] = {}
-        self.focus_before_edit = None
+        self.last_field: Input | None = None
 
     def watch_show_horizontal_scrollbar(self, show: bool) -> None:
         self.set_class(show, "-scrolling")
@@ -229,40 +232,68 @@ class EntryForm(Vertical):
             self.show_report_placeholders()
 
     def show_report_placeholders(self) -> None:
-        """Hint 599 in SNT and RCD while MODE is CW, 59 otherwise."""
-        on_cw = self.field("MODE").value.strip().upper() == THREE_DIGIT_MODE
-        for name, placeholder, _ in ROW_FIELDS:
-            if name in REPORTS:
-                self.field(name).placeholder = CW_REPORT_PLACEHOLDER if on_cw else placeholder
-
-    def edit(self, entry: dict) -> None:
-        """Show a logged entry in the form to edit, putting aside what the
-        form held. Editing another entry meanwhile keeps that put aside.
+        """Hint 599 in SNT and RCD while MODE is CW, 59 otherwise. While an
+        entry is shown read-only, there are none, since a placeholder in a
+        dimmed field reads like a value.
         """
-        if self.editing is None:
+        read_only = self.shown is not None and self.editing is None
+        on_cw = self.field("MODE").value.strip().upper() == THREE_DIGIT_MODE
+        for name, placeholder, _ in FIELDS:
+            if read_only:
+                placeholder = ""
+            elif name in REPORTS and on_cw:
+                placeholder = CW_REPORT_PLACEHOLDER
+            self.field(name).placeholder = placeholder
+
+    def on_descendant_focus(self, event: events.DescendantFocus) -> None:
+        # Not while an entry is shown, so Esc returns to the entry put aside.
+        if isinstance(event.widget, Input) and self.shown is None:
+            self.last_field = event.widget
+
+    def show(self, entry: dict) -> None:
+        """Show a logged entry, read-only, putting aside what the form held.
+        Showing another entry meanwhile keeps that put aside.
+        """
+        if self.shown is None:
             self.put_aside = {name: self.field(name).value for name, _, _ in FIELDS}
-            self.focus_before_edit = self.app.focused
-        self.editing = entry
+        self.shown = entry
         for name, _, _ in FIELDS:
             format_value = ENTRY_FORMATTERS.get(name, str)
             self.field(name).value = format_value(entry[name])
+            self.field(name).disabled = True
+        self.show_report_placeholders()
+
+    def edit(self) -> None:
+        """Edit the entry shown."""
+        self.editing = self.shown
+        for name, _, _ in FIELDS:
+            self.field(name).disabled = False
         self.show_report_placeholders()
         self.border_title = EDITING_TITLE
         self.add_class("-editing")
         self.field("FREQ").focus()
 
-    def finish_edit(self) -> None:
-        """Leave edit mode, saved or cancelled, putting back what the form
-        held and where focus was.
+    def finish_edit(self, entry: dict) -> None:
+        """Leave edit mode, saved or cancelled, showing the entry (as saved,
+        or as it was) read-only again.
         """
         self.editing = None
-        for name, value in self.put_aside.items():
-            self.field(name).value = value
-        self.show_report_placeholders()
         self.border_title = None
         self.remove_class("-editing")
-        if self.focus_before_edit is not None and self.focus_before_edit.is_attached:
-            self.focus_before_edit.focus()
+        self.show(entry)
+
+    def hide(self) -> None:
+        """Stop showing a logged entry, putting back what the form held,
+        with focus on the field last typed in.
+        """
+        self.shown = None
+        for name, value in self.put_aside.items():
+            self.field(name).value = value
+        for name, _, _ in FIELDS:
+            self.field(name).disabled = False
+        self.show_report_placeholders()
+        if self.last_field is not None:
+            self.last_field.focus()
         else:
             self.field("FREQ").focus()
 
