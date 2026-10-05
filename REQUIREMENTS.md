@@ -71,12 +71,6 @@ To do:
   considered: explicit line breaks in the startup messages (`!`, `U`,
   `=`), as warnings already use, and/or overriding Toast's 50% max-width
   (always 60 wide, a change to stock looks).
-- Maybe: fewer app tests where a unit test covers the same rule. Each
-  field's "blocks entry" test repeats its parser's messages, while the
-  blocking itself (notification, focus, nothing saved) is one shared loop
-  in `on_input_submitted`. A few could check that path, with the messages
-  left to the unit tests. Less end-to-end coverage, so the operator
-  decides. (The rest of the test speed-up is built; see below.)
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -89,6 +83,11 @@ screen, which restyled every widget, now goes on the ToastRack alone.
 `test_typed_entry_with_tab_between_fields` and
 `test_rows_drawn_in_full_without_redraw` (about 7 seconds each) type key
 by key on purpose (key-by-key entry, and a redraw bug that needed it).
+Each field's "blocks entry" app test stays, though its parser's unit
+tests check the same message (decided 2026-10-05): it's what proves the
+field is wired into the form's checks (`PARSERS`, `REPORTS`, focus), which
+a unit test can't. Full coverage is preferred over speed; with tests in
+parallel they cost about 1 to 2 seconds.
 
 The editing plan (decided 2026-10-04) is built: the log is where records
 are checked and fixed, with no need to open a CSV. Its status column shows
