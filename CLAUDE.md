@@ -155,6 +155,15 @@ updated in the same change whenever a rule changes.
 
 ## Testing notes
 
+- Hand-test data in `data/` (made only when asked): a COMMENT saying how
+  a record came about is marked when that didn't literally happen, so it
+  can't be taken for the real thing: `Simulated hand-added in Calc`, or
+  `$Hand-added in Calc` when short of room (`$`: S for simulated, and
+  ASCII), or `SIM Hand-added in Calc` where `$` might clash with
+  something. A row really made that way (e.g. in Vim, run from the
+  terminal) reads plainly. A plain fact about the row as written (`ID in
+  uppercase`) needs no mark.
+
 - Tests never touch the real `data/`: use the `settings_path` / `app`
   fixtures in tests/conftest.py, which point at a temp dir. `app` has
   station callsign `W1TST` saved; an app started on `settings_path`
