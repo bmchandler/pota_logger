@@ -47,7 +47,11 @@ load, in the app (see Storage); a record ID on every log row, with rows
 sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
 marked `=` at start (see Entry behavior); the status bar; the
 settings modal, with the station callsign checked like CALL and
-required before any entry is saved (see Session-level value); a light
+required before any entry is saved (see Session-level value);
+notifications stacked at the bottom right of the log area, a row above
+the Settings and Quit buttons rather than over them, and a row above the
+log's sideways scrollbar while it shows (Textual's ToastRack raised by
+CSS, a small override of stock looks); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window; selecting a log row and editing its entry in
@@ -56,13 +60,14 @@ can still come up as they're noticed.
 
 To do:
 
-- Later, with other visual tweaks: show notifications (errors and
-  warnings) higher up, at the bottom right of the log area, above the
-  Settings and Quit buttons. Their long stay is good, but stacked at the
-  bottom right they cover the Settings button, and leave Quit clickable
-  at the edge but unreadable, which could frustrate a newer operator.
-  Textual's notifications sit in its ToastRack, which CSS can move
-  (e.g. a bottom margin), a small override of stock looks.
+- A notification can lose its bottom row (stock Textual, seen
+  2026-10-05). A toast is 60 wide, capped at half the window; its height
+  is worked out at 60, but its text wraps at the cap, so a message that
+  only wraps at the narrower width is cut by a row (e.g. `6 records are
+  dupes, marked =. Select one to see more.` at 115 columns). Fixes
+  considered: explicit line breaks in the startup messages (`!`, `U`,
+  `=`), as warnings already use, and/or overriding Toast's 50% max-width
+  (always 60 wide, a change to stock looks).
 - Decouple COMMENT's input limit from the log's view of it (decided
   2026-10-03). Today the limit is what fits in the field's view (100
   characters), and the log column is that same fixed width, so a longer

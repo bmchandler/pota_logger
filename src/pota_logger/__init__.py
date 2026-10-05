@@ -197,6 +197,15 @@ class PotaLoggerApp(App):
     #button-bar > Button {
         margin-left: 1;
     }
+    /* Notifications sit a row above the Settings and Quit buttons (3
+       rows) and the footer (1), not over them, and a row above the
+       log's sideways scrollbar while it shows. */
+    ToastRack {
+        margin: 0 0 5 0;
+    }
+    Screen.-log-scrolls-sideways ToastRack {
+        margin: 0 0 6 0;
+    }
     /* Footer shares its row with the terminal size, on the right. */
     #footer-bar {
         dock: bottom;
@@ -274,6 +283,12 @@ class PotaLoggerApp(App):
         table = self.query_one("#log-table", DataTable)
         for label, width in LOG_COLUMNS:
             table.add_column(log_cell(label, width), width=width + 2)
+        # Raises notifications above the log's sideways scrollbar (CSS).
+        self.watch(
+            table,
+            "show_horizontal_scrollbar",
+            lambda shown: table.screen.set_class(shown, "-log-scrolls-sideways"),
+        )
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)

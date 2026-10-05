@@ -87,6 +87,24 @@ async def test_entry_fields_have_equal_gaps_above_and_below(app):
         assert gap_above == gap_below == 1
 
 
+async def test_notifications_sit_a_row_above_the_buttons_and_log_scrollbar(app):
+    async with app.run_test(size=(107, 34), notifications=True) as pilot:
+        app.notify("First")
+        app.notify("Second")
+        await pilot.pause(0.5)
+        toast = app.screen.query("Toast").last()
+        table = app.query_one("#log-table", DataTable)
+        buttons = app.query_one("#button-bar")
+        # The log scrolls sideways at this width: its scrollbar, then a gap.
+        assert table.show_horizontal_scrollbar
+        assert toast.region.bottom == buttons.region.y - 2
+        # Wide enough for the whole log, so just the gap.
+        await pilot.resize_terminal(233, 34)
+        await pilot.pause(0.5)
+        assert not table.show_horizontal_scrollbar
+        assert toast.region.bottom == buttons.region.y - 1
+
+
 async def test_quit_button_matches_warning_confirm_color(app):
     async with app.run_test():
         assert app.query_one("#quit", Button).variant == "warning"
