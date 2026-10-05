@@ -478,32 +478,6 @@ async def test_non_us_park_with_blank_state_has_no_warning(app):
         assert table_rows(app)[0][3:5] == ["JP-1234", ""]
 
 
-async def test_possible_dupe_opens_warning(app):
-    async with app.run_test() as pilot:
-        fill(app, ENTRY)
-        await pilot.press("enter")
-        fill(app, ENTRY | {"FREQ": "14.300", "MODE": "SSB", "TIME": "2005"})
-        await pilot.press("enter")
-        assert isinstance(app.screen, WarningScreen)
-        assert len(table_rows(app)) == 1
-        message = str(app.screen.query_one("#warning-message", Static).render())
-        assert message.startswith("Possible dupe: W1ABC at US-1234,\n20m voice, already logged at 19:53.")
-        await pilot.press("escape")
-        assert app.focused.id == "field-call"
-        await pilot.press("enter", "enter")
-        assert len(table_rows(app)) == 2
-
-
-async def test_same_call_on_another_band_is_not_a_dupe(app):
-    async with app.run_test() as pilot:
-        fill(app, ENTRY)
-        await pilot.press("enter")
-        fill(app, ENTRY | {"FREQ": "7.200"})
-        await pilot.press("enter")
-        assert not isinstance(app.screen, WarningScreen)
-        assert len(table_rows(app)) == 2
-
-
 async def test_warnings_come_one_after_another(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | FUTURE | {"CALL": "W11BC"})
@@ -1078,17 +1052,6 @@ async def test_log_scrolls_to_show_the_latest_session_entry(app, settings_path):
         assert table.scroll_y == len(calls) - rows_in_view
 
 
-async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
-    async with app.run_test() as pilot:
-        fill(app, ENTRY)
-        await pilot.press("enter")
-    app = PotaLoggerApp(settings_path=settings_path)
-    async with app.run_test() as pilot:
-        fill(app, ENTRY | {"TIME": "2005"})
-        await pilot.press("enter")
-        assert isinstance(app.screen, WarningScreen)
-
-
 async def test_row_too_broken_to_split_is_skipped_with_notification(app, settings_path):
     path = settings_path.parent / "20260925.csv"
     path.write_text(
@@ -1296,7 +1259,7 @@ async def test_enter_saves_the_edit_in_place_and_stays_selected(app, settings_pa
     path = write_two_saved(settings_path)
     async with app.run_test() as pilot:
         await edit_row(app, pilot, 1)
-        # Not checked against itself: an unchanged CALL is no possible dupe.
+        # Not checked against itself: an entry is no dupe of itself.
         fill(app, {"COMMENT": "Loud, QSB"})
         await pilot.press("enter")
         assert not isinstance(app.screen, WarningScreen)
@@ -1773,24 +1736,27 @@ async def test_records_sharing_an_id_are_marked_and_explained(app, settings_path
     )
     async with app.run_test() as pilot:
         assert table_calls(app) == ["K1BBB", "K1AAA", "K1AAA", "K1BBB"]
-        assert table_markers(app) == ["2", "2", "2", "2"]
+        assert table_markers(app) == ["U", "U", "U", "U"]
         assert [n.message for n in app._notifications] == [
-            "4 records share a record ID, marked 2. Select one to see more."
+            "4 records share a record ID, marked U. Select one to see more."
         ]
         await select_row(app, pilot, 0)
         assert problem_lines(app) == [
-            "Saved more than once (same UUIDv4):",
-            "- Also in 20260925.csv, with a different DATE and TIME.",
-            "Keep one: delete the rest (f4), after editing (f3) if needed.",
+            "Excluding COMMENT, duplicate record(s) exist:",
+            "- Same UUIDv4 in 20260925.csv, with a different DATE and TIME.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
         ]
         # Either copy may be the right one.
         assert invalid_fields(app) == []
         await pilot.press("down")
-        assert problem_lines(app)[1] == "- Also in 20260925.csv, the same in every column."
+        assert problem_lines(app)[1:] == [
+            "- Same UUIDv4 in 20260925.csv, also same in every column.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
+        ]
         # One copy deleted, the other's mark goes.
         await pilot.press("f4", "enter", "enter")
         assert table_calls(app) == ["K1BBB", "K1AAA", "K1BBB"]
-        assert table_markers(app) == ["2", "", "2"]
+        assert table_markers(app) == ["U", "", "U"]
         await select_row(app, pilot, 1)
         assert problem_lines(app) == []
     assert path.read_text() == LOG_HEADER + K1BBB_ROW + K1AAA_ROW
@@ -1832,17 +1798,17 @@ async def test_uppercase_id_matches_its_copy_and_is_kept_lowercase(app, settings
     )
     async with app.run_test() as pilot:
         assert table_calls(app) == ["K1BBB", "K1AAA", "K1BBB"]
-        assert table_markers(app) == ["!", "", "2"]
+        assert table_markers(app) == ["!", "", "U"]
         await select_row(app, pilot, 0)
         assert problem_lines(app) == [
             "Refused from 20260925.csv row 2:",
             f"- UUIDv4 '{K1BBB_ID.upper()}' should be lowercase. Saving makes it lowercase.",
-            "Saved more than once (same UUIDv4):",
-            "- Also in 20260926.csv, with a different DATE.",
-            "Keep one: delete the rest (f4), after editing (f3) if needed.",
+            "Excluding COMMENT, duplicate record(s) exist:",
+            "- Same UUIDv4 in 20260926.csv, with a different DATE.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
         ]
         await pilot.press("f3", "enter")
-        assert table_markers(app) == ["2", "", "2"]
+        assert table_markers(app) == ["U", "", "U"]
     assert path.read_text() == LOG_HEADER + K1BBB_ROW
 
 
@@ -1857,6 +1823,155 @@ async def test_filled_ids_that_cant_be_written_are_noted(app, settings_path, mon
             "with the next change to that file, or added again at the next start."
         ]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW
+
+
+# Dupes
+
+K1AAA_VALUES = {
+    "FREQ": "14.285.500",
+    "MODE": "USB",
+    "CALL": "K1AAA",
+    "PARK": "US-1234",
+    "ST": "NJ",
+    "SNT": "59",
+    "RCD": "57",
+    "PWR": "60",
+    "DATE": "260925",
+    "TIME": "2100",
+    "COMMENT": "",
+}
+
+NEW_DUPE_MESSAGE = (
+    "Excluding COMMENT, attempted save\n"
+    "will result in a duplicate record.\n"
+    "See DATE & TIME to locate other record."
+)
+EDIT_DUPE_MESSAGE = NEW_DUPE_MESSAGE + (
+    "\n"
+    "Change field value(s), or Esc out to\n"
+    "cancel.\n"
+    "\n"
+    "WARNING:\n"
+    "Updated COMMENT will be lost after\n"
+    "escaping out."
+)
+
+
+def modal_message(app) -> str:
+    return str(app.screen.query_one("#warning-message", Static).render())
+
+
+def modal_buttons(app) -> list[str]:
+    return [str(button.label) for button in app.screen.query(Button)]
+
+
+@pytest.mark.parametrize("key", ["enter", "escape"])
+async def test_dupe_is_blocked_back_to_the_form(app, settings_path, key):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, K1AAA_VALUES | {"COMMENT": "Big signal"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert modal_message(app) == NEW_DUPE_MESSAGE
+        assert modal_buttons(app) == ["Roger Roger"]
+        await pilot.press(key)
+        assert len(app.screen_stack) == 1
+        assert app.selected is None
+        assert app.focused.id == "field-freq"
+        assert field_values(app) == K1AAA_VALUES | {"COMMENT": "Big signal"}
+        assert table_calls(app) == ["K1AAA", "K1BBB"]
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+async def test_entry_differing_only_in_time_is_saved(app):
+    # Today's possible dupe: same call, park, day, band, and mode.
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        fill(app, ENTRY | {"TIME": "2005"})
+        await pilot.press("enter")
+        assert len(app.screen_stack) == 1
+        assert len(table_rows(app)) == 2
+
+
+async def test_unusual_call_changed_into_a_dupe_is_blocked(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        fill(app, K1AAA_VALUES | {"CALL": "K11AAA"})
+        await pilot.press("enter")
+        assert isinstance(app.screen, CallsignWarningScreen)
+        app.screen.query_one(Input).value = "K1AAA"
+        await pilot.press("enter")
+        assert modal_message(app) == NEW_DUPE_MESSAGE
+
+
+@pytest.mark.parametrize("key", ["enter", "escape"])
+async def test_edit_into_a_dupe_is_blocked_and_stays_open(app, settings_path, key):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        fill(app, K1AAA_VALUES | {"COMMENT": "Loud"})
+        await pilot.press("enter")
+        assert modal_message(app) == EDIT_DUPE_MESSAGE
+        await pilot.press(key)
+        assert len(app.screen_stack) == 1
+        form = app.query_one(EntryForm)
+        assert form.editing["CALL"] == "K1BBB"
+        assert field_values(app) == K1AAA_VALUES | {"COMMENT": "Loud"}
+        assert not form_disabled(app)
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+async def test_shared_id_is_listed_first_then_dupes(app, settings_path):
+    # K1AAA saved twice with one ID, and once more with its own.
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW + K1AAA_ROW + K1AAA_ROW.replace(K1AAA_ID, new_id()))
+    async with app.run_test() as pilot:
+        assert table_markers(app) == ["U", "U", "="]
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Excluding COMMENT, duplicate record(s) exist:",
+            "- Same UUIDv4 in 20260925.csv, also same in every column.",
+            "- Another record has same COMMENT.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
+        ]
+        await pilot.press("down", "down")
+        assert problem_lines(app)[1:] == [
+            "- 2 other records have same COMMENT.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
+        ]
+
+
+async def test_saved_dupes_are_marked_and_explained(app, settings_path):
+    # K1AAA logged three times: twice with no COMMENT, once with one.
+    path = write_two_saved(settings_path)
+    path.write_text(
+        LOG_HEADER
+        + K1AAA_ROW
+        + K1BBB_ROW
+        + K1AAA_ROW.replace(K1AAA_ID, new_id())
+        + K1AAA_ROW.replace(K1AAA_ID, new_id()).replace(",,", ",Loud,")
+    )
+    async with app.run_test() as pilot:
+        assert table_markers(app) == ["=", "=", "=", ""]
+        assert [n.message for n in app._notifications] == [
+            "3 records are dupes, marked =. Select one to see more."
+        ]
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Excluding COMMENT, duplicate record(s) exist:",
+            "- Another record has same COMMENT.",
+            "- Another record has COMMENT 'Loud'.",
+            "Edit field values (f3) or delete (f4) as makes sense.",
+        ]
+        assert invalid_fields(app) == []
+        await pilot.press("down", "down")
+        assert problem_lines(app)[1] == "- 2 other records without a COMMENT."
+        # Deleted down to one, the mark goes.
+        await pilot.press("f4", "enter", "enter")
+        await select_row(app, pilot, 0)
+        await pilot.press("f4", "enter", "enter")
+        assert table_markers(app) == ["", ""]
 
 
 # Quitting

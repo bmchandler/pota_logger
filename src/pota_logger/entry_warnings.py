@@ -12,32 +12,6 @@ CONFIRM_HINT = "Esc to correct, or confirm with Enter."
 # returns a warning message or None.
 
 
-def possible_dupe(values: dict, logged: list[dict]) -> str | None:
-    """Warn when CALL, PARK, DATE, band, and voice/CW all match a logged
-    entry: POTA counts that contact only once.
-    """
-    earlier = next((entry for entry in logged if dupe_key(entry) == dupe_key(values)), None)
-    if earlier is None:
-        return None
-    call, park, _, band, mode_type = dupe_key(values)
-    return (
-        f"Possible dupe: {call} at {park},\n"
-        f"{band} {mode_type}, already logged at {format_time(earlier['TIME'])}.\n"
-        f"{CONFIRM_HINT}"
-    )
-
-
-def dupe_key(values: dict) -> tuple:
-    mode_type = "CW" if values["MODE"] == "CW" else "voice"
-    return (
-        values["CALL"],
-        values["PARK"],
-        values["DATE"],
-        band_name(values["FREQ"]),
-        mode_type,
-    )
-
-
 def future_time(values: dict, logged: list[dict]) -> str | None:
     """Warn when DATE plus TIME is later than now, UTC."""
     when = datetime.combine(values["DATE"], values["TIME"], UTC)

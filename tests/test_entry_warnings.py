@@ -4,7 +4,6 @@ import pytest
 
 from pota_logger.entry_warnings import (
     future_time,
-    possible_dupe,
     state_on_non_us_park,
     voice_outside_range,
 )
@@ -84,40 +83,3 @@ def test_state_on_non_us_park_warns():
     assert state_on_non_us_park({"PARK": "JP-1234", "ST": "NJ"}, []) == (
         "JP-1234 is a non-US park, so ST is likely blank.\nEsc to correct, or confirm with Enter."
     )
-
-
-LOGGED = {
-    "FREQ": 14_285_000,
-    "MODE": "SSB",
-    "CALL": "W1ABC",
-    "PARK": "US-1234",
-    "DATE": date(2026, 9, 25),
-    "TIME": time(19, 53),
-}
-
-
-def test_possible_dupe_warns():
-    entry = LOGGED | {"FREQ": 14_300_000, "MODE": "USB", "PARK": "US-1234", "TIME": time(20, 5)}
-    assert possible_dupe(entry, [LOGGED]) == (
-        "Possible dupe: W1ABC at US-1234,\n"
-        "20m voice, already logged at 19:53.\n"
-        "Esc to correct, or confirm with Enter."
-    )
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        {"CALL": "W1ABD"},
-        {"PARK": "US-1235"},
-        {"DATE": date(2026, 9, 26)},
-        {"FREQ": 7_200_000},
-        {"MODE": "CW"},
-    ],
-)
-def test_not_a_dupe(change):
-    assert possible_dupe(LOGGED | change, [LOGGED]) is None
-
-
-def test_empty_log_has_no_dupe():
-    assert possible_dupe(LOGGED, []) is None

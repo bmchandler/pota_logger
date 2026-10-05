@@ -9,7 +9,9 @@ class WarningScreen(ModalScreen[bool]):
     to go back to the entry form.
 
     With `can_go_back` False, it's a block instead: no Back button and no
-    Esc, so Enter (on `confirm_label`'s button) is the only way on.
+    Esc, so Enter (on `confirm_label`'s button) is the only way on. With
+    `back_button` False, there's no Back button, but Esc still goes back:
+    a notice with one button, where either key closes it.
     """
 
     DEFAULT_CSS = """
@@ -43,12 +45,14 @@ class WarningScreen(ModalScreen[bool]):
         message: str,
         confirm_label: str = "Confirm",
         can_go_back: bool = True,
+        back_button: bool = True,
         id: str | None = None,
     ) -> None:
         super().__init__(id=id)
         self.message = message
         self.confirm_label = confirm_label
         self.can_go_back = can_go_back
+        self.back_button = back_button
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -56,7 +60,7 @@ class WarningScreen(ModalScreen[bool]):
             with Horizontal(id="warning-buttons"):
                 # Mouse only, so Enter always confirms instead of pressing Back.
                 buttons = [Button(self.confirm_label, id="confirm", variant="warning")]
-                if self.can_go_back:
+                if self.can_go_back and self.back_button:
                     buttons.insert(0, Button("Back", id="back"))
                 for button in buttons:
                     button.can_focus = False

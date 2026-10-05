@@ -11,6 +11,7 @@ from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger.dates import format_date, format_time
 from pota_logger.delete_screen import DeleteScreen
+from pota_logger.dupes import dupe_key
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
 from pota_logger.callsigns import parse_callsign
@@ -56,7 +57,11 @@ REFUSED_MARKER = "!"
 
 # Marks saved entries that share their record ID with another: saved
 # twice, or two versions of one record. A refused row keeps its `!`.
-SHARED_MARKER = "2"
+SHARED_MARKER = "U"
+
+# Marks saved entries that are definite dupes of another (see dupes.py),
+# unless they share an ID too.
+DUPE_MARKER = "="
 
 # Marks saved entries (from the log files at start) edited this session.
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
@@ -85,12 +90,21 @@ DELETE_MESSAGE = (
     "Gone is gone: there's no undo."
 )
 
-# Listed below COMMENT for an entry sharing its record ID, under a heading,
-# a line for each other copy.
-SHARED_HEADING = "Saved more than once (same UUIDv4):"
-SHARED_SAME = "- Also in {name}, the same in every column."
-SHARED_DIFFERENT = "- Also in {name}, with a different {columns}."
-SHARED_HINT = "Keep one: delete the rest (f4), after editing (f3) if needed."
+# Listed below COMMENT for an entry with other copies: under a heading, a
+# line for each other entry sharing its record ID, then the definite dupes
+# grouped by COMMENT, then a hint.
+REPEATS_HEADING = "Excluding COMMENT, duplicate record(s) exist:"
+SHARED_SAME = "- Same UUIDv4 in {name}, also same in every column."
+SHARED_DIFFERENT = "- Same UUIDv4 in {name}, with a different {columns}."
+REPEATS_HINT = "Edit field values (f3) or delete (f4) as makes sense."
+
+# Definite dupes, one line for those alike in COMMENT: (one, several).
+DUPE_SAME = ("- Another record has same COMMENT.", "- {count} other records have same COMMENT.")
+DUPE_OTHER_COMMENT = (
+    "- Another record has COMMENT {comment!r}.",
+    "- {count} other records have COMMENT {comment!r}.",
+)
+DUPE_NO_COMMENT = ("- Another record without a COMMENT.", "- {count} other records without a COMMENT.")
 
 # At start, when blank record IDs were filled in but the file couldn't be
 # written.
@@ -286,14 +300,20 @@ class PotaLoggerApp(App):
                 severity="error",
                 timeout=30,
             )
-        shared_ids = self.shared_ids()
-        shared = sum(
-            self.saved_marker(entry, shared_ids) == SHARED_MARKER for entry in self.saved_entries
-        )
+        repeats = self.repeats()
+        marks = [self.saved_marker(entry, *repeats) for entry in self.saved_entries]
+        shared = marks.count(SHARED_MARKER)
         if shared:
             self.notify(
                 f"{shared} records share a record ID, marked {SHARED_MARKER}. "
                 "Select one to see more.",
+                severity="error",
+                timeout=30,
+            )
+        dupes = marks.count(DUPE_MARKER)
+        if dupes:
+            self.notify(
+                f"{dupes} records are dupes, marked {DUPE_MARKER}. Select one to see more.",
                 severity="error",
                 timeout=30,
             )
@@ -398,29 +418,40 @@ class PotaLoggerApp(App):
         """
         refusal = self.logbook.refusal(entry)
         if refusal is None:
-            return None, self.shared_id_lines(entry)
+            return None, self.repeat_lines(entry)
         problems = [("", f"Refused from {refusal.path.name} row {refusal.line}:")] + [
             (problem.field, f"- {problem.message}. {problem.note}".rstrip())
             for problem in refusal.problems
         ]
-        return refused_texts(entry), problems + self.shared_id_lines(entry)
+        return refused_texts(entry), problems + self.repeat_lines(entry)
 
-    def shared_id_lines(self, entry: dict) -> list[tuple[str, str]]:
-        """Where the other entries with this entry's record ID are, and how
-        they differ, as lines for the form (with no field marked: either
-        copy may be the right one).
+    def repeat_lines(self, entry: dict) -> list[tuple[str, str]]:
+        """The entry's other copies, as lines for the form: those sharing
+        its record ID first, with what differs, then its definite dupes
+        (refused rows aside), grouped by how their COMMENT compares. No
+        field is marked: either copy may be the right one.
         """
         record_id = id_key(entry)
-        if record_id is None:
-            return []
-        others = [
-            other for other in self.log_entries() if other is not entry and id_key(other) == record_id
+        shared = [
+            other
+            for other in self.log_entries()
+            if other is not entry and record_id is not None and id_key(other) == record_id
         ]
-        if not others:
+        key = dupe_key(entry)
+        dupes = [
+            other
+            for other in self.log_entries()
+            if other is not entry
+            and not any(other is copy for copy in shared)
+            and not self.logbook.is_refused(entry)
+            and not self.logbook.is_refused(other)
+            and dupe_key(other) == key
+        ]
+        if not shared and not dupes:
             return []
+        lines = [REPEATS_HEADING]
         _, own = self.logbook.stored(entry)
-        lines = [("", SHARED_HEADING)]
-        for other in others:
+        for other in shared:
             path, row = self.logbook.stored(other)
             columns = [
                 name
@@ -429,10 +460,22 @@ class PotaLoggerApp(App):
             ]
             if columns:
                 listed = " and ".join([", ".join(columns[:-1]), columns[-1]] if columns[1:] else columns)
-                lines.append(("", SHARED_DIFFERENT.format(name=path.name, columns=listed)))
+                lines.append(SHARED_DIFFERENT.format(name=path.name, columns=listed))
             else:
-                lines.append(("", SHARED_SAME.format(name=path.name)))
-        return lines + [("", SHARED_HINT)]
+                lines.append(SHARED_SAME.format(name=path.name))
+        # The same COMMENT first, then the others in log order.
+        comments = Counter(other["COMMENT"] for other in dupes)
+        order = sorted(comments, key=lambda comment: comment != entry["COMMENT"])
+        for comment in order:
+            if comment == entry["COMMENT"]:
+                wording = DUPE_SAME
+            elif comment:
+                wording = DUPE_OTHER_COMMENT
+            else:
+                wording = DUPE_NO_COMMENT
+            count = comments[comment]
+            lines.append(wording[count > 1].format(count=count, comment=comment))
+        return [("", line) for line in lines + [REPEATS_HINT]]
 
     def log_row_of(self, entry: dict) -> int:
         return next(i for i, logged in enumerate(self.log_entries()) if logged is entry)
@@ -589,11 +632,11 @@ class PotaLoggerApp(App):
         # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
         table.clear()
-        shared_ids = self.shared_ids()
+        repeats = self.repeats()
         saved_rows = [
             log_row(
                 entry,
-                self.saved_marker(entry, shared_ids),
+                self.saved_marker(entry, *repeats),
                 # The divider, over the first saved row.
                 DIVIDER_STYLE if self.session_entries and index == 0 else "",
                 as_is=self.logbook.is_refused(entry),
@@ -604,16 +647,26 @@ class PotaLoggerApp(App):
             [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
         )
 
-    def shared_ids(self) -> set[str]:
-        """Record IDs held by more than one entry in the log."""
-        counts = Counter(id_key(entry) for entry in self.log_entries())
-        return {record_id for record_id, count in counts.items() if count > 1 and record_id}
+    def repeats(self) -> tuple[set[str], set[tuple]]:
+        """Record IDs held by more than one entry in the log, and the dupe
+        keys of entries that are definite dupes (refused rows aside, as
+        their values are text as found).
+        """
+        entries = self.log_entries()
+        ids = Counter(id_key(entry) for entry in entries)
+        keys = Counter(dupe_key(entry) for entry in entries if not self.logbook.is_refused(entry))
+        return (
+            {record_id for record_id, count in ids.items() if count > 1 and record_id},
+            {key for key, count in keys.items() if count > 1},
+        )
 
-    def saved_marker(self, entry: dict, shared_ids: set[str]) -> str:
+    def saved_marker(self, entry: dict, shared_ids: set[str], dupe_keys: set[tuple]) -> str:
         if self.logbook.is_refused(entry):
             return REFUSED_MARKER
         if id_key(entry) in shared_ids:
             return SHARED_MARKER
+        if dupe_key(entry) in dupe_keys:
+            return DUPE_MARKER
         if any(entry is edited for edited in self.edited_entries):
             return EDITED_MARKER
         return ""

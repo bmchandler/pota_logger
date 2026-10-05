@@ -45,11 +45,14 @@ updated in the same change whenever a rule changes.
   whatever QRZ or other logbooks accept; what ADIF allows is accepted
   unless the user decides otherwise). Non-ASCII is refused up front by
   `check_ascii` (ascii_text.py), since Python's `isdigit()` and `\d` also
-  match digits like ５ and ²; use it for any new text input too.
+  match digits like ５ and ²; use it for any new text input too. A
+  definite dupe (dupes.py: the same in every column but COMMENT and the
+  record ID) is also blocked, with its own modal (`Roger Roger`).
 - Warn (modal, Enter saves anyway) what's probably wrong but could be
-  real, like a special-event call or a dupe. The operator copies a paper
-  log, so a real but odd contact must never be unsaveable.
-- Messages use the operator's ham shorthand ("Possible dupe", not
+  real, like a special-event call or a voice signal outside the voice
+  range. The operator copies a paper log, so a real but odd contact must
+  never be unsaveable.
+- Messages use the operator's ham shorthand ("dupe", not
   "duplicate"). Warning messages end with "Esc to correct, or confirm
   with Enter." and use explicit line breaks so they wrap cleanly.
 
@@ -85,8 +88,10 @@ updated in the same change whenever a rule changes.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: no station callsign set (the app's `require_station_callsign`
   block, which leads to Settings), missing fields, `check_ascii` on every
-  field (with `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`, the
-  unusual-CALL modal, then each of `WARNINGS` in order.
+  field (with `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`,
+  `blocked_as_dupe`, the unusual-CALL modal (then `blocked_as_dupe` again,
+  as the call may change there), then each of `WARNINGS` in order. The
+  dupe block's modal closes back to the form as typed, new or edit.
 - logbook.py holds the CSV storage, `Logbook` (`app.logbook`): `load`
   at start (entries plus a message per skipped row or file) keeps each
   file's lines in `files`, the only source of truth while the app runs;
@@ -106,8 +111,10 @@ updated in the same change whenever a rule changes.
   `EntryForm.submit` and kept by an edit; `load` fills in a blank one
   (the only write on load; a failed write goes in `unsaved_ids`), and
   `appended` skips a row already in the file, ID included. Entries
-  sharing an ID are marked `SHARED_MARKER` (`2`) and explained below
-  COMMENT (the app's `shared_id_lines`). Test rows need distinct IDs
+  sharing an ID are marked `SHARED_MARKER` (`U`) and explained below
+  COMMENT; saved definite dupes likewise get `DUPE_MARKER` (`=`), listed
+  after any shared IDs in the app's `repeat_lines` (marks: `!`, `U`, `=`,
+  `✎`). Test rows need distinct IDs
   (`new_id()`), or the `2` mark shows. The app keeps log files
   beside settings (`settings_path.parent`), so the test fixtures' temp
   dir covers both.
@@ -175,7 +182,7 @@ updated in the same change whenever a rule changes.
   there. See the test-speed TODO in REQUIREMENTS.md's "Status and plan".
 - tests/test_app.py builds on `ENTRY` (USB on a 20m voice frequency) and
   `CW_ENTRY`. A test that saves several entries needs a different CALL on
-  each, or the possible-dupe warning stops it. Use past dates, or
+  each (or some other difference), or the dupe block stops it. Use past dates, or
   `991231` for a future one.
 - To see what the TUI draws (it can't be previewed in the browser), run
   the app with `run_test(size=(107, 24))` in a scratch script (107 is the

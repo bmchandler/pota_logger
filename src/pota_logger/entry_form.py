@@ -13,9 +13,9 @@ from pota_logger.ascii_text import check_ascii
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.callsigns import is_usual_callsign, parse_callsign
 from pota_logger.dates import default_date, parse_date, parse_time
+from pota_logger.dupes import DUPE_BUTTON, EDIT_DUPE_MESSAGE, NEW_DUPE_MESSAGE, is_dupe
 from pota_logger.entry_warnings import (
     future_time,
-    possible_dupe,
     state_on_non_us_park,
     voice_outside_range,
 )
@@ -113,7 +113,6 @@ EDITING_TITLE = "Editing record - Esc to cancel"
 # Checks run after the unusual-CALL warning, in order: (field Esc goes back
 # to, check in entry_warnings.py).
 WARNINGS = [
-    ("CALL", possible_dupe),
     ("FREQ", voice_outside_range),
     ("ST", state_on_non_us_park),
     ("DATE", future_time),
@@ -218,8 +217,8 @@ class EntryForm(Vertical):
 
     def __init__(self) -> None:
         super().__init__()
-        # Entries loaded at start and saved since, for the possible-dupe
-        # warning.
+        # Entries loaded at start and saved since, to block a definite
+        # dupe.
         self.logged: list[dict] = []
         # The logged entry shown (its log row selected), read-only until
         # it's edited; then also `editing`. What the form held before, and
@@ -383,6 +382,8 @@ class EntryForm(Vertical):
             self.notify(str(error), severity="warning")
             self.field("MODE").focus()
             return
+        if self.blocked_as_dupe(values | parsed):
+            return
         if not is_usual_callsign(parsed["CALL"]):
             self.app.push_screen(
                 CallsignWarningScreen(parsed["CALL"]),
@@ -395,7 +396,35 @@ class EntryForm(Vertical):
         if call is None:
             self.field("CALL").focus()
             return
+        # Changed in the modal, it's checked again.
+        if self.blocked_as_dupe(values | {"CALL": call}):
+            return
         self.check_warnings(values | {"CALL": call}, WARNINGS)
+
+    def blocked_as_dupe(self, values: dict) -> bool:
+        """Block a definite dupe of a logged entry with a modal, which
+        closes back to the form (a new entry, or an edit still open) as
+        typed.
+        """
+        logged = [entry for entry in self.logged if entry is not self.editing]
+        if not is_dupe(values | {"STATION_CALLSIGN": self.station_callsign()}, logged):
+            return False
+        message = NEW_DUPE_MESSAGE if self.editing is None else EDIT_DUPE_MESSAGE
+        self.app.push_screen(WarningScreen(message, confirm_label=DUPE_BUTTON, back_button=False))
+        return True
+
+    def station_callsign(self) -> str:
+        """The STATION_CALLSIGN an entry is saved with: an edited one keeps
+        its own (a refused row's as it reads, e.g. w1tst as W1TST), a new
+        one gets Settings'.
+        """
+        if self.editing is None:
+            return self.app.settings.station_callsign
+        text = self.editing["STATION_CALLSIGN"]
+        try:
+            return parse_callsign(text, "STATION_CALLSIGN")
+        except ValueError:
+            return text
 
     def check_warnings(self, values: dict, warnings: list) -> None:
         # An edited entry isn't checked against itself, e.g. as a dupe.

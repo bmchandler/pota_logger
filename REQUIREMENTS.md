@@ -44,7 +44,8 @@ value, each held to exactly what the app writes, and hand-tested in Vim
 and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
 while it runs, the only source of truth for the log files; deleting an entry (see Editing); fixing or deleting a row refused on
 load, in the app (see Storage); a record ID on every log row, with rows
-sharing one marked `2` (see Storage); the status bar; the
+sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
+marked `=` at start (see Entry behavior); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -96,26 +97,10 @@ To do:
     left to the unit tests. Less end-to-end coverage, so the operator
     decides.
 
-Not built yet, in the planned order (the editing plan, decided
-2026-10-04, then the rest). The aim: the log is where records are checked
-and fixed, with no need to open a CSV. Its status column shows each row's
-state, the form makes every change, and only the operator changes a
-record.
-
-1. Definite dupes, replacing the possible-dupe warning. A definite dupe
-   matches another entry in every column but COMMENT and `UUIDv4`;
-   "possible dupe" meant little in practice. Nothing is ever deleted
-   automatically.
-   - On Enter, a definite dupe is blocked with a modal saying the entry
-     is already logged, and to edit that one instead (e.g. to add to its
-     COMMENT). Its only button is `Roger Roger`; Enter or Esc closes it
-     too. The logged entry is then selected, ready for `f3`.
-   - An edit that turns an entry into a dupe of another is blocked the
-     same way.
-   - The blocked entry, as typed, is put aside, as when any row is
-     selected, so Esc brings it back.
-   - At start, saved rows that are definite dupes of each other are
-     marked (e.g. `=`) in the status column, to fix with edit or delete.
+The editing plan (decided 2026-10-04) is built: the log is where records
+are checked and fixed, with no need to open a CSV. Its status column shows
+each row's state, the form makes every change, and only the operator
+changes a record.
 
 Also not built: the Sort action (see Log view) and ADIF export.
 
@@ -263,6 +248,49 @@ Session-level value:
 - Entries may be typed in any time order, with no warning. The paper log
   isn't always in time order (an entry is sometimes finished after later
   ones), and typing it 1:1 keeps it easy to double-check.
+- A definite dupe is blocked (built 2026-10-05): an entry matching one
+  already logged (in the log files, or saved this session) in every
+  column but COMMENT and the record ID: FREQ to the Hz, MODE, CALL, PARK,
+  ST, SNT, RCD, PWR, DATE, TIME, and STATION_CALLSIGN. No two real
+  contacts match like that, so it's the same paper line typed twice; a
+  differing COMMENT most likely means a note to add to the one logged.
+  - It's checked after the field rules and the sideband, before the
+    unusual-CALL modal, and again after that modal (the call may be
+    changed there).
+  - A modal reads `Excluding COMMENT, attempted save` / `will result in
+    a duplicate record.` / `See DATE & TIME to locate other record.` For
+    an edit it goes on: `Change field value(s), or Esc out to` /
+    `cancel.`, then, after a blank line, `WARNING:` / `Updated COMMENT
+    will be lost after` / `escaping out.` (a new entry has nothing to
+    cancel, and keeps what was typed). "Excluding COMMENT" makes clear
+    that a different COMMENT with everything else the same isn't a
+    different record. Its only button is `Roger Roger`; Enter or Esc
+    closes it too. Nothing is saved, and the form is back as it was: a
+    new entry as typed, or an edit still open with its changes. An
+    edited entry isn't checked against itself.
+  - Keeping a contact one minute apart from another (otherwise the same)
+    is deliberate: rare, but real (a second try at a rare DX station
+    after conditions improve, or to be sure one gets confirmed).
+  - It replaced a possible-dupe warning (CALL, PARK, DATE, band, and
+    voice/CW matching, as POTA counts that contact once), which meant
+    little in practice.
+  - At start, saved entries that are definite dupes of each other are
+    marked `=` (see Log view), with one notification (`3 records are
+    dupes, marked =. Select one to see more.`). A selected one lists its
+    other copies below COMMENT, in the error color, under `Excluding
+    COMMENT, duplicate record(s) exist:`: first any sharing its record ID
+    (see Storage), then its dupes, one line per COMMENT, the same one
+    first: `- Another record has same COMMENT.` (`- 2 other records have
+    same COMMENT.`), `- Another record has COMMENT 'QSB'.`, or `- Another
+    record without a COMMENT.`; last, `Edit field values (f3) or delete
+    (f4) as makes sense.` No field gets the invalid border. Nothing is
+    deleted automatically; deleting or editing one so it differs clears
+    the other's mark. Refused rows aren't compared, as their values are
+    text as found.
+  - To circle back to (noted 2026-10-05): STATION_CALLSIGN is one of the
+    columns compared, so an entry the same as a logged one but for the
+    station callsign (e.g. after the call in Settings changes) isn't a
+    dupe, and saves with no warning. Decide whether that's right.
 - Warnings flag entries that are probably, but not certainly, wrong. The
   first Enter opens a warning modal instead of saving; Enter there
   confirms, and Esc goes back to the form without saving, on the field
@@ -271,13 +299,6 @@ Session-level value:
     `Correct and/or confirm with Enter.` and holds the call, ready to
     edit. Enter saves the entry with the call as it is in the modal (still
     shape-checked).
-  - **Possible dupe:** CALL, PARK, DATE, band, and mode type (voice or
-    CW; SSB, USB, and LSB count as voice) all match an entry already
-    logged, since POTA counts that contact once. Reads `Possible dupe:
-    W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
-    the usual shorthand, not "duplicate"). Checks every entry in the log
-    files, plus those saved this session. Esc goes back to CALL. To be
-    replaced by a definite-dupe block (see Status and plan, item 1).
   - **Voice outside the voice range:** a voice signal runs outside its
     band's US voice (phone) range, using the Extra class edges (the
     widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
@@ -331,7 +352,7 @@ Session-level value:
   to read other entries.
 - Enter saves the change through every check and warning a new entry
   gets, changed fields or not, except that the entry isn't checked
-  against itself (an unchanged entry is no possible dupe).
+  against itself (an unchanged entry is no dupe).
 - Esc steps back one level at a time: from editing to the row still
   selected (changes dropped, no prompt; focus back in the log), then to
   no row selected, with the form's entry put aside back, and focus on the
@@ -373,10 +394,12 @@ Session-level value:
   selects it (see Editing).
 - The log's first column, with no header, holds a one-character status
   marker. `•` marks entries typed this session, `✎` saved entries edited
-  this session, `!` rows refused on load, and `2` saved entries that
-  share their record ID with another (see Storage). One mark per row:
-  `!` first, then `2`, then `✎`. Marks aren't saved: `•` and `✎` are
-  gone on the next start, while `!` and `2` come back until fixed. The column moves with its row when the log is sorted, so the
+  this session, `!` rows refused on load, `U` saved entries that share
+  their record ID with another (see Storage), and `=` saved entries that
+  are definite dupes of another (see Entry behavior). One mark per row:
+  `!` first, then `U`, then `=`, then `✎`. Marks aren't saved: `•` and
+  `✎` are gone on the next start, while `!`, `U`, and `=` come back
+  until fixed. The column moves with its row when the log is sorted, so the
   marks survive a Sort. Later it may show other states, like an entry
   not yet uploaded to QRZ.
 - Below them, any rows refused on load, marked `!` (see Storage), then
@@ -419,21 +442,24 @@ Session-level value:
     date's file, then removed from the old one). If the second write
     fails and the operator gives up, or the app dies between the two,
     both files hold the entry, its before and after differing in DATE,
-    which no dupe check would catch; with the ID, both are marked.
+    which no dupe check would catch; with the ID, both are marked `U`.
   - Adding a row is skipped when that exact row, ID included, is already
     in its file, so saving an edit again after a failed move can't add it
     twice. If the edit was changed before saving again, both versions
-    are kept (and marked `2` at the next start), rather than one dropped
+    are kept (and marked `U` at the next start), rather than one dropped
     where the log doesn't show it.
-  - At start, saved entries sharing an ID are marked `2`, with one
-    notification summing them up (`4 records share a record ID, marked 2.
+  - At start, saved entries sharing an ID are marked `U`, with one
+    notification summing them up (`4 records share a record ID, marked U.
     Select one to see more.`). A selected one lists the other copies
-    below COMMENT, in the error color, under `Saved more than once (same
-    UUIDv4):`, one line each: `- Also in 20260925.csv, the same in every
-    column.` (a row copied, a file merged twice) or `- Also in
-    20260926.csv, with a different DATE and TIME.` (an unfinished move, or
-    two versions of one record), then `Keep one: delete the rest (f4),
-    after editing (f3) if needed.` No field gets the invalid border:
+    below COMMENT, in the error color, under `Excluding COMMENT,
+    duplicate record(s) exist:`, at the top of that list (any definite
+    dupes follow; see Entry behavior), one line each: `- Same UUIDv4 in
+    20260925.csv, also same in every column.` (a row copied, a file
+    merged twice) or `- Same UUIDv4 in 20260926.csv, with a different
+    DATE and TIME.` (an unfinished move, or two versions of one record);
+    either way it's a form of duplicate, so the heading stays. Then `Edit
+    field values (f3) or delete (f4) as makes sense.` No field gets the
+    invalid border:
     either copy may be the right one. Which to keep is the operator's
     call; nothing is resolved automatically. Deleting a copy clears the
     other's mark. A refused row sharing an ID keeps its `!`, and lists
@@ -459,7 +485,7 @@ Session-level value:
     uppercase, so a hand-added row may have one. Like any value not in
     its stored form, the row is refused (`UUIDv4 '1B4E…' should be
     lowercase. Saving makes it lowercase.`), but the ID is kept, and it
-    still matches a lowercase copy of itself for the `2` mark. Other
+    still matches a lowercase copy of itself for the `U` mark. Other
     forms Python reads as a UUID (no hyphens, braces, `urn:uuid:`) are
     refused as not an ID.
   - No upgrade of existing files: before the first release, `data/` is
@@ -505,7 +531,7 @@ Session-level value:
   in the form, or an edit in edit mode. When an edit moves an entry to
   another date's file and only the old file fails, trying again finishes
   just that part; given up, both files hold it (a dupe, not a loss,
-  marked `2` at the next start). Saving the edit again doesn't add it to
+  marked `U` at the next start). Saving the edit again doesn't add it to
   the new date's file twice (see Record IDs).
 - Written with `\n` line endings; a COMMENT with a comma or quote is
   quoted, CSV style (`"Nice, loud"`). If a hand edit left the last line
@@ -582,8 +608,9 @@ Session-level value:
   `US1234`, PWR `.5` or `60.0`, FREQ `014285500`); DATE matching the
   file's name (`DATE '20260924' should match the file name,
   20260925.csv`); then SSB near a voice edge. Entry warnings (unusual
-  call, possible dupe, and the rest) aren't checked: a saved entry was
-  confirmed when entered, or edited by hand on purpose. COMMENT's length
+  call and the rest) aren't checked: a saved entry was confirmed when
+  entered, or edited by hand on purpose. Definite dupes aren't refused
+  either, just marked `=` (see Entry behavior). COMMENT's length
   isn't checked either: the entry form's limit (100 characters today) is
   just what fits in view, not a rule about the data (ADIF sets no
   limit), and it moves whenever the form's width does. If the field were
@@ -605,6 +632,10 @@ Session-level value:
   - ST `NA` means no state: `STATE` is left out.
   - PWR is the operator's power: `TX_PWR` in watts.
   - The station callsign is `STATION_CALLSIGN`.
+  - Check how QRZ.com (ADIF import, or its API) handles two contacts a
+    minute apart, otherwise the same: the log keeps them (see Entry
+    behavior, definite dupes), and if QRZ merges or refuses one, that
+    needs a decision.
   - The record ID (`UUIDv4`) isn't exported. If ADIF import ever needs
     to match records already logged, it would go in an
     `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own data.
