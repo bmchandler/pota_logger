@@ -43,7 +43,8 @@ station callsign checked at start against the entry rules that refuse a
 value, each held to exactly what the app writes, and hand-tested in Vim
 and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
 while it runs, the only source of truth for the log files; deleting an entry (see Editing); fixing or deleting a row refused on
-load, in the app (see Storage); the status bar; the
+load, in the app (see Storage); a record ID on every log row, with rows
+sharing one marked `2` (see Storage); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -101,60 +102,7 @@ and fixed, with no need to open a CSV. Its status column shows each row's
 state, the form makes every change, and only the operator changes a
 record.
 
-1. Record IDs (decided 2026-10-04). Each log row gets a UUID (version 4,
-   random) that never changes, so the app can tell one record saved
-   twice from two contacts that look alike.
-   - Why: an edit that changes DATE is two writes (added to the new
-     date's file, then removed from the old one). If the second write
-     fails and the operator gives up, or the app dies between the two,
-     both files hold the entry: its before and after, differing in DATE,
-     so a definite-dupe check misses it. And a bug in the current build
-     (found 2026-10-04): if the second write fails, Esc on the modal,
-     then Enter on the edit still open, the edit starts over and adds
-     the row to the new date's file a second time, an exact dupe the app
-     made itself and the log doesn't show until the next start. (Enter
-     on the modal, to try again, is fine: it finishes just the second
-     write.) A stopgap fix without IDs was considered and dropped, as
-     IDs come next and fix it more simply.
-   - The column is `UUIDv4`; its place is settled when built (e.g.
-     last). A new entry gets a fresh ID when saved; an edit, a DATE move
-     included, keeps it.
-   - Adding a row is skipped when its ID is already in that file, so
-     saving again after a failed write can't add it twice. Test: a DATE
-     move whose second write fails, then the edit saved again, leaves
-     one row in the new file.
-   - At start, rows sharing an ID are marked in the status column: the
-     same in every column (a row copied, a file merged twice) or not (an
-     unfinished move, or two versions of one record). Which to keep is
-     the operator's call, with edit or delete; nothing is resolved
-     automatically.
-   - A blank ID (a row added by hand) is filled in with a new one, and
-     the file is rewritten with it, at start. This is the one exception
-     to the app never tidying a log file on its own: an ID can't be
-     fixed in the app (it has no field) and is tedious and error-prone
-     to make by hand. Every other problem, e.g. a STATION_CALLSIGN that
-     doesn't read, is still refused and shown for the operator to fix.
-   - An ID that isn't blank must be a UUID as the app writes it, or the
-     row is refused, like any other value. A typo that still leaves a
-     valid UUID makes the row look like a new record; that isn't caught.
-   - The ID stays in the CSV and isn't exported to ADIF. If ADIF import
-     ever needs to match records already logged, it would go in an
-     `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own
-     data.
-   - No upgrade of existing files: before the first release, `data/` is
-     cleared as needed.
-   - Considered instead: a journal file noting each move until it's done
-     (repairs on its own at start, but a second file and more startup
-     logic); one file per year (a move is one write, but gives up daily
-     files); and a possible-dupe warning across nearby dates (false
-     alarms on real contacts alike in every field). UUID version 7 or a
-     ULID would sort by when the entry was typed, which means little for
-     entries copied from paper later. Version 4's 122 random bits make
-     a chance collision negligible, even across merged files.
-   - Open, to settle when built: when a blank ID is filled in but the
-     file can't be written (the same modal as a save, or a
-     notification); whether a refused row with a blank ID gets one too.
-2. Definite dupes, replacing the possible-dupe warning. A definite dupe
+1. Definite dupes, replacing the possible-dupe warning. A definite dupe
    matches another entry in every column but COMMENT and `UUIDv4`;
    "possible dupe" meant little in practice. Nothing is ever deleted
    automatically.
@@ -329,7 +277,7 @@ Session-level value:
     W1ABC at US-1234,` / `20m voice, already logged at 19:53.` ("dupe",
     the usual shorthand, not "duplicate"). Checks every entry in the log
     files, plus those saved this session. Esc goes back to CALL. To be
-    replaced by a definite-dupe block (see Status and plan, item 6).
+    replaced by a definite-dupe block (see Status and plan, item 1).
   - **Voice outside the voice range:** a voice signal runs outside its
     band's US voice (phone) range, using the Extra class edges (the
     widest): 80m 3.600, 40m 7.125, 20m 14.150, 17m 18.110, 15m 21.200, 12m
@@ -425,9 +373,10 @@ Session-level value:
   selects it (see Editing).
 - The log's first column, with no header, holds a one-character status
   marker. `•` marks entries typed this session, `✎` saved entries edited
-  this session, and `!` rows refused on load. Marks aren't saved: `•`
-  and `✎` are gone on the next start, while `!` comes back until the row
-  is fixed. The column moves with its row when the log is sorted, so the
+  this session, `!` rows refused on load, and `2` saved entries that
+  share their record ID with another (see Storage). One mark per row:
+  `!` first, then `2`, then `✎`. Marks aren't saved: `•` and `✎` are
+  gone on the next start, while `!` and `2` come back until fixed. The column moves with its row when the log is sorted, so the
   marks survive a Sort. Later it may show other states, like an entry
   not yet uploaded to QRZ.
 - Below them, any rows refused on load, marked `!` (see Storage), then
@@ -459,7 +408,70 @@ Session-level value:
 - `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the entry fields:
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME, COMMENT`, then
-  `STATION_CALLSIGN`.
+  `STATION_CALLSIGN` and `UUIDv4` (the record ID).
+- Record IDs (built 2026-10-05). Each row's `UUIDv4` is a random UUID
+  (version 4), written lowercase with hyphens
+  (`1b4e28ba-2fa1-4d2b-883f-0016d3cca427`), that never changes, so the
+  app can tell one record saved twice from two contacts that look alike.
+  A new entry gets a fresh one when saved; an edit, a DATE move included,
+  keeps it. It's never shown in the log or the form.
+  - Why: an edit that changes DATE is two writes (added to the new
+    date's file, then removed from the old one). If the second write
+    fails and the operator gives up, or the app dies between the two,
+    both files hold the entry, its before and after differing in DATE,
+    which no dupe check would catch; with the ID, both are marked.
+  - Adding a row is skipped when that exact row, ID included, is already
+    in its file, so saving an edit again after a failed move can't add it
+    twice. If the edit was changed before saving again, both versions
+    are kept (and marked `2` at the next start), rather than one dropped
+    where the log doesn't show it.
+  - At start, saved entries sharing an ID are marked `2`, with one
+    notification summing them up (`4 records share a record ID, marked 2.
+    Select one to see more.`). A selected one lists the other copies
+    below COMMENT, in the error color, under `Saved more than once (same
+    UUIDv4):`, one line each: `- Also in 20260925.csv, the same in every
+    column.` (a row copied, a file merged twice) or `- Also in
+    20260926.csv, with a different DATE and TIME.` (an unfinished move, or
+    two versions of one record), then `Keep one: delete the rest (f4),
+    after editing (f3) if needed.` No field gets the invalid border:
+    either copy may be the right one. Which to keep is the operator's
+    call; nothing is resolved automatically. Deleting a copy clears the
+    other's mark. A refused row sharing an ID keeps its `!`, and lists
+    the copies under its problems.
+  - A blank ID (a row added by hand) is filled in with a new one at
+    start, refused rows included, and the file rewritten: the ID goes at
+    the end of the row's last line (where a blank ID, written as nothing
+    or `""`, sits, as the last column), and every other byte of the file
+    stays as it was. This is the one exception to the app never tidying a
+    log file on its own: an ID can't be fixed in the app (it has no
+    field) and is tedious and error-prone to make by hand. If the file
+    can't be written, a notification says so (`Couldn't add record IDs to
+    20260925.csv: Permission denied. They're saved with the next change
+    to that file, or added again at the next start.`); the app's copy
+    holds them, so the next save to that file writes them.
+  - An ID that isn't blank must be a UUID as the app writes it, or the
+    row is refused (`UUIDv4 'abc' should be a UUID as the app writes it,
+    like 1b4e28ba-2fa1-4d2b-883f-0016d3cca427. Saving gives it a new
+    one.`): fixed in the app, it gets a new ID. A typo that still leaves a
+    valid UUID makes the row look like a new record; that isn't caught.
+  - Uppercase is read as the same ID, as the UUID standard (RFC 9562)
+    reads it, though it writes lowercase; macOS's `uuidgen` writes
+    uppercase, so a hand-added row may have one. Like any value not in
+    its stored form, the row is refused (`UUIDv4 '1B4E…' should be
+    lowercase. Saving makes it lowercase.`), but the ID is kept, and it
+    still matches a lowercase copy of itself for the `2` mark. Other
+    forms Python reads as a UUID (no hyphens, braces, `urn:uuid:`) are
+    refused as not an ID.
+  - No upgrade of existing files: before the first release, `data/` is
+    cleared as needed.
+  - Considered instead: a journal file noting each move until it's done
+    (repairs on its own at start, but a second file and more startup
+    logic); one file per year (a move is one write, but gives up daily
+    files); and a possible-dupe warning across nearby dates (false
+    alarms on real contacts alike in every field). UUID version 7 or a
+    ULID would sort by when the entry was typed, which means little for
+    entries copied from paper later. Version 4's 122 random bits make
+    a chance collision negligible, even across merged files.
 - Values are stored in their "Stored as" form, e.g. FREQ `14074500`,
   PARK `US-1234` or `JP-1234` (the full reference, whatever was typed),
   PWR `60` or `0.5`, DATE `20260925`, TIME `1953`.
@@ -492,9 +504,9 @@ Session-level value:
   or Esc to go back.` Esc leaves a new entry typed
   in the form, or an edit in edit mode. When an edit moves an entry to
   another date's file and only the old file fails, trying again finishes
-  just that part; given up, both files hold it (a dupe, not a loss).
-  Known bug, fixed by record IDs (see Status and plan, item 1): given
-  up there, saving the edit again adds it to the new date's file twice.
+  just that part; given up, both files hold it (a dupe, not a loss,
+  marked `2` at the next start). Saving the edit again doesn't add it to
+  the new date's file twice (see Record IDs).
 - Written with `\n` line endings; a COMMENT with a comma or quote is
   quoted, CSV style (`"Nice, loud"`). If a hand edit left the last line
   without its line break, one is added before appending.
@@ -545,22 +557,26 @@ Session-level value:
   values, a stray quote) is skipped, with its own notification, to fix
   by hand. The app never tidies or rewrites a log file on its own, since
   automatic changes to a hand-edited file could make a slip worse (e.g.
-  a stray quote that joins lines).
+  a stray quote that joins lines). The one exception is filling in a
+  blank record ID (see Record IDs).
 - A hand edit is held to the strictest rule: every value must be
   written exactly as the app writes it, so nothing is tidied up on load.
 - A row's checks, stopping at the first problem: the number of values;
   each column in order for non-ASCII, then spaces before or after the
   value (`CALL ' W1ABC' should have no spaces around it, like W1ABC`;
   spaces inside a COMMENT are fine); a blank column other than ST or
-  COMMENT (STATION_CALLSIGN included, as no entry is saved without one);
+  COMMENT (STATION_CALLSIGN included, as no entry is saved without one;
+  a blank UUIDv4 is filled in first, see Record IDs);
   FREQ, PWR, and DATE as numbers (FREQ in Hz, DATE as YYYYMMDD in 2000
   to 2099, the years the entry form's YYMMDD takes, so an edit keeps the
   year; e.g. TIME `53`, as a spreadsheet may save `0053`, is refused
   rather than read as 05:03); each field's entry rules that refuse a
   value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape, PARK,
-  ST, SNT and RCD against MODE, PWR's range, TIME); each value in its
+  ST, SNT and RCD against MODE, PWR's range, TIME), and UUIDv4 as the
+  app writes it, in either case; each value in its
   stored form, the "Stored as" column in Entry fields: lowercase is
-  refused (`MODE 'usb' should be uppercase, like USB`), and so is any
+  refused (`MODE 'usb' should be uppercase, like USB`; for UUIDv4,
+  uppercase), and so is any
   other form the entry form would take, or a number written another way
   (`PARK '1234' should be 'US-1234' in a log file`, likewise PARK
   `US1234`, PWR `.5` or `60.0`, FREQ `014285500`); DATE matching the
@@ -589,4 +605,6 @@ Session-level value:
   - ST `NA` means no state: `STATE` is left out.
   - PWR is the operator's power: `TX_PWR` in watts.
   - The station callsign is `STATION_CALLSIGN`.
-  - The record ID (planned; see Status and plan) isn't exported.
+  - The record ID (`UUIDv4`) isn't exported. If ADIF import ever needs
+    to match records already logged, it would go in an
+    `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own data.

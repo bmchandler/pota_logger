@@ -8,6 +8,7 @@ from pota_logger import PotaLoggerApp, dates
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
+from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import Settings, load_settings, save_settings
 from pota_logger.settings_screen import SettingsScreen
 from pota_logger.warning_screen import WarningScreen
@@ -931,15 +932,18 @@ async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, me
 
 # Storage
 
+LOG_HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN,UUIDv4\n"
+
 
 async def test_entry_is_saved_to_its_dates_file(app, settings_path):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"COMMENT": "Nice, loud"})
         await pilot.press("enter")
-    assert (settings_path.parent / "20260925.csv").read_text().splitlines() == [
-        "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN",
-        '14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,"Nice, loud",W1TST',
-    ]
+    header, row = (settings_path.parent / "20260925.csv").read_text().splitlines()
+    assert header == LOG_HEADER.rstrip()
+    saved, record_id = row.rsplit(",", 1)
+    assert saved == '14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,"Nice, loud",W1TST'
+    assert parse_id(record_id) == record_id
 
 
 async def test_saved_entries_are_shown_at_start(app, settings_path):
@@ -956,9 +960,9 @@ def write_saved_log(settings_path, rows: dict[str, list[tuple[str, str, str]]]) 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     for day, entries in rows.items():
         (settings_path.parent / f"{day}.csv").write_text(
-            "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
+            LOG_HEADER
             + "".join(
-                f"14285500,USB,{call},US-1234,NJ,59,57,60,{date},{time},,W1TST\n"
+                f"14285500,USB,{call},US-1234,NJ,59,57,60,{date},{time},,W1TST,{new_id()}\n"
                 for call, date, time in entries
             )
         )
@@ -1088,21 +1092,21 @@ async def test_possible_dupe_sees_entries_saved_before(app, settings_path):
 async def test_row_too_broken_to_split_is_skipped_with_notification(app, settings_path):
     path = settings_path.parent / "20260925.csv"
     path.write_text(
-        "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
-        "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,W1TST\n"
+        LOG_HEADER + "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,W1TST\n"
     )
     async with app.run_test():
         assert table_rows(app) == []
         assert [n.message for n in app._notifications] == [
-            f"Skipped {path} row 2: has 11 values, should have 12"
+            f"Skipped {path} row 2: has 11 values, should have 13"
         ]
 
 
 # Editing
 
-LOG_HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
-K1AAA_ROW = "14285500,USB,K1AAA,US-1234,NJ,59,57,60,20260925,2100,,W1TST\n"
-K1BBB_ROW = "7030000,CW,K1BBB,US-5678,,599,579,0.5,20260925,1900,Loud,W1TST\n"
+K1AAA_ID = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
+K1BBB_ID = "9f2c4e1a-7b3d-4c8e-a5f6-0123456789ab"
+K1AAA_ROW = f"14285500,USB,K1AAA,US-1234,NJ,59,57,60,20260925,2100,,W1TST,{K1AAA_ID}\n"
+K1BBB_ROW = f"7030000,CW,K1BBB,US-5678,,599,579,0.5,20260925,1900,Loud,W1TST,{K1BBB_ID}\n"
 
 
 def write_two_saved(settings_path):
@@ -1582,7 +1586,7 @@ async def test_failed_delete_write_keeps_the_entry(app, settings_path, monkeypat
 
 # Refused rows, fixed in the app
 
-REFUSED_ROW = "7030000,cw,K1BBB,1234,,599,579,.5,20260925,53,Loud,W1TST\n"
+REFUSED_ROW = f"7030000,cw,K1BBB,1234,,599,579,.5,20260925,53,Loud,W1TST,{K1BBB_ID}\n"
 
 
 def write_refused(settings_path, refused=REFUSED_ROW):
@@ -1602,7 +1606,7 @@ async def test_refused_row_shown_as_is_and_marked_at_the_top(app, settings_path)
         # Above K1AAA, though K1AAA is newer.
         assert table_calls(app) == ["K1BBB", "K1AAA"]
         assert table_markers(app) == ["!", ""]
-        assert table_rows(app)[0] == REFUSED_ROW.rstrip().split(",")[:-1]
+        assert table_rows(app)[0] == REFUSED_ROW.rstrip().split(",")[:-2]
         assert [n.message for n in app._notifications] == [
             "1 record refused, marked ! at the top of the log. Select one to see why."
         ]
@@ -1633,8 +1637,10 @@ async def test_selected_refused_row_shows_what_reads_as_typed(app, settings_path
 
 
 def problem_lines(app) -> list[str]:
-    """The refused-row problems listed below COMMENT; [] while hidden."""
-    listed = app.query_one("#refused-problems")
+    """What's listed below COMMENT (a refused row's problems, or other
+    copies of a record); [] while hidden.
+    """
+    listed = app.query_one("#entry-problems")
     return str(listed.render()).splitlines() if listed.display else []
 
 
@@ -1754,6 +1760,105 @@ async def test_new_entry_is_highlighted_but_not_selected(app, settings_path):
         assert field_values(app)["CALL"] == "K2DEF"
 
 
+# Record IDs
+
+
+async def test_records_sharing_an_id_are_marked_and_explained(app, settings_path):
+    # K1AAA saved twice, and K1BBB with a version in the next day's file,
+    # as an unfinished DATE move would leave.
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW + K1BBB_ROW + K1AAA_ROW)
+    (settings_path.parent / "20260926.csv").write_text(
+        LOG_HEADER + K1BBB_ROW.replace("20260925", "20260926").replace("1900", "1905")
+    )
+    async with app.run_test() as pilot:
+        assert table_calls(app) == ["K1BBB", "K1AAA", "K1AAA", "K1BBB"]
+        assert table_markers(app) == ["2", "2", "2", "2"]
+        assert [n.message for n in app._notifications] == [
+            "4 records share a record ID, marked 2. Select one to see more."
+        ]
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Saved more than once (same UUIDv4):",
+            "- Also in 20260925.csv, with a different DATE and TIME.",
+            "Keep one: delete the rest (f4), after editing (f3) if needed.",
+        ]
+        # Either copy may be the right one.
+        assert invalid_fields(app) == []
+        await pilot.press("down")
+        assert problem_lines(app)[1] == "- Also in 20260925.csv, the same in every column."
+        # One copy deleted, the other's mark goes.
+        await pilot.press("f4", "enter", "enter")
+        assert table_calls(app) == ["K1BBB", "K1AAA", "K1BBB"]
+        assert table_markers(app) == ["2", "", "2"]
+        await select_row(app, pilot, 1)
+        assert problem_lines(app) == []
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW + K1AAA_ROW
+
+
+async def test_edit_keeps_the_record_id(app, settings_path):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 0)
+        fill(app, {"DATE": "260926"})
+        await pilot.press("enter")
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW
+    assert (settings_path.parent / "20260926.csv").read_text() == (
+        LOG_HEADER + K1AAA_ROW.replace("20260925", "20260926")
+    )
+
+
+async def test_refused_rows_bad_id_is_replaced_when_fixed(app, settings_path):
+    path = write_refused(settings_path, K1BBB_ROW.replace(K1BBB_ID, "not an id"))
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 0)
+        assert problem_lines(app)[1] == (
+            "- UUIDv4 'not an id' should be a UUID as the app writes it, like "
+            "1b4e28ba-2fa1-4d2b-883f-0016d3cca427. Saving gives it a new one."
+        )
+        await pilot.press("f3", "enter")
+        assert table_markers(app) == ["✎", ""]
+    saved, record_id = path.read_text().removeprefix(LOG_HEADER).rstrip().rsplit(",", 1)
+    assert saved + ",\n" == K1BBB_ROW.replace(K1BBB_ID, "")
+    assert parse_id(record_id) == record_id
+
+
+async def test_uppercase_id_matches_its_copy_and_is_kept_lowercase(app, settings_path):
+    # Refused for its uppercase ID, with a copy in the next day's file.
+    path = write_refused(settings_path, K1BBB_ROW.replace(K1BBB_ID, K1BBB_ID.upper()))
+    moved = K1BBB_ROW.replace("20260925", "20260926")
+    (settings_path.parent / "20260926.csv").write_text(
+        LOG_HEADER + K1AAA_ROW.replace("20260925", "20260926") + moved
+    )
+    async with app.run_test() as pilot:
+        assert table_calls(app) == ["K1BBB", "K1AAA", "K1BBB"]
+        assert table_markers(app) == ["!", "", "2"]
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Refused from 20260925.csv row 2:",
+            f"- UUIDv4 '{K1BBB_ID.upper()}' should be lowercase. Saving makes it lowercase.",
+            "Saved more than once (same UUIDv4):",
+            "- Also in 20260926.csv, with a different DATE.",
+            "Keep one: delete the rest (f4), after editing (f3) if needed.",
+        ]
+        await pilot.press("f3", "enter")
+        assert table_markers(app) == ["2", "", "2"]
+    assert path.read_text() == LOG_HEADER + K1BBB_ROW
+
+
+async def test_filled_ids_that_cant_be_written_are_noted(app, settings_path, monkeypatch):
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW)
+    fail_to_write(monkeypatch)
+    async with app.run_test():
+        assert table_calls(app) == ["K1AAA", "K1BBB"]
+        assert [n.message for n in app._notifications] == [
+            "Couldn't add record IDs to 20260925.csv: Permission denied. They're saved "
+            "with the next change to that file, or added again at the next start."
+        ]
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW
+
+
 # Quitting
 
 
@@ -1842,7 +1947,8 @@ async def test_enter_with_no_station_callsign_keeps_entry_and_asks_for_one(app, 
         assert field_values(app) == ENTRY
         await pilot.press("enter")
         assert table_rows(app) == [ENTRY_ROW]
-    assert (settings_path.parent / "20260925.csv").read_text().splitlines()[1].endswith(",W1ABC")
+    row = (settings_path.parent / "20260925.csv").read_text().splitlines()[1]
+    assert row.rsplit(",", 1)[0].endswith(",W1ABC")
 
 
 async def test_loads_saved_callsign(app):

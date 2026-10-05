@@ -1,4 +1,5 @@
 import tomllib
+from collections import Counter
 from pathlib import Path
 
 from rich.text import Text
@@ -13,9 +14,10 @@ from pota_logger.delete_screen import DeleteScreen
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
 from pota_logger.callsigns import parse_callsign
-from pota_logger.logbook import Logbook, LogWriteError, refused_texts
+from pota_logger.logbook import COLUMNS, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.power import format_power
+from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import (
     SETTINGS_PATH,
     Settings,
@@ -52,6 +54,10 @@ SESSION_MARKER = "•"
 # delete) in the app.
 REFUSED_MARKER = "!"
 
+# Marks saved entries that share their record ID with another: saved
+# twice, or two versions of one record. A refused row keeps its `!`.
+SHARED_MARKER = "2"
+
 # Marks saved entries (from the log files at start) edited this session.
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
 EDITED_MARKER = "✎"
@@ -77,6 +83,20 @@ DELETE_MESSAGE = (
     "{CALL} on {FREQ} {MODE}\n"
     "{DATE} {TIME} UTC\n"
     "Gone is gone: there's no undo."
+)
+
+# Listed below COMMENT for an entry sharing its record ID, under a heading,
+# a line for each other copy.
+SHARED_HEADING = "Saved more than once (same UUIDv4):"
+SHARED_SAME = "- Also in {name}, the same in every column."
+SHARED_DIFFERENT = "- Also in {name}, with a different {columns}."
+SHARED_HINT = "Keep one: delete the rest (f4), after editing (f3) if needed."
+
+# At start, when blank record IDs were filled in but the file couldn't be
+# written.
+IDS_UNSAVED = (
+    "Couldn't add record IDs to {name}: {error}. They're saved with the "
+    "next change to that file, or added again at the next start."
 )
 
 # f3 or f4 with no log row selected.
@@ -127,6 +147,16 @@ def log_row(values: dict, marker: str = "", style: str = "", as_is: bool = False
         }
     cells = [marker] + [shown[name] for name, _, _ in FIELDS]
     return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, LOG_COLUMNS)]
+
+
+def id_key(entry: dict) -> str | None:
+    """An entry's record ID, to match on: lowercase, as a refused row's may
+    be uppercase. None if it doesn't read.
+    """
+    try:
+        return parse_id(entry["UUIDv4"])
+    except ValueError:
+        return None
 
 
 class PotaLoggerApp(App):
@@ -256,6 +286,23 @@ class PotaLoggerApp(App):
                 severity="error",
                 timeout=30,
             )
+        shared_ids = self.shared_ids()
+        shared = sum(
+            self.saved_marker(entry, shared_ids) == SHARED_MARKER for entry in self.saved_entries
+        )
+        if shared:
+            self.notify(
+                f"{shared} records share a record ID, marked {SHARED_MARKER}. "
+                "Select one to see more.",
+                severity="error",
+                timeout=30,
+            )
+        for path, error in self.logbook.unsaved_ids:
+            self.notify(
+                IDS_UNSAVED.format(name=path.name, error=error.strerror or error),
+                severity="error",
+                timeout=30,
+            )
         for problem in problems:
             self.notify(f"Skipped {problem}", severity="error", timeout=30)
         if not self.settings.station_callsign:
@@ -343,19 +390,49 @@ class PotaLoggerApp(App):
             form.show(entry, *self.entry_view(entry))
 
     def entry_view(self, entry: dict) -> tuple[dict[str, str] | None, list[tuple[str, str]]]:
-        """What the form shows for a refused row, besides the row itself:
-        its values as texts, and its problems as (field, line) pairs under
-        a heading naming its file and row. For any other entry, shown as
-        it'd be typed, nothing.
+        """What the form shows for an entry besides the entry itself: for
+        a refused row, its values as texts, and its problems as (field,
+        line) pairs under a heading naming its file and row (any other
+        entry is shown as it'd be typed); then, if it shares its record ID,
+        where the other copies are.
         """
         refusal = self.logbook.refusal(entry)
         if refusal is None:
-            return None, []
+            return None, self.shared_id_lines(entry)
         problems = [("", f"Refused from {refusal.path.name} row {refusal.line}:")] + [
             (problem.field, f"- {problem.message}. {problem.note}".rstrip())
             for problem in refusal.problems
         ]
-        return refused_texts(entry), problems
+        return refused_texts(entry), problems + self.shared_id_lines(entry)
+
+    def shared_id_lines(self, entry: dict) -> list[tuple[str, str]]:
+        """Where the other entries with this entry's record ID are, and how
+        they differ, as lines for the form (with no field marked: either
+        copy may be the right one).
+        """
+        record_id = id_key(entry)
+        if record_id is None:
+            return []
+        others = [
+            other for other in self.log_entries() if other is not entry and id_key(other) == record_id
+        ]
+        if not others:
+            return []
+        _, own = self.logbook.stored(entry)
+        lines = [("", SHARED_HEADING)]
+        for other in others:
+            path, row = self.logbook.stored(other)
+            columns = [
+                name
+                for name, mine, theirs in zip(COLUMNS, own, row)
+                if mine != theirs and name != "UUIDv4"
+            ]
+            if columns:
+                listed = " and ".join([", ".join(columns[:-1]), columns[-1]] if columns[1:] else columns)
+                lines.append(("", SHARED_DIFFERENT.format(name=path.name, columns=listed)))
+            else:
+                lines.append(("", SHARED_SAME.format(name=path.name)))
+        return lines + [("", SHARED_HINT)]
 
     def log_row_of(self, entry: dict) -> int:
         return next(i for i, logged in enumerate(self.log_entries()) if logged is entry)
@@ -466,6 +543,11 @@ class PotaLoggerApp(App):
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
         if self.logbook.is_refused(event.old):
             event.new["STATION_CALLSIGN"] = self.refused_station_callsign(event.old)
+            # Stored lowercase; an ID that doesn't read can't be kept.
+            try:
+                event.new["UUIDv4"] = parse_id(event.new["UUIDv4"])
+            except ValueError:
+                event.new["UUIDv4"] = new_id()
         # Until it's saved, the form stays in edit mode, to try again or
         # cancel.
         self.save(
@@ -499,7 +581,7 @@ class PotaLoggerApp(App):
         self.show_log()
         table = self.query_one("#log-table", DataTable)
         table.move_cursor(row=self.log_row_of(event.new))
-        form.finish_edit(event.new)
+        form.finish_edit(event.new, *self.entry_view(event.new))
         table.can_focus = True
         table.focus()
 
@@ -507,10 +589,11 @@ class PotaLoggerApp(App):
         # DataTable can't insert a row mid-table, so it's redrawn in full.
         table = self.query_one("#log-table", DataTable)
         table.clear()
+        shared_ids = self.shared_ids()
         saved_rows = [
             log_row(
                 entry,
-                self.saved_marker(entry),
+                self.saved_marker(entry, shared_ids),
                 # The divider, over the first saved row.
                 DIVIDER_STYLE if self.session_entries and index == 0 else "",
                 as_is=self.logbook.is_refused(entry),
@@ -521,9 +604,16 @@ class PotaLoggerApp(App):
             [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
         )
 
-    def saved_marker(self, entry: dict) -> str:
+    def shared_ids(self) -> set[str]:
+        """Record IDs held by more than one entry in the log."""
+        counts = Counter(id_key(entry) for entry in self.log_entries())
+        return {record_id for record_id, count in counts.items() if count > 1 and record_id}
+
+    def saved_marker(self, entry: dict, shared_ids: set[str]) -> str:
         if self.logbook.is_refused(entry):
             return REFUSED_MARKER
+        if id_key(entry) in shared_ids:
+            return SHARED_MARKER
         if any(entry is edited for edited in self.edited_entries):
             return EDITED_MARKER
         return ""

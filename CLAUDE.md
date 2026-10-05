@@ -101,7 +101,14 @@ updated in the same change whenever a rule changes.
   of `saved_entries` marked `!` (`REFUSED_MARKER`), with their problems
   listed below COMMENT when selected (the app's `entry_view`, then
   `EntryForm.show`), and fixed or deleted like any entry; check
-  `Logbook.is_refused` before formatting an entry's values. The app keeps log files
+  `Logbook.is_refused` before formatting an entry's values. Every row
+  ends with its record ID (`UUIDv4`, record_ids.py), set in
+  `EntryForm.submit` and kept by an edit; `load` fills in a blank one
+  (the only write on load; a failed write goes in `unsaved_ids`), and
+  `appended` skips a row already in the file, ID included. Entries
+  sharing an ID are marked `SHARED_MARKER` (`2`) and explained below
+  COMMENT (the app's `shared_id_lines`). Test rows need distinct IDs
+  (`new_id()`), or the `2` mark shows. The app keeps log files
   beside settings (`settings_path.parent`), so the test fixtures' temp
   dir covers both.
 - Selecting and editing: the log's `CellSelected` (double-click, or

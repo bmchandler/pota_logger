@@ -15,12 +15,15 @@ from pota_logger.freq import in_us_band
 from pota_logger.modes import parse_mode
 from pota_logger.parks import parse_park
 from pota_logger.power import parse_power
+from pota_logger.record_ids import new_id, parse_id
 from pota_logger.reports import parse_report
 from pota_logger.sidebands import check_sideband
 from pota_logger.states import parse_state
 
-# CSV columns: the entry fields in entry order, then the station callsign.
-COLUMNS = [name for name, _, _ in FIELDS] + ["STATION_CALLSIGN"]
+# CSV columns: the entry fields in entry order, the station callsign, then
+# the record ID. The ID is last, so a blank one can be filled in at the end
+# of its line, leaving the rest of the line as it was.
+COLUMNS = [name for name, _, _ in FIELDS] + ["STATION_CALLSIGN", "UUIDv4"]
 
 # One file per UTC date, named YYYYMMDD.csv.
 LOG_FILE_PATTERN = "[0-9]" * 8 + ".csv"
@@ -43,10 +46,9 @@ def stored_text(name: str, value) -> str:
     return STORED_FORMS.get(name, str)(value)
 
 
-def to_row(values: dict, station_callsign: str) -> list[str]:
+def to_row(values: dict) -> list[str]:
     """An entry's CSV row, in COLUMNS order, each value in its stored form."""
-    stored = values | {"STATION_CALLSIGN": station_callsign}
-    return [stored_text(name, stored[name]) for name in COLUMNS]
+    return [stored_text(name, values[name]) for name in COLUMNS]
 
 
 BOM = "\ufeff"
@@ -59,6 +61,14 @@ def row_line(row: list[str], ending: str = "\n") -> str:
     text = io.StringIO()
     csv.writer(text, lineterminator=ending).writerow(row)
     return text.getvalue()
+
+
+def with_id(line: str, record_id: str) -> str:
+    """A row's last line with its blank ID (written as nothing, or "")
+    filled in, before the line ending.
+    """
+    text = line.rstrip("\r\n")
+    return text.removesuffix('""') + record_id + line[len(text) :]
 
 
 def find_row(path: Path, lines: list[str], row: list[str]) -> tuple[int, int]:
@@ -103,6 +113,12 @@ class Problem(NamedTuple):
 # Said of a STATION_CALLSIGN that doesn't read, as it has no field in the
 # entry form.
 FIX_BY_HAND = "It can't be fixed in the app: fix it by hand, or delete the record."
+
+# How saving fixes a problem in a column with no field in the entry form.
+NO_FIELD_NOTES = {
+    "STATION_CALLSIGN": FIX_BY_HAND,
+    "UUIDv4": "Saving gives it a new one.",
+}
 
 
 class Refused(NamedTuple):
@@ -149,6 +165,10 @@ class Logbook:
         # Rows refused on load that still split into COLUMNS, to show and
         # fix in the app.
         self.refused: list[Refused] = []
+        # Files whose blank IDs were filled in on load but couldn't be
+        # written, with why. The app's copy holds the IDs, so the next save
+        # to the file writes them.
+        self.unsaved_ids: list[tuple[Path, OSError]] = []
 
     def write(self, writes: list[Write]) -> None:
         """Write each file in turn, keeping each as the app's copy once
@@ -163,36 +183,47 @@ class Logbook:
 
     def appended(self, values: dict) -> Write:
         """The file for an entry's DATE with the entry added at the end,
-        and a header first if the file is new or empty.
+        and a header first if the file is new or empty. If the file
+        already holds that exact row (ID included), as when a save is
+        tried again after part of it was written, it's left as it is.
         """
         path = log_path(self.log_dir, values["DATE"])
         if path in self.unreadable:
             raise ValueError(f"{path} isn't plain text (UTF-8), so it's left for a fix by hand")
         bom, lines = self.files.get(path, ("", []))
+        row = to_row(values)
+        try:
+            find_row(path, lines, row)
+        except ValueError:
+            pass
+        else:
+            return path, bom, lines
         lines = list(lines) or [row_line(COLUMNS)]
         # A hand edit may leave the last line without its line break, which
         # would join the new row onto it.
         if not lines[-1].endswith(("\n", "\r")):
             lines[-1] += "\n"
-        lines.append(row_line(to_row(values, values["STATION_CALLSIGN"])))
+        lines.append(row_line(row))
         return path, bom, lines
 
     def append(self, values: dict) -> None:
-        """Add an entry (with its STATION_CALLSIGN) to its DATE's file."""
+        """Add an entry (with its STATION_CALLSIGN and ID) to its DATE's file."""
         self.write([self.appended(values)])
+
+    def stored(self, entry: dict) -> tuple[Path, list[str]]:
+        """A saved entry's file, and its row as stored there."""
+        refusal = self.refusal(entry)
+        if refusal is not None:
+            # Its values as they are in the file, which may not match its
+            # DATE.
+            return refusal.path, [entry[name] for name in COLUMNS]
+        return log_path(self.log_dir, entry["DATE"]), to_row(entry)
 
     def located(self, entry: dict) -> tuple[Path, str, list[str], int, int]:
         """A saved entry's file, that file's byte-order mark and lines, and
         the entry's start and end line indexes in them.
         """
-        refused = next((found.path for found in self.refused if found.row is entry), None)
-        if refused is not None:
-            # Its values as they are in the file, which may not match its
-            # DATE.
-            path, row = refused, [entry[name] for name in COLUMNS]
-        else:
-            path = log_path(self.log_dir, entry["DATE"])
-            row = to_row(entry, entry["STATION_CALLSIGN"])
+        path, row = self.stored(entry)
         if path not in self.files:
             raise ValueError(f"{path} doesn't hold this entry")
         bom, lines = self.files[path]
@@ -213,7 +244,7 @@ class Logbook:
 
     def replace(self, old: dict, new: dict) -> None:
         """Change a saved entry's row from `old` to `new` (each with its
-        STATION_CALLSIGN), touching no other line of the file. `old` may be
+        STATION_CALLSIGN and ID), touching no other line of the file. `old` may be
         a refused row. When DATE moves it to another file, `new` is added to
         its date's file before `old` is removed from its own, so a crash
         between the two leaves a dupe, not a loss.
@@ -224,7 +255,7 @@ class Logbook:
         else:
             # The row keeps its old line ending (or none, as the last line).
             ending = lines[end - 1][len(lines[end - 1].rstrip("\r\n")) :]
-            replacement = row_line(to_row(new, new["STATION_CALLSIGN"]), ending)
+            replacement = row_line(to_row(new), ending)
             writes = [(path, bom, lines[:start] + [replacement] + lines[end:])]
         self.write(writes)
 
@@ -233,7 +264,10 @@ class Logbook:
         for each row (or file) that couldn't be read, naming the file and
         row. Rows that can't be read are kept in the app's copy of the
         file; those that still split into COLUMNS go in `refused`, the
-        rest are skipped.
+        rest are skipped. A blank ID (a row added by hand) is filled in
+        with a new one and the file rewritten, the one change the app
+        makes to a file on its own; a file that can't be written goes in
+        `unsaved_ids`.
         """
         entries, problems = [], []
         for path in sorted(self.log_dir.glob(LOG_FILE_PATTERN)):
@@ -254,9 +288,16 @@ class Logbook:
             if header != COLUMNS:
                 problems.append(f"{path} row 1: header should be {','.join(COLUMNS)}")
                 continue
+            filled = False
             for row in reader:
                 if not row:  # a blank line, e.g. left at the end by an editor
                     continue
+                if len(row) == len(COLUMNS) and not row[-1]:
+                    row[-1] = new_id()
+                    # The row's last line, which ends with its ID.
+                    last = reader.line_num - 1
+                    lines[last] = with_id(lines[last], row[-1])
+                    filled = True
                 try:
                     values, row_problems = check_row(row, path.stem)
                 except ValueError as error:
@@ -268,6 +309,11 @@ class Logbook:
                     )
                 else:
                     entries.append(values)
+            if filled:
+                try:
+                    write_lines(path, bom, lines)
+                except OSError as error:
+                    self.unsaved_ids.append((path, error))
         return entries, problems
 
 
@@ -321,16 +367,21 @@ LOADERS = {
     "DATE": load_date,
     "TIME": parse_time,
     "STATION_CALLSIGN": lambda text: parse_callsign(text, "STATION_CALLSIGN"),
+    "UUIDv4": parse_id,
 }
 
 
 def stored_form_problem(name: str, text: str, stored: str) -> str:
     """Why a value that loads isn't written as the app writes it: a short
-    form the entry form takes (PARK 1234), lowercase, or a number written
-    another way (PWR .5, FREQ with a leading zero).
+    form the entry form takes (PARK 1234), lowercase (uppercase for the
+    record ID), or a number written another way (PWR .5, FREQ with a
+    leading zero).
     """
     if text.upper() == stored:
         return f"{name} {text!r} should be uppercase, like {stored}"
+    # A record ID, the one value stored lowercase. Too long to repeat.
+    if text.lower() == stored:
+        return f"{name} {text!r} should be lowercase"
     return f"{name} {text!r} should be {stored!r} in a log file"
 
 
@@ -367,14 +418,14 @@ def check_row(row: list[str], file_date: str) -> tuple[dict, list[Problem]]:
             else:
                 values[name] = text
         except ValueError as error:
-            note = FIX_BY_HAND if name == "STATION_CALLSIGN" else ""
-            problems.append(Problem(name, str(error), note))
+            problems.append(Problem(name, str(error), NO_FIELD_NOTES.get(name, "")))
     for name in COLUMNS:
         if name in values:
             stored = stored_text(name, values[name])
             if texts[name] != stored:
                 message = stored_form_problem(name, texts[name], stored)
-                problems.append(Problem(name, message, f"Saving makes it {stored}."))
+                note = "Saving makes it lowercase." if name == "UUIDv4" else f"Saving makes it {stored}."
+                problems.append(Problem(name, message, note))
     if "DATE" in values:
         day = f"{values['DATE']:%Y%m%d}"
         if day != file_date:

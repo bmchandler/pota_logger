@@ -24,6 +24,7 @@ from pota_logger.modes import parse_mode
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.parks import parse_park
 from pota_logger.power import parse_power
+from pota_logger.record_ids import new_id
 from pota_logger.reports import THREE_DIGIT_MODE, parse_report
 from pota_logger.sidebands import check_sideband
 from pota_logger.states import parse_state
@@ -163,16 +164,16 @@ class EntryForm(Vertical):
     EntryForm > Vertical {
         margin-bottom: 1;
     }
-    /* What's wrong with a row refused on load, below COMMENT, only while
-       one is shown. */
-    EntryForm #refused-problems {
+    /* What's wrong with the entry shown (a row refused on load, or one
+       sharing its record ID), below COMMENT, only while there's something. */
+    EntryForm #entry-problems {
         display: none;
         height: auto;
         color: $error;
         margin: 0 0 1 0;
         padding: 0 1;
     }
-    EntryForm #refused-problems.-shown {
+    EntryForm #entry-problems.-shown {
         display: block;
     }
     EntryForm Horizontal, EntryForm Vertical {
@@ -195,8 +196,9 @@ class EntryForm(Vertical):
         FREQ is in Hz, PWR is watts, MODE is uppercase, PARK is a full POTA
         reference (e.g. US-0464), DATE is a date, TIME is a time, and ST is
         uppercase (possibly blank); everything else is the trimmed text as
-        entered. STATION_CALLSIGN is the one set in Settings. The form
-        keeps the entry until the app calls `entry_saved`, once it's saved.
+        entered. STATION_CALLSIGN is the one set in Settings, and UUIDv4 a
+        new record ID. The form keeps the entry until the app calls
+        `entry_saved`, once it's saved.
         """
 
         def __init__(self, values: dict[str, str | int | Decimal | date | time]) -> None:
@@ -235,7 +237,7 @@ class EntryForm(Vertical):
             for name, placeholder, max_length in ROW_FIELDS:
                 yield labeled_input(name, placeholder, max_length)
         yield labeled_input("COMMENT", "", COMMENT_LENGTH)
-        yield Static(id="refused-problems")
+        yield Static(id="entry-problems")
 
     def field(self, name: str) -> Input:
         return self.query_one(f"#field-{name.lower()}", Input)
@@ -292,7 +294,7 @@ class EntryForm(Vertical):
         self.show_report_placeholders()
 
     def show_problems(self, problems: Sequence[tuple[str, str]]) -> None:
-        listed = self.query_one("#refused-problems", Static)
+        listed = self.query_one("#entry-problems", Static)
         # Text, not str, so a value with brackets isn't read as markup.
         listed.update(Text("\n".join(line for _, line in problems)))
         listed.set_class(bool(problems), "-shown")
@@ -415,11 +417,15 @@ class EntryForm(Vertical):
 
     def submit(self, values: dict) -> None:
         if self.editing is not None:
-            # An edited entry keeps the station callsign it was logged with.
-            new = values | {"STATION_CALLSIGN": self.editing["STATION_CALLSIGN"]}
-            self.post_message(self.Edited(self.editing, new))
+            # An edited entry keeps the station callsign it was logged with,
+            # and its record ID.
+            kept = {name: self.editing[name] for name in ("STATION_CALLSIGN", "UUIDv4")}
+            self.post_message(self.Edited(self.editing, values | kept))
             return
-        values = values | {"STATION_CALLSIGN": self.app.settings.station_callsign}
+        values = values | {
+            "STATION_CALLSIGN": self.app.settings.station_callsign,
+            "UUIDv4": new_id(),
+        }
         self.post_message(self.Submitted(values))
 
     def entry_saved(self, values: dict) -> None:

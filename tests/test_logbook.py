@@ -7,7 +7,10 @@ import pytest
 
 from pota_logger.logbook import Logbook, LogWriteError, Problem, Refused, refused_texts
 
-HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN\n"
+HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN,UUIDv4\n"
+
+ID = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
+OTHER_ID = "9f2c4e1a-7b3d-4c8e-a5f6-0123456789ab"
 
 # An entry as the entry form hands it over, parsed.
 ENTRY = {
@@ -22,8 +25,9 @@ ENTRY = {
     "DATE": date(2026, 9, 25),
     "TIME": time(19, 53),
     "COMMENT": "",
+    "UUIDv4": ID,
 }
-ROW = "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,,W1TST\n"
+ROW = f"14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,,W1TST,{ID}\n"
 
 
 @pytest.fixture
@@ -103,8 +107,8 @@ def test_comment_with_commas_and_quotes_is_quoted(log_dir):
 
 def test_append_adds_missing_final_line_break(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.rstrip("\n"))
-    append_entry(log_dir, ENTRY, "W1TST")
-    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW + ROW
+    append_entry(log_dir, ENTRY | {"UUIDv4": OTHER_ID}, "W1TST")
+    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW + ROW.replace(ID, OTHER_ID)
 
 
 def test_empty_file_gets_a_header(log_dir):
@@ -162,7 +166,7 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace("20260925", "21000101"), "DATE '21000101' isn't in 2000-2099, the years the entry form takes"),
         (ROW.replace("14285500", "14.2855"), "FREQ '14.2855' should be Hz, like 14074500"),
         (ROW.replace(",60,", ",60W,"), "PWR '60W' should be watts, like 60 or 0.5"),
-        (ROW.replace(",W1TST", ""), "has 11 values, should have 12"),
+        (ROW.replace(",W1TST", ""), "has 12 values, should have 13"),
         # Each field's entry rules, as in the operator's hand-edit tests.
         (ROW.replace("14285500", "13285500"), "FREQ '13285500' isn't in a US amateur band (80m to 10m)"),
         (ROW.replace(",USB,", ",ABC,"), "MODE 'ABC' should be SSB, USB, LSB, or CW"),
@@ -253,7 +257,7 @@ def test_non_utf8_file_is_skipped_whole(log_dir):
 # Changing a saved entry
 
 SAVED = ENTRY | {"STATION_CALLSIGN": "W1TST"}
-OTHER_ROW = ROW.replace(",W1ABC,", ",K2DEF,")
+OTHER_ROW = ROW.replace(",W1ABC,", ",K2DEF,").replace(ID, OTHER_ID)
 
 
 def test_changed_entry_rewrites_only_its_row(log_dir):
@@ -268,9 +272,9 @@ def test_change_leaves_other_lines_exactly_as_they_were(log_dir):
     # A byte-order mark, \r\n endings, a blank line, a refused row, and a
     # COMMENT spanning two lines, as a spreadsheet or hand edit may leave.
     others = (
-        "14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,53,,W1TST\r\n"
+        f"14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,53,,W1TST,{OTHER_ID}\r\n"
         "\r\n"
-        '14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,1953,"Two\r\nlines",W1TST\r\n'
+        f'14285500,USB,K2DEF,US-1234,NJ,59,57,60,20260925,1953,"Two\r\nlines",W1TST,{OTHER_ID}\r\n'
     )
     original = "﻿" + HEADER.replace("\n", "\r\n") + others + ROW.replace("\n", "\r\n")
     log_dir.mkdir(parents=True)
@@ -447,7 +451,7 @@ def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
         )
     ]
     # Too broken to split: skipped, to fix by hand.
-    assert problems == [f"{path} row 3: has 1 values, should have 12"]
+    assert problems == [f"{path} row 3: has 1 values, should have 13"]
 
 
 def test_refused_row_can_be_fixed(log_dir):
@@ -507,7 +511,7 @@ def test_refused_texts_show_what_reads_as_typed_and_the_rest_as_is():
 
 
 def test_every_problem_in_a_row_is_found(log_dir):
-    row = "7030000,usb,W1ABC,1234,NJ,599,59,lots,20260924,53,,w1tst\n"
+    row = f"7030000,usb,W1ABC,1234,NJ,599,59,lots,20260924,53,,w1tst,{ID}\n"
     write_log(log_dir, "20260925.csv", HEADER + row)
     book = Logbook(log_dir)
     book.load()
@@ -586,3 +590,134 @@ def test_problem_the_form_wouldnt_take_has_no_note(log_dir):
     book = Logbook(log_dir)
     book.load()
     assert book.refused[0].problems == [Problem("TIME", "TIME '53' should be HHMM, like 2123")]
+
+
+# Record IDs
+
+V1_ID = "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        # Version 1, not 4.
+        (V1_ID, f"UUIDv4 '{V1_ID}' should be a UUID as the app writes it, like {ID}"),
+        (f" {ID}", f"UUIDv4 ' {ID}' should have no spaces around it, like {ID}"),
+    ],
+)
+def test_bad_id_is_refused_and_saving_gives_a_new_one(log_dir, text, message):
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, text))
+    book = Logbook(log_dir)
+    book.load()
+    assert book.refused[0].problems == [Problem("UUIDv4", message, "Saving gives it a new one.")]
+
+
+def test_uppercase_id_is_refused_and_saving_keeps_it_lowercase(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, ID.upper()) + OTHER_ROW)
+    book = Logbook(log_dir)
+    book.load()
+    [refused] = book.refused
+    assert refused.problems == [
+        Problem("UUIDv4", f"UUIDv4 '{ID.upper()}' should be lowercase", "Saving makes it lowercase.")
+    ]
+    book.replace(refused.row, SAVED)
+    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW + OTHER_ROW
+
+
+def test_blank_id_is_filled_in_on_load(log_dir, monkeypatch):
+    monkeypatch.setattr("pota_logger.logbook.new_id", lambda: OTHER_ID)
+    write_log(log_dir, "20260925.csv", HEADER + ROW + ROW.replace(ID, "").replace("W1ABC", "K2DEF"))
+    entries, problems = load_entries(log_dir)
+    assert [entry["UUIDv4"] for entry in entries] == [ID, OTHER_ID]
+    assert problems == []
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW + ROW.replace(ID, OTHER_ID).replace("W1ABC", "K2DEF")
+    )
+
+
+def test_filling_in_an_id_leaves_the_rest_of_the_file_as_it_was(log_dir, monkeypatch):
+    # A byte-order mark, \r\n endings, quoting the app wouldn't write, a
+    # blank ID written as "", and refused rows, which get one too: one with
+    # a COMMENT spanning two lines.
+    monkeypatch.setattr("pota_logger.logbook.new_id", lambda: OTHER_ID)
+    rows = (
+        '"14285500",USB,K2DEF,US-1234,NJ,59,57,60,20260925,1953,"Two\r\nlines",W1TST,\r\n'
+        '14285500,USB,N3GHI,US-1234,NJ,59,57,60,20260925,1953,,W1TST,""\r\n'
+        "14285500,USB,K4JKL,US-1234,NJ,59,57,60,20260925,53,,W1TST,\r\n"
+        "14285500,USB,K5MNO,US-1234,NJ,59,57,60,20260925,1953,,W1TST,"
+    )
+    original = "﻿" + HEADER.replace("\n", "\r\n") + rows
+    log_dir.mkdir(parents=True)
+    (log_dir / "20260925.csv").write_bytes(original.encode())
+    book = Logbook(log_dir)
+    entries, _ = book.load()
+    assert [entry["CALL"] for entry in entries] == ["N3GHI", "K5MNO"]
+    assert [(found.row["CALL"], found.row["UUIDv4"]) for found in book.refused] == [
+        ("K2DEF", OTHER_ID),
+        ("K4JKL", OTHER_ID),
+    ]
+    filled = rows.replace(",\r\n", f",{OTHER_ID}\r\n").replace(',""\r\n', f",{OTHER_ID}\r\n")
+    assert (log_dir / "20260925.csv").read_bytes().decode() == (
+        "﻿" + HEADER.replace("\n", "\r\n") + filled + OTHER_ID
+    )
+
+
+def test_file_with_no_blank_id_isnt_rewritten(log_dir):
+    write_log(log_dir, "20260925.csv", HEADER + ROW)
+    before = (log_dir / "20260925.csv").stat().st_mtime_ns
+    os.utime(log_dir / "20260925.csv", ns=(before - 10**9, before - 10**9))
+    loaded(log_dir)
+    assert (log_dir / "20260925.csv").stat().st_mtime_ns == before - 10**9
+
+
+def test_filled_id_that_cant_be_written_is_saved_with_the_next_change(log_dir, monkeypatch):
+    monkeypatch.setattr("pota_logger.logbook.new_id", lambda: OTHER_ID)
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, ""))
+    fail_to_write(monkeypatch, "20260925.csv")
+    book = Logbook(log_dir)
+    entries, problems = book.load()
+    assert len(entries) == 1
+    assert problems == []
+    [(path, error)] = book.unsaved_ids
+    assert path == log_dir / "20260925.csv"
+    assert error.strerror == "Permission denied"
+    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW.replace(ID, "")
+    monkeypatch.undo()
+    book.append(SAVED | {"CALL": "N3GHI"})
+    assert (log_dir / "20260925.csv").read_text() == (
+        HEADER + ROW.replace(ID, OTHER_ID) + ROW.replace(",W1ABC,", ",N3GHI,")
+    )
+
+
+def test_move_saved_again_after_a_failed_write_adds_it_once(log_dir, monkeypatch):
+    # Added to the new date's file, then the old file can't be written and
+    # the operator gives up; saving the edit again starts over, but the
+    # new date's file already holds the row.
+    write_log(log_dir, "20260925.csv", HEADER + ROW + OTHER_ROW)
+    book = loaded(log_dir)
+    moved = SAVED | {"DATE": date(2026, 9, 26)}
+    fail_to_write(monkeypatch, "20260925.csv")
+    with pytest.raises(LogWriteError):
+        book.replace(SAVED, moved)
+    monkeypatch.undo()
+    book.replace(SAVED, moved)
+    assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
+    assert (log_dir / "20260926.csv").read_text() == (
+        HEADER + ROW.replace("20260925", "20260926")
+    )
+
+
+def test_move_changed_after_a_failed_write_keeps_both_versions(log_dir, monkeypatch):
+    # Changed again before saving: both versions are kept, sharing the ID,
+    # for the operator to choose between, rather than one dropped unseen.
+    write_log(log_dir, "20260925.csv", HEADER + ROW + OTHER_ROW)
+    book = loaded(log_dir)
+    moved = SAVED | {"DATE": date(2026, 9, 26)}
+    fail_to_write(monkeypatch, "20260925.csv")
+    with pytest.raises(LogWriteError):
+        book.replace(SAVED, moved)
+    monkeypatch.undo()
+    book.replace(SAVED, moved | {"COMMENT": "Loud"})
+    moved_row = ROW.replace("20260925", "20260926")
+    assert (log_dir / "20260926.csv").read_text() == (
+        HEADER + moved_row + moved_row.replace(",,", ",Loud,")
+    )
