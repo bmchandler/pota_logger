@@ -71,28 +71,24 @@ To do:
   considered: explicit line breaks in the startup messages (`!`, `U`,
   `=`), as warnings already use, and/or overriding Toast's 50% max-width
   (always 60 wide, a change to stock looks).
-- After the editing plan below: speed up the test suite (assessed
-  2026-10-01: 541 tests in about 2 minutes; 607 in about 3 by
-  2026-10-03). The 428 unit tests take under 2 seconds; the 113 app tests
-  (`run_test`) take the rest, about 1 second each, plus about 0.1 second
-  per `pilot.press` key. No test is out of date; all match this file.
-  Options, cheapest first:
-  - Fewer keypresses: `test_comment_takes_only_what_fits_in_view` types
-    103 keys (11 s); fill to near the limit, then type the last few.
-    `test_typed_entry_with_tab_between_fields` and
-    `test_rows_drawn_in_full_without_redraw` (7 to 9 s) type on purpose
-    (key-by-key entry, and a redraw bug that needed it), so they stay.
-  - Run tests in parallel with pytest-xdist (a new dev dependency;
-    `pytest -n auto` on 8 cores should bring it under 30 seconds). Tests
-    already use their own temp dirs, so they should run in parallel as is.
-  - Find why each app start takes about 1 second (profile one
-    `run_test`); a fixed cost there is paid 113 times.
-  - Fewer app tests where a unit test covers the same rule: each field's
-    "blocks entry" test repeats its parser's messages, while the blocking
-    itself (notification, focus, nothing saved) is one shared loop in
-    `on_input_submitted`. A few could check that path, with the messages
-    left to the unit tests. Less end-to-end coverage, so the operator
-    decides.
+- Maybe: fewer app tests where a unit test covers the same rule. Each
+  field's "blocks entry" test repeats its parser's messages, while the
+  blocking itself (notification, focus, nothing saved) is one shared loop
+  in `on_input_submitted`. A few could check that path, with the messages
+  left to the unit tests. Less end-to-end coverage, so the operator
+  decides. (The rest of the test speed-up is built; see below.)
+
+The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
+to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
+by default, in pyproject.toml), and the COMMENT limit test fills the
+field to near its limit instead of typing 103 keys. Profiling an app
+start (about 0.35 seconds, plus about 0.25 seconds settling before the
+first key) found it almost all in Textual's own styling and layout; the
+one cost of ours, the notifications' class (see above) set on the
+screen, which restyled every widget, now goes on the ToastRack alone.
+`test_typed_entry_with_tab_between_fields` and
+`test_rows_drawn_in_full_without_redraw` (about 7 seconds each) type key
+by key on purpose (key-by-key entry, and a redraw bug that needed it).
 
 The editing plan (decided 2026-10-04) is built: the log is where records
 are checked and fixed, with no need to open a CSV. Its status column shows

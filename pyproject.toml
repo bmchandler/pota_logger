@@ -19,8 +19,11 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# In parallel (pytest-xdist); `-n0` runs a few tests faster without it.
+addopts = "-n auto"

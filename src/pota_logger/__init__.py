@@ -229,7 +229,7 @@ class PotaLoggerApp(App):
     ToastRack {
         margin: 0 0 5 0;
     }
-    Screen.-log-scrolls-sideways ToastRack {
+    ToastRack.-log-scrolls-sideways {
         margin: 0 0 6 0;
     }
     /* Footer shares its row with the terminal size, on the right. */
@@ -308,10 +308,11 @@ class PotaLoggerApp(App):
     def on_mount(self) -> None:
         table = self.query_one("#log-table", DataTable)
         # Raises notifications above the log's sideways scrollbar (CSS).
+        # On the rack, not the screen, so only the rack is restyled.
         self.watch(
             table,
             "show_horizontal_scrollbar",
-            lambda shown: table.screen.set_class(shown, "-log-scrolls-sideways"),
+            lambda shown: table.screen.query("ToastRack").set_class(shown, "-log-scrolls-sideways"),
         )
         # COMMENT fills the log's width, which changes with the window and
         # the log's vertical scrollbar, once laid out.

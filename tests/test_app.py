@@ -871,8 +871,10 @@ async def test_comment_takes_only_what_fits_in_view(app):
     async with app.run_test(size=(130, 30)) as pilot:
         field = app.query_one("#field-comment", Input)
         field.focus()
-        await pilot.press(*"x" * (COMMENT_LENGTH + 3))
-        assert field.value == "x" * COMMENT_LENGTH
+        # Filled to near the limit, then typed past it.
+        field.value = "x" * (COMMENT_LENGTH - 2)
+        await pilot.press("end", *"yyyyy")
+        assert field.value == "x" * (COMMENT_LENGTH - 2) + "yy"
         # +1 for the cursor
         assert field.content_region.width >= COMMENT_LENGTH + 1
 

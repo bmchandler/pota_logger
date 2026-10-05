@@ -7,7 +7,9 @@ updated in the same change whenever a rule changes.
 ## Commands
 
 - Run the app: `uv run pota-logger`
-- Run tests: `uv run pytest`
+- Run tests: `uv run pytest` (in parallel by default, about 40 seconds;
+  add `-n0` when running just a few, as starting the workers takes
+  about 2 seconds)
 - Install the callsign guard git hooks (once per clone):
   `uv run python -m pota_logger.callsign_guard install`
 
@@ -181,11 +183,13 @@ updated in the same change whenever a rule changes.
   fixtures in tests/conftest.py, which point at a temp dir. `app` has
   station callsign `W1TST` saved; an app started on `settings_path`
   alone has none, so it opens on the station-callsign-required block.
-- App tests are the slow part: about 1 second per `run_test`, plus
-  about 0.1 second per `pilot.press` key. Set field values with `fill()`
+- App tests are the slow part: about 0.6 second per `run_test` (most
+  of it Textual's own styling and layout), plus about 0.1 second per
+  `pilot.press` key. Tests run in parallel (pytest-xdist), so each must
+  keep to its own temp dir, as the fixtures do. Set field values with `fill()`
   unless typing key by key is what's being tested. Unit tests (one per
   field module) are nearly instant, so put a field's rules and messages
-  there. See the test-speed TODO in REQUIREMENTS.md's "Status and plan".
+  there. See the test-speed notes in REQUIREMENTS.md's "Status and plan".
 - tests/test_app.py builds on `ENTRY` (USB on a 20m voice frequency) and
   `CW_ENTRY`. A test that saves several entries needs a different CALL on
   each (or some other difference), or the dupe block stops it. Use past dates, or
