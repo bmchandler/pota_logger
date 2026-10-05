@@ -88,7 +88,7 @@ async def test_entry_fields_have_equal_gaps_above_and_below(app):
 
 
 async def test_notifications_sit_a_row_above_the_buttons_and_log_scrollbar(app):
-    async with app.run_test(size=(107, 34), notifications=True) as pilot:
+    async with app.run_test(size=(90, 34), notifications=True) as pilot:
         app.notify("First")
         app.notify("Second")
         await pilot.pause(0.5)
@@ -877,13 +877,48 @@ async def test_comment_takes_only_what_fits_in_view(app):
         assert field.content_region.width >= COMMENT_LENGTH + 1
 
 
-async def test_comment_column_follows_time_at_the_fields_width(app):
-    async with app.run_test():
-        table = app.query_one("#log-table", DataTable)
-        columns = list(table.columns.values())
-        assert [str(c.label).strip() for c in columns[-2:]] == ["TIME", "COMMENT"]
-        # Plus the padding each log cell carries, a space each side.
-        assert columns[-1].width == COMMENT_LENGTH + 2
+def comment_column_width(app) -> int:
+    """COMMENT's log column width, less the padding each cell carries."""
+    columns = list(app.query_one("#log-table", DataTable).columns.values())
+    assert [str(c.label).strip() for c in columns[-2:]] == ["TIME", "COMMENT"]
+    return columns[-1].width - 2
+
+
+def log_fills_its_width(app) -> bool:
+    """The log's columns end at its right edge (beside any vertical
+    scrollbar), with no sideways scrollbar.
+    """
+    table = app.query_one("#log-table", DataTable)
+    columns = sum(column.width for column in table.columns.values())
+    return columns == table.scrollable_content_region.width and not table.show_horizontal_scrollbar
+
+
+async def test_comment_column_follows_time_at_least_its_headers_width(app):
+    # Narrower than the log, so COMMENT gets no more than its header.
+    async with app.run_test(size=(80, 24)):
+        assert comment_column_width(app) == len("COMMENT")
+        assert app.query_one("#log-table", DataTable).show_horizontal_scrollbar
+
+
+async def test_comment_column_fills_the_logs_width_as_the_window_changes(app):
+    async with app.run_test(size=(107, 24)) as pilot:
+        assert log_fills_its_width(app)
+        await pilot.resize_terminal(150, 24)
+        await pilot.pause()
+        assert log_fills_its_width(app)
+        await pilot.resize_terminal(107, 24)
+        await pilot.pause()
+        assert log_fills_its_width(app)
+
+
+async def test_comment_column_widens_to_the_longest_comment_typed(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "QSB"})
+        await pilot.press("enter")
+        assert comment_column_width(app) == len("COMMENT")
+        fill(app, ENTRY | {"CALL": "K2DEF", "COMMENT": "RSGB Field Day Serial #042"})
+        await pilot.press("enter")
+        assert comment_column_width(app) == len("RSGB Field Day Serial #042")
 
 
 async def test_comment_is_saved_as_typed_and_cleared_for_next_entry(app):
@@ -1027,8 +1062,9 @@ async def test_divider_over_the_first_saved_entry(app, settings_path):
         cells = table.get_row_at(2)
         assert [cell.cell_len for cell in cells] == [c.width for c in table.columns.values()]
         assert all(len(cell.spans) == 0 and cell.style == "overline" for cell in cells)
-        # And drawn with the overline, across the table's width.
+        # And drawn with the overline, to the log's right edge.
         drawn = table.render_line(3)
+        assert drawn.cell_length == table.size.width
         assert all(segment.style.overline for segment in drawn if segment.text)
 
 
@@ -1341,6 +1377,54 @@ async def test_edit_keeps_a_comment_longer_than_the_field_takes(app, settings_pa
     assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(",,", f",{comment},").replace(
         "2100", "2105"
     )
+
+
+async def test_comment_column_shows_a_files_longer_comment_whole_until_deleted(
+    app, settings_path
+):
+    comment = "x" * (COMMENT_LENGTH + 20)
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW.replace(",,", f",{comment},") + K1BBB_ROW)
+    async with app.run_test() as pilot:
+        assert comment_column_width(app) == len(comment)
+        assert table_rows(app)[0][-1] == comment
+        await select_row(app, pilot, 0)
+        await pilot.press("f4", "enter", "enter")
+        assert table_calls(app) == ["K1BBB"]
+        assert comment_column_width(app) == len("COMMENT")
+
+
+async def test_comment_column_fills_the_width_beside_the_logs_scrollbar(app, settings_path):
+    rows = [K1AAA_ROW.replace("K1AAA", f"K1A{letter}") for letter in "ABCDEFGHIJKLMNOP"]
+    rows = [row.replace(K1AAA_ID, new_id()) for row in rows]
+    write_two_saved(settings_path).write_text(LOG_HEADER + "".join(rows))
+    async with app.run_test(size=(107, 24)) as pilot:
+        await pilot.pause()
+        assert app.query_one("#log-table", DataTable).show_vertical_scrollbar
+        assert log_fills_its_width(app)
+
+
+async def test_log_fitted_to_a_new_width_keeps_the_selected_row(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test(size=(107, 24)) as pilot:
+        await select_row(app, pilot, 1)
+        await pilot.resize_terminal(150, 24)
+        await pilot.pause()
+        assert log_fills_its_width(app)
+        table = app.query_one("#log-table", DataTable)
+        assert (table.cursor_type, table.cursor_row) == ("row", 1)
+        assert app.selected["CALL"] == "K1BBB"
+        assert field_values(app)["CALL"] == "K1BBB"
+
+
+async def test_log_fitted_after_a_resize_under_a_modal(app):
+    async with app.run_test(size=(107, 24)) as pilot:
+        await pilot.press("f2")
+        await pilot.resize_terminal(150, 24)
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert log_fills_its_width(app)
 
 
 async def test_edited_session_entry_stays_marked_in_typed_place(app, settings_path):

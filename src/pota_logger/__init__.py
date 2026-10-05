@@ -45,6 +45,9 @@ DISPLAY_LENGTHS = {
     "PWR": len("1500W"),
     "DATE": len("2026.09.23"),
     "TIME": len("21:23"),
+    # Fills the log's width, or as wide as the longest COMMENT shown (see
+    # log_columns), at least its header.
+    "COMMENT": 0,
 }
 
 # Marks entries typed this session in the log's first column, which has no
@@ -74,6 +77,22 @@ LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
     (name, max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
     for name, _, max_length in FIELDS
 ]
+
+
+def log_columns(entries: list[dict], room: int = 0) -> list[tuple[str, int]]:
+    """LOG_COLUMNS for the entries shown: COMMENT takes the rest of the
+    `room` the table has, so the columns (and the divider) reach its right
+    edge, and widens past it for the longest COMMENT, so each is seen
+    whole, however long (a file's can be longer than the form takes).
+    """
+    longest = max((len(entry["COMMENT"]) for entry in entries), default=0)
+    # Each cell carries a space of padding each side.
+    rest = room - sum(width + 2 for label, width in LOG_COLUMNS if label != "COMMENT") - 2
+    return [
+        (label, max(width, longest, rest) if label == "COMMENT" else width)
+        for label, width in LOG_COLUMNS
+    ]
+
 
 # Style of the first saved row when entries were typed this session: a
 # divider between those above (as typed) and the saved ones (sorted). An
@@ -150,9 +169,16 @@ def log_cell(value: str, width: int, style: str = "") -> Text:
     return Text(f" {value:<{width}} ", style=style)
 
 
-def log_row(values: dict, marker: str = "", style: str = "", as_is: bool = False) -> list[Text]:
-    """An entry's cells in the log table: its marker, then FIELDS order.
-    `as_is` shows a refused row's values as they are in the file.
+def log_row(
+    values: dict,
+    columns: list[tuple[str, int]],
+    marker: str = "",
+    style: str = "",
+    as_is: bool = False,
+) -> list[Text]:
+    """An entry's cells in the log table (`columns` from log_columns): its
+    marker, then FIELDS order. `as_is` shows a refused row's values as they
+    are in the file.
     """
     shown = values
     if not as_is:
@@ -160,7 +186,7 @@ def log_row(values: dict, marker: str = "", style: str = "", as_is: bool = False
             name: format_value(values[name]) for name, format_value in FORMATTERS.items()
         }
     cells = [marker] + [shown[name] for name, _, _ in FIELDS]
-    return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, LOG_COLUMNS)]
+    return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, columns)]
 
 
 def id_key(entry: dict) -> str | None:
@@ -281,14 +307,15 @@ class PotaLoggerApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#log-table", DataTable)
-        for label, width in LOG_COLUMNS:
-            table.add_column(log_cell(label, width), width=width + 2)
         # Raises notifications above the log's sideways scrollbar (CSS).
         self.watch(
             table,
             "show_horizontal_scrollbar",
             lambda shown: table.screen.set_class(shown, "-log-scrolls-sideways"),
         )
+        # COMMENT fills the log's width, which changes with the window and
+        # the log's vertical scrollbar, once laid out.
+        table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
         self.query_one("#field-freq").focus()
         if self.settings_error:
             self.notify(self.settings_error, severity="error", timeout=30)
@@ -644,13 +671,18 @@ class PotaLoggerApp(App):
         table.focus()
 
     def show_log(self) -> None:
-        # DataTable can't insert a row mid-table, so it's redrawn in full.
+        # DataTable can't insert a row mid-table, so it's redrawn in full,
+        # columns too, as COMMENT's width follows the entries shown.
         table = self.query_one("#log-table", DataTable)
-        table.clear()
+        table.clear(columns=True)
+        columns = self.log_columns()
+        for label, width in columns:
+            table.add_column(log_cell(label, width), width=width + 2)
         repeats = self.repeats()
         saved_rows = [
             log_row(
                 entry,
+                columns,
                 self.saved_marker(entry, *repeats),
                 # The divider, over the first saved row.
                 DIVIDER_STYLE if self.session_entries and index == 0 else "",
@@ -659,8 +691,29 @@ class PotaLoggerApp(App):
             for index, entry in enumerate(self.saved_entries)
         ]
         table.add_rows(
-            [log_row(entry, SESSION_MARKER) for entry in self.session_entries] + saved_rows
+            [log_row(entry, columns, SESSION_MARKER) for entry in self.session_entries]
+            + saved_rows
         )
+
+    def log_columns(self) -> list[tuple[str, int]]:
+        table = self.query_one("#log-table", DataTable)
+        return log_columns(self.log_entries(), table.scrollable_content_region.width)
+
+    def fit_log(self, table: DataTable) -> None:
+        """Redraw the log if its width calls for a different COMMENT column,
+        keeping the cursor and scroll where they were. Not under a modal:
+        the log is laid out again when it's back on top.
+        """
+        if table.screen is not self.screen:
+            return
+        widths = [column.width - 2 for column in table.columns.values()]
+        if widths == [width for _, width in self.log_columns()]:
+            return
+        cursor = table.cursor_coordinate
+        x, y = table.scroll_x, table.scroll_y
+        self.show_log()
+        table.move_cursor(row=cursor.row, column=cursor.column, scroll=False)
+        table.scroll_to(x, y, animate=False)
 
     def repeats(self) -> tuple[set[str], set[tuple]]:
         """Record IDs held by more than one entry in the log, and the dupe

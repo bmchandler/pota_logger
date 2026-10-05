@@ -55,7 +55,10 @@ CSS, a small override of stock looks); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
 form in a narrow window; selecting a log row and editing its entry in
-the form (see Editing). The visual layout is settled; wording tweaks
+the form (see Editing); the log's COMMENT column filling the log's
+width, or as wide as the longest COMMENT shown, apart from the form's
+100-character limit, so the divider reaches the right edge (see Entry
+fields). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
 To do:
@@ -68,17 +71,6 @@ To do:
   considered: explicit line breaks in the startup messages (`!`, `U`,
   `=`), as warnings already use, and/or overriding Toast's 50% max-width
   (always 60 wide, a change to stock looks).
-- Decouple COMMENT's input limit from the log's view of it (decided
-  2026-10-03). Today the limit is what fits in the field's view (100
-  characters), and the log column is that same fixed width, so a longer
-  COMMENT from a file is cut off. Instead, the log's COMMENT column
-  widens to the longest COMMENT shown, so the operator always sees the
-  whole of each one, whatever the entry limit is now or later (see
-  Storage: any length loads). The input could also take a set cap (e.g.
-  100, scrolling within the field if wider than its view). Log columns
-  are fixed widths because DataTable doesn't redraw rows already drawn
-  when a column widens; since the log is redrawn in full on each save,
-  the width could be worked out from the entries at each redraw.
 - After the editing plan below: speed up the test suite (assessed
   2026-10-01: 541 tests in about 2 minutes; 607 in about 3 by
   2026-10-03). The 428 unit tests take under 2 seconds; the 113 app tests
@@ -160,7 +152,7 @@ In entry order (mirrors the paper log). All times and dates are UTC.
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
 | TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Last in the top row of the form. Must be a real time, 0000 to 2359. |
-| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME at the same width; the log scrolls sideways to show it. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
+| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME and fills the rest of the log's width (beside its vertical scrollbar, when shown), so the columns and the divider reach the right edge; it widens past that for the longest COMMENT shown, so each is seen whole, a longer one from a file included, and is never narrower than its header. The log scrolls sideways when it's wider than the window. The column is worked out again on each redraw of the log (each save, edit, or delete) and when the log's width changes (the window resized, or the vertical scrollbar coming or going), keeping the cursor, selection, and scroll. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
 
 Session-level value:
 

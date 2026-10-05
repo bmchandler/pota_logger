@@ -143,13 +143,19 @@ updated in the same change whenever a rule changes.
   (`DIVIDER_STYLE`).
 - Log cells are Rich `Text` built by `log_cell`, padded a space each
   side, with the table's `cell_padding` at 0, so the divider's line is
-  unbroken; column widths (`LOG_COLUMNS`) plus 2 for that padding.
+  unbroken; column widths (`log_columns`: `LOG_COLUMNS`, with COMMENT
+  filling the log's width, or as wide as the longest shown) plus 2 for
+  that padding.
   Never pass DataTable a plain `str` cell: it's parsed as Rich markup,
   which hid brackets in a COMMENT and crashed on `[/]`.
 - Colors come from the `pota` Textual theme in theme.py; widget CSS uses
   theme variables (`$primary`, `$warning`, `$surface`...), not hex colors.
 - Log table columns use fixed widths: Textual's DataTable doesn't redraw
-  rows already drawn when an auto-width column widens.
+  rows already drawn when an auto-width column widens. COMMENT's still
+  follows the entries and the log's width, as `show_log` rebuilds the
+  columns on each redraw, and the app's `fit_log` (on the screen's
+  layout signal) redraws when the width calls for a new one, keeping
+  cursor and scroll.
 - An App subclass's `on_mount` doesn't need `super().on_mount()`:
   Textual calls each class's handler, so that runs the app's twice (in a
   scratch script, use `on_ready` for setup after mount).
