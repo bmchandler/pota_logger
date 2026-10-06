@@ -173,3 +173,13 @@ Not built yet:
 - Sorting the log by any column
 
 Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md).
+
+## Noted issues
+
+Not every issue is listed here: only ones that won't be fixed, so you
+know not to expect a fix, and any you need to know about to keep your
+log safe.
+
+| Issue | Status | Reason |
+| --- | --- | --- |
+| A notification can lose its bottom row spacer at a couple of window widths. | Will Not Fix | Low impact, cosmetic. Fix more correct upstream. |

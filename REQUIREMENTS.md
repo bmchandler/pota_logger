@@ -64,23 +64,8 @@ width, or as wide as the longest COMMENT shown, apart from the form's
 fields). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-To do:
-
-- A notification can lose its bottom row (stock Textual, seen
-  2026-10-05). A toast is 60 wide, capped at half the window; when its
-  text width is exactly one cell short of a line of the message, the
-  line just wraps and the toast is drawn a row short. So each message is
-  cut at about two window widths (the old `6 records are dupes, marked
-  =. Select one to see more.`, 54 characters, at 114 and 115 columns),
-  and is fine either side: wider, it fits on one line; narrower, it
-  wraps cleanly. The mark counts, the file errors block, and the
-  settings file problem in the station-callsign block (see Log view,
-  Storage, and Settings) left toasts for this; what's left are the
-  blocks while typing and a correction refused in the unusual-callsign
-  warning (not blocking, so kept). Overriding Toast's
-  50% max-width would only move the cut widths; explicit line breaks
-  keep lines short enough to land on a cut width only in a very narrow
-  window.
+To do: nothing beyond Sort and ADIF export (see below). Known issues
+that won't be fixed are listed in README.md's Noted issues.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`

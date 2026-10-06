@@ -38,6 +38,10 @@ updated in the same change whenever a rule changes.
   Avoid overriding framework defaults unless the user decides to.
 - REQUIREMENTS.md's "Status and plan" section says what's built and
   what's next; update it when a planned item lands.
+- README.md's "Noted issues" table (Issue, Status, Reason) lists only
+  issues the operator decides to note: ones that won't be fixed (so
+  users don't expect a fix), or that users must know about to keep
+  their log safe. Not every bug goes there.
 
 ## Entry checks: block vs warn
 
