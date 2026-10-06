@@ -99,8 +99,10 @@ the code history.
 Every file is loaded and checked when the app starts. A row that breaks a
 rule isn't silently fixed or dropped: it shows in the log marked `!`, to fix
 or delete in the app. A row too broken to read (wrong number of columns, a
-stray quote) is skipped with a notification naming the file and row, and
-left in the file for you to fix by hand.
+stray quote) is left in the file for you to fix by hand: the app won't
+start until it's fixed, and lists each one, by file and row, in
+`data/file_errors.txt`. A file the app can't write blocks it the same
+way.
 
 The app changes a file on its own in only one case: a row with a blank
 record ID gets a new one when the app starts.

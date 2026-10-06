@@ -49,7 +49,9 @@ marked `=` at start (see Entry behavior); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value);
 the counts of rows marked `!`, `U`, and `=` beside the Settings button
-(see Log view); notifications stacked at the bottom right of the log
+(see Log view); a block at start, with the errors in `file_errors.txt`,
+while log files need fixing by hand (see Storage); notifications stacked
+at the bottom right of the log
 area, a row above the Settings and Quit buttons rather than over them,
 and a row above the log's sideways scrollbar while it shows (Textual's ToastRack raised by
 CSS, a small override of stock looks); a light
@@ -71,13 +73,12 @@ To do:
   cut at about two window widths (the old `6 records are dupes, marked
   =. Select one to see more.`, 54 characters, at 114 and 115 columns),
   and is fine either side: wider, it fits on one line; narrower, it
-  wraps cleanly. The mark counts left toasts for this (see Log view);
-  what's left are the start-up ones naming a file (`Skipped ...`,
-  `Couldn't add record IDs ...`, a settings file problem) and the
-  blocks while typing. The operator has another idea for the start-up
-  ones. Overriding Toast's 50% max-width would only move the cut
-  widths; explicit line breaks keep lines short enough to land on a
-  cut width only in a very narrow window.
+  wraps cleanly. The mark counts and the file errors block (see Log
+  view and Storage) left toasts for this; what's left are a settings
+  file problem at start and the blocks while typing. Overriding Toast's
+  50% max-width would only move the cut widths; explicit line breaks
+  keep lines short enough to land on a cut width only in a very narrow
+  window.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -485,10 +486,11 @@ Session-level value:
     stays as it was. This is the one exception to the app never tidying a
     log file on its own: an ID can't be fixed in the app (it has no
     field) and is tedious and error-prone to make by hand. If the file
-    can't be written, a notification says so (`Couldn't add record IDs to
-    20260925.csv: Permission denied. They're saved with the next change
-    to that file, or added again at the next start.`); the app's copy
-    holds them, so the next save to that file writes them.
+    can't be written, the app blocks at start until it's fixed (`Couldn't
+    write to file or directory.` / `Check permissions.`; see the file
+    errors block in Storage), listing it in `file_errors.txt` (`<file>:
+    couldn't add record IDs: Permission denied. Check permissions.`); the
+    IDs are added again at the next start.
   - An ID that isn't blank must be a UUID as the app writes it, or the
     row is refused (`UUIDv4 'abc' should be a UUID as the app writes it,
     like 1b4e28ba-2fa1-4d2b-883f-0016d3cca427. Saving gives it a new
@@ -561,6 +563,26 @@ Session-level value:
   and row number: a wrong header row (the file is skipped), a file that
   isn't UTF-8 text (skipped), or a row that fails a check. Skipped rows
   and files stay in the file, to be fixed by hand.
+- What the app can't show or write blocks it at start, until fixed by
+  hand (decided 2026-10-05): a skipped row or file can't be seen in the
+  log, so a contact in it is easily logged again, missed by the dupe
+  check, and left out of an export. A modal with Quit as its only button
+  (Enter, or ctrl+q) reads `Manual data correction required.` for rows or
+  files that can't be read, `Couldn't write to file or directory.` /
+  `Check permissions.` for record IDs that couldn't be written (both,
+  when both), then `See <data folder>/file_errors.txt`, a blank line,
+  and `Fix the files, then start the app again.` `file_errors.txt`, in
+  `data/` beside the log files (and not read as one), has a header
+  (`Written by pota-logger at start, 2026-10-05 21:03 UTC.` / `Fix these
+  by hand, then start the app again.`, then a blank line), then one error
+  per line, naming the file and row (`<file> row 4: has 14 values,
+  should have 13`). It's rewritten at each start with errors, and
+  removed at a start with none, so it never outlives them. If it can't
+  be written either, the modal says `Couldn't write to file or
+  directory.` / `Check permissions.` and ends `Fix the permissions, then
+  start the app again.` instead. What the app can show (rows marked `!`,
+  `U`, `=`) is fixed in the app instead, and the settings file's
+  problems keep their own flow (see Settings).
 - A row that fails a check but still splits into the right columns is
   refused, not skipped, and every problem in it is found (each column on
   its own; a check that depends on a column at fault is left out: SNT and
@@ -595,8 +617,8 @@ Session-level value:
   read at all is listed with `It can't be fixed in the app: fix it by
   hand, or delete the record.`, and `f3` says so too. It can be deleted
   (`f4`) like any entry. A row too broken to split (wrong number of
-  values, a stray quote) is skipped, with its own notification, to fix
-  by hand. The app never tidies or rewrites a log file on its own, since
+  values, a stray quote) is skipped, and blocks the app at start until
+  fixed by hand (see above). The app never tidies or rewrites a log file on its own, since
   automatic changes to a hand-edited file could make a slip worse (e.g.
   a stray quote that joins lines). The one exception is filling in a
   blank record ID (see Record IDs).

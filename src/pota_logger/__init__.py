@@ -1,5 +1,6 @@
 import tomllib
 from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rich.text import Text
@@ -9,6 +10,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.widgets import Button, DataTable, Footer, Static
 
+from pota_logger import file_errors
 from pota_logger.dates import format_date, format_time
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
@@ -158,10 +160,17 @@ DUPE_NO_COMMENT = ("- Another record without a COMMENT.", "- {count} other recor
 
 # At start, when blank record IDs were filled in but the file couldn't be
 # written.
-IDS_UNSAVED = (
-    "Couldn't add record IDs to {name}: {error}. They're saved with the "
-    "next change to that file, or added again at the next start."
-)
+# A file's filled-in record IDs that couldn't be written, in file_errors.txt.
+IDS_UNSAVED = "{path}: couldn't add record IDs: {error}. Check permissions."
+
+# The block at start while log files need fixing by hand: lines for rows
+# or files that can't be read, for files that can't be written (or
+# file_errors.txt itself), where the errors are listed, and what to do.
+DATA_CORRECTION = "Manual data correction required."
+WRITE_FAILED_FILES = "Couldn't write to file or directory.\nCheck permissions."
+SEE_FILE_ERRORS = "See {path}"
+FIX_FILES = "Fix the files, then start the app again."
+FIX_PERMISSIONS = "Fix the permissions, then start the app again."
 
 # f3 or f4 with no log row selected.
 SELECT_FIRST = "Double-click a record or press Enter when log area has focus first."
@@ -374,16 +383,45 @@ class PotaLoggerApp(App):
         self.selected: dict | None = None
         self.mark_counts_text = ""
         self.show_log()
-        for path, error in self.logbook.unsaved_ids:
-            self.notify(
-                IDS_UNSAVED.format(name=path.name, error=error.strerror or error),
-                severity="error",
-                timeout=30,
-            )
-        for problem in problems:
-            self.notify(f"Skipped {problem}", severity="error", timeout=30)
+        if self.block_on_file_errors(problems):
+            return
         if not self.settings.station_callsign:
             self.require_station_callsign()
+
+    def block_on_file_errors(self, problems: list[str]) -> bool:
+        """Record what in the log files needs fixing by hand (rows or files
+        that can't be read, `problems`, and record IDs that couldn't be
+        written) in file_errors.txt, and block with Quit as the only way on
+        if there's anything; True if so. With nothing, file_errors.txt goes.
+        """
+        unsaved = [
+            IDS_UNSAVED.format(path=path, error=error.strerror or error)
+            for path, error in self.logbook.unsaved_ids
+        ]
+        try:
+            path = file_errors.record(
+                self.logbook.log_dir, problems + unsaved, datetime.now(UTC)
+            )
+        except OSError:
+            path = None
+        if not problems and not unsaved:
+            # An old file_errors.txt that can't be removed is left: without
+            # write access, saving says so anyway.
+            return False
+        lines = [DATA_CORRECTION] if problems else []
+        if unsaved or path is None:
+            lines.append(WRITE_FAILED_FILES)
+        if path is None:
+            lines += ["", FIX_PERMISSIONS]
+        else:
+            lines += [SEE_FILE_ERRORS.format(path=path), "", FIX_FILES]
+        self.push_screen(
+            WarningScreen(
+                "\n".join(lines), confirm_label="Quit", can_go_back=False, id="file-errors"
+            ),
+            lambda _: self.exit(),
+        )
+        return True
 
     def save(self, write, saved, failed: str) -> None:
         """Run `write` (a Logbook change), then `saved` once it's written. If
@@ -786,9 +824,11 @@ class PotaLoggerApp(App):
     def action_open_settings(self) -> None:
         # App bindings stay live under a modal, so don't stack a second one,
         # even when another modal (its unusual-callsign warning) is on top.
-        # Under the station-callsign block, Enter is the way to Settings.
+        # Under the station-callsign block, Enter is the way to Settings;
+        # under the file errors block, there's no way on but Quit.
         if any(
-            isinstance(screen, SettingsScreen) or screen.id == "station-callsign-required"
+            isinstance(screen, SettingsScreen)
+            or screen.id in ("station-callsign-required", "file-errors")
             for screen in self.screen_stack
         ):
             return

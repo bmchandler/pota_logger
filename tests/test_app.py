@@ -1115,16 +1115,76 @@ async def test_log_scrolls_to_show_the_latest_session_entry(app, settings_path):
         assert table.scroll_y == len(calls) - rows_in_view
 
 
-async def test_row_too_broken_to_split_is_skipped_with_notification(app, settings_path):
+BROKEN_ROW = "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,W1TST\n"
+
+
+def file_errors_text(settings_path) -> list[str]:
+    """file_errors.txt's lines below its header (written time, what to do,
+    a blank line).
+    """
+    return (settings_path.parent / "file_errors.txt").read_text().splitlines()[3:]
+
+
+async def test_row_too_broken_to_split_blocks_until_fixed_by_hand(app, settings_path):
     path = settings_path.parent / "20260925.csv"
-    path.write_text(
-        LOG_HEADER + "14285500,USB,W1ABC,US-1234,NJ,59,57,60,20260925,1953,W1TST\n"
-    )
-    async with app.run_test():
+    path.write_text(LOG_HEADER + BROKEN_ROW)
+    async with app.run_test() as pilot:
         assert table_rows(app) == []
-        assert [n.message for n in app._notifications] == [
-            f"Skipped {path} row 2: has 11 values, should have 13"
-        ]
+        assert not app._notifications
+        assert app.screen.id == "file-errors"
+        assert app.screen.message == (
+            "Manual data correction required.\n"
+            f"See {settings_path.parent / 'file_errors.txt'}\n"
+            "\n"
+            "Fix the files, then start the app again."
+        )
+        assert file_errors_text(settings_path) == [f"{path} row 2: has 11 values, should have 13"]
+        # No Settings over it, and Enter quits.
+        await pilot.press("f2")
+        assert app.screen.id == "file-errors"
+        await pilot.press("enter")
+        assert not app.is_running
+
+
+async def test_unreadable_file_and_broken_row_are_listed_in_file_order(app, settings_path):
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    first = settings_path.parent / "20260924.csv"
+    first.write_bytes(b"\xff\xfe not text")
+    second = settings_path.parent / "20260925.csv"
+    second.write_text(LOG_HEADER + BROKEN_ROW)
+    async with app.run_test():
+        assert app.screen.id == "file-errors"
+    assert file_errors_text(settings_path) == [
+        f"{first}: isn't plain text (UTF-8)",
+        f"{second} row 2: has 11 values, should have 13",
+    ]
+
+
+async def test_clean_start_removes_an_old_file_errors_list(app, settings_path):
+    errors = settings_path.parent / "file_errors.txt"
+    errors.write_text("Written by pota-logger at start, 2026-10-01 12:00 UTC.\n")
+    async with app.run_test():
+        assert app.screen.id != "file-errors"
+    assert not errors.exists()
+
+
+async def test_file_errors_list_that_cant_be_written_blocks_all_the_same(
+    app, settings_path, monkeypatch
+):
+    (settings_path.parent / "20260925.csv").write_text(LOG_HEADER + BROKEN_ROW)
+
+    def fail(*args):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr("pota_logger.file_errors.record", fail)
+    async with app.run_test():
+        assert app.screen.message == (
+            "Manual data correction required.\n"
+            "Couldn't write to file or directory.\n"
+            "Check permissions.\n"
+            "\n"
+            "Fix the permissions, then start the app again."
+        )
 
 
 # Editing
@@ -1957,17 +2017,43 @@ async def test_uppercase_id_matches_its_copy_and_is_kept_lowercase(app, settings
     assert path.read_text() == LOG_HEADER + K1BBB_ROW
 
 
-async def test_filled_ids_that_cant_be_written_are_noted(app, settings_path, monkeypatch):
+async def test_filled_ids_that_cant_be_written_block_until_fixed(app, settings_path, monkeypatch):
     path = write_two_saved(settings_path)
     path.write_text(LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW)
     fail_to_write(monkeypatch)
     async with app.run_test():
         assert table_calls(app) == ["K1AAA", "K1BBB"]
-        assert [n.message for n in app._notifications] == [
-            "Couldn't add record IDs to 20260925.csv: Permission denied. They're saved "
-            "with the next change to that file, or added again at the next start."
-        ]
+        assert not app._notifications
+        assert app.screen.message == (
+            "Couldn't write to file or directory.\n"
+            "Check permissions.\n"
+            f"See {settings_path.parent / 'file_errors.txt'}\n"
+            "\n"
+            "Fix the files, then start the app again."
+        )
+    assert file_errors_text(settings_path) == [
+        f"{path}: couldn't add record IDs: Permission denied. Check permissions."
+    ]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW
+
+
+async def test_rows_to_fix_and_ids_unwritten_block_together(app, settings_path, monkeypatch):
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + BROKEN_ROW)
+    fail_to_write(monkeypatch)
+    async with app.run_test():
+        assert app.screen.message == (
+            "Manual data correction required.\n"
+            "Couldn't write to file or directory.\n"
+            "Check permissions.\n"
+            f"See {settings_path.parent / 'file_errors.txt'}\n"
+            "\n"
+            "Fix the files, then start the app again."
+        )
+    assert file_errors_text(settings_path) == [
+        f"{path} row 3: has 11 values, should have 13",
+        f"{path}: couldn't add record IDs: Permission denied. Check permissions.",
+    ]
 
 
 # Dupes

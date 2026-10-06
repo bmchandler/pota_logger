@@ -95,7 +95,9 @@ updated in the same change whenever a rule changes.
   as the call may change there), then each of `WARNINGS` in order. The
   dupe block's modal closes back to the form as typed, new or edit.
 - logbook.py holds the CSV storage, `Logbook` (`app.logbook`): `load`
-  at start (entries plus a message per skipped row or file) keeps each
+  at start (entries plus a message per skipped row or file, which with
+  `unsaved_ids` go in `file_errors.txt`, file_errors.py, behind the app's
+  `block_on_file_errors` modal, Quit only) keeps each
   file's lines in `files`, the only source of truth while the app runs;
   `append` on each save and `replace` for an edit (only that row's lines
   change) rewrite the whole file from that copy. A failed write raises
