@@ -48,9 +48,10 @@ sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
 marked `=` at start (see Entry behavior); the status bar; the
 settings modal, with the station callsign checked like CALL and
 required before any entry is saved (see Session-level value);
-notifications stacked at the bottom right of the log area, a row above
-the Settings and Quit buttons rather than over them, and a row above the
-log's sideways scrollbar while it shows (Textual's ToastRack raised by
+the counts of rows marked `!`, `U`, and `=` beside the Settings button
+(see Log view); notifications stacked at the bottom right of the log
+area, a row above the Settings and Quit buttons rather than over them,
+and a row above the log's sideways scrollbar while it shows (Textual's ToastRack raised by
 CSS, a small override of stock looks); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
 theme.py); the footer keys and terminal size; sideways scrolling of the
@@ -64,13 +65,19 @@ can still come up as they're noticed.
 To do:
 
 - A notification can lose its bottom row (stock Textual, seen
-  2026-10-05). A toast is 60 wide, capped at half the window; its height
-  is worked out at 60, but its text wraps at the cap, so a message that
-  only wraps at the narrower width is cut by a row (e.g. `6 records are
-  dupes, marked =. Select one to see more.` at 115 columns). Fixes
-  considered: explicit line breaks in the startup messages (`!`, `U`,
-  `=`), as warnings already use, and/or overriding Toast's 50% max-width
-  (always 60 wide, a change to stock looks).
+  2026-10-05). A toast is 60 wide, capped at half the window; when its
+  text width is exactly one cell short of a line of the message, the
+  line just wraps and the toast is drawn a row short. So each message is
+  cut at about two window widths (the old `6 records are dupes, marked
+  =. Select one to see more.`, 54 characters, at 114 and 115 columns),
+  and is fine either side: wider, it fits on one line; narrower, it
+  wraps cleanly. The mark counts left toasts for this (see Log view);
+  what's left are the start-up ones naming a file (`Skipped ...`,
+  `Couldn't add record IDs ...`, a settings file problem) and the
+  blocks while typing. The operator has another idea for the start-up
+  ones. Overriding Toast's 50% max-width would only move the cut
+  widths; explicit line breaks keep lines short enough to land on a
+  cut width only in a very narrow window.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -267,8 +274,9 @@ Session-level value:
     voice/CW matching, as POTA counts that contact once), which meant
     little in practice.
   - At start, saved entries that are definite dupes of each other are
-    marked `=` (see Log view), with one notification (`3 records are
-    dupes, marked =. Select one to see more.`). A selected one lists its
+    marked `=` (see Log view), and counted beside the Settings button
+    (`3 records are dupes, marked =`, or `= 3 dupes` when narrow; see
+    Log view). A selected one lists its
     other copies below COMMENT, in the error color, under `Excluding
     COMMENT, duplicate record(s) exist:`: first any sharing its record ID
     (see Storage), then its dupes, one line per COMMENT, the same one
@@ -394,6 +402,19 @@ Session-level value:
   until fixed. The column moves with its row when the log is sorted, so the
   marks survive a Sort. Later it may show other states, like an entry
   not yet uploaded to QRZ.
+- Rows marked `!`, `U`, or `=` are counted to the left of the Settings
+  button, in the error color, one line per mark in that order, and only
+  while there are any: `1 record refused, marked !`, `4 records share a
+  record ID, marked U`, `3 records are dupes, marked =` (`1 record
+  shares a record ID, marked U`, `1 record is a dupe, marked =`: a lone
+  `U` or `=` is left when its copy has a mark that comes first). Terse,
+  as diagnostic status lines: no hint to select a row, no period. When
+  any line doesn't fit (in a window narrower than about 74 columns), all
+  three take a short form: `! 1 refused`, `U 4 share an ID`, `= 3
+  dupes`. The
+  counts follow the log as rows are fixed or deleted, and a line goes
+  once its count is 0. (Decided 2026-10-05; they were notifications at
+  start, which went after 30 seconds and could cover each other.)
 - Below them, any rows refused on load, marked `!` (see Storage), then
   the saved entries (from the log files at start), newest first by UTC
   timestamp (DATE, then TIME). Entries with the same
@@ -440,9 +461,10 @@ Session-level value:
     twice. If the edit was changed before saving again, both versions
     are kept (and marked `U` at the next start), rather than one dropped
     where the log doesn't show it.
-  - At start, saved entries sharing an ID are marked `U`, with one
-    notification summing them up (`4 records share a record ID, marked U.
-    Select one to see more.`). A selected one lists the other copies
+  - At start, saved entries sharing an ID are marked `U`, and counted
+    beside the Settings button (`4 records share a record ID, marked U`,
+    or `U 4 share an ID`; see Log view). A
+    selected one lists the other copies
     below COMMENT, in the error color, under `Excluding COMMENT,
     duplicate record(s) exist:`, at the top of that list (any definite
     dupes follow; see Entry behavior), one line each: `- Same UUIDv4 in
@@ -547,8 +569,9 @@ Session-level value:
   refused rows sit at the top of the saved entries, in file order,
   whatever they were refused for (a DATE or TIME that doesn't read has
   no place in the sorted order, and at the top they're seen). Rather
-  than a notification per row, one at start sums them up: `2 records
-  refused, marked ! at the top of the log. Select one to see why.`
+  than a notification per row, they're counted beside the Settings
+  button: `2 records refused, marked !` (`! 2 refused` when narrow; see
+  Log view).
 - A selected refused row lists its problems below COMMENT, in the error
   color, under `Refused from 20260925.csv row 4:`, one line each (`- TIME
   '53' should be HHMM, like 2123.`), and each field at fault gets

@@ -1,10 +1,11 @@
+from collections import Counter
 from datetime import date
 
 import pytest
 from textual.command import CommandPalette
 from textual.widgets import Button, DataTable, Input, Static
 
-from pota_logger import PotaLoggerApp, dates
+from pota_logger import PotaLoggerApp, dates, mark_count_lines
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
@@ -233,6 +234,12 @@ def table_rows(app) -> list[list[str]]:
     return [
         [str(cell).strip() for cell in table.get_row_at(i)[1:]] for i in range(table.row_count)
     ]
+
+
+def mark_counts(app) -> list[str]:
+    """The lines counting marked rows, beside the Settings button."""
+    text = str(app.query_one("#mark-counts", Static).render())
+    return text.splitlines()
 
 
 def table_markers(app) -> list[str]:
@@ -1674,9 +1681,8 @@ async def test_refused_row_shown_as_is_and_marked_at_the_top(app, settings_path)
         assert table_calls(app) == ["K1BBB", "K1AAA"]
         assert table_markers(app) == ["!", ""]
         assert table_rows(app)[0] == REFUSED_ROW.rstrip().split(",")[:-2]
-        assert [n.message for n in app._notifications] == [
-            "1 record refused, marked ! at the top of the log. Select one to see why."
-        ]
+        assert mark_counts(app) == ["1 record refused, marked !"]
+        assert not app._notifications
 
 
 async def test_refused_rows_stay_under_session_entries(app, settings_path):
@@ -1719,12 +1725,49 @@ def invalid_fields(app) -> list[str]:
     ]
 
 
-async def test_refused_rows_are_summed_up_in_one_notification(app, settings_path):
-    write_refused(settings_path, REFUSED_ROW + REFUSED_ROW.replace("K1BBB", "K2CCC"))
+def test_mark_counts_one_line_per_mark_in_order_long_when_all_fit():
+    counts = Counter({"=": 3, "!": 1, "✎": 2})
+    long = ["1 record refused, marked !", "3 records are dupes, marked ="]
+    assert mark_count_lines(counts, len(long[1])) == long
+    assert mark_count_lines(counts, len(long[1]) - 1) == ["! 1 refused", "= 3 dupes"]
+    assert mark_count_lines(Counter(), 100) == []
+
+
+def test_mark_counts_say_one_for_a_lone_mark():
+    # A lone U (its copy refused) or = (its copy marked U).
+    counts = Counter({"U": 1, "=": 1})
+    assert mark_count_lines(counts, 0) == ["U 1 shares an ID", "= 1 dupe"]
+    assert mark_count_lines(counts, 100) == [
+        "1 record shares a record ID, marked U",
+        "1 record is a dupe, marked =",
+    ]
+
+
+async def test_no_mark_counts_without_marked_rows(app, settings_path):
+    write_two_saved(settings_path)
     async with app.run_test():
-        assert [n.message for n in app._notifications] == [
-            "2 records refused, marked ! at the top of the log. Select one to see why."
-        ]
+        assert mark_counts(app) == []
+
+
+async def test_mark_counts_follow_the_log_until_none_are_left(app, settings_path):
+    path = write_two_saved(settings_path)
+    path.write_text(LOG_HEADER + K1AAA_ROW + K1BBB_ROW + K1AAA_ROW.replace(K1AAA_ID, new_id()))
+    async with app.run_test() as pilot:
+        assert mark_counts(app) == ["2 records are dupes, marked ="]
+        await select_row(app, pilot, 0)
+        await pilot.press("f4", "enter", "enter")
+        assert table_markers(app) == ["", ""]
+        assert mark_counts(app) == []
+
+
+async def test_refused_rows_are_counted_beside_the_buttons(app, settings_path):
+    write_refused(settings_path, REFUSED_ROW + REFUSED_ROW.replace("K1BBB", "K2CCC"))
+    async with app.run_test(size=(60, 24)) as pilot:
+        assert mark_counts(app) == ["! 2 refused"]
+        # The long form once it fits.
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause()
+        assert mark_counts(app) == ["2 records refused, marked !"]
 
 
 async def test_selected_refused_row_lists_its_problems(app, settings_path):
@@ -1841,9 +1884,7 @@ async def test_records_sharing_an_id_are_marked_and_explained(app, settings_path
     async with app.run_test() as pilot:
         assert table_calls(app) == ["K1BBB", "K1AAA", "K1AAA", "K1BBB"]
         assert table_markers(app) == ["U", "U", "U", "U"]
-        assert [n.message for n in app._notifications] == [
-            "4 records share a record ID, marked U. Select one to see more."
-        ]
+        assert mark_counts(app) == ["4 records share a record ID, marked U"]
         await select_row(app, pilot, 0)
         assert problem_lines(app) == [
             "Excluding COMMENT, duplicate record(s) exist:",
@@ -2058,9 +2099,7 @@ async def test_saved_dupes_are_marked_and_explained(app, settings_path):
     )
     async with app.run_test() as pilot:
         assert table_markers(app) == ["=", "=", "=", ""]
-        assert [n.message for n in app._notifications] == [
-            "3 records are dupes, marked =. Select one to see more."
-        ]
+        assert mark_counts(app) == ["3 records are dupes, marked ="]
         await select_row(app, pilot, 0)
         assert problem_lines(app) == [
             "Excluding COMMENT, duplicate record(s) exist:",

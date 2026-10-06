@@ -116,7 +116,10 @@ updated in the same change whenever a rule changes.
   sharing an ID are marked `SHARED_MARKER` (`U`) and explained below
   COMMENT; saved definite dupes likewise get `DUPE_MARKER` (`=`), listed
   after any shared IDs in the app's `repeat_lines` (marks: `!`, `U`, `=`,
-  `✎`). Test rows need distinct IDs
+  `✎`). `show_log` counts the `!`, `U`, and `=` marks into
+  `#mark-counts`, beside the Settings button (`MARK_COUNTS`,
+  `mark_count_lines`; tests' `mark_counts` reads it), long or short to
+  fit its width (also refit in `fit_log`). Test rows need distinct IDs
   (`new_id()`), or the `2` mark shows. The app keeps log files
   beside settings (`settings_path.parent`), so the test fixtures' temp
   dir covers both.

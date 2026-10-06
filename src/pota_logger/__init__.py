@@ -70,6 +70,37 @@ DUPE_MARKER = "="
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
 EDITED_MARKER = "✎"
 
+# Counts of the saved rows marked for a problem, beside the Settings
+# button while there are any, one line each: (one, several) wordings,
+# long when every line fits, short otherwise.
+MARK_COUNTS = {
+    REFUSED_MARKER: (
+        ("1 record refused, marked !", "{count} records refused, marked !"),
+        ("! 1 refused", "! {count} refused"),
+    ),
+    # One alone when its copy is marked ! (a refused row keeps its mark).
+    SHARED_MARKER: (
+        ("1 record shares a record ID, marked U", "{count} records share a record ID, marked U"),
+        ("U 1 shares an ID", "U {count} share an ID"),
+    ),
+    # One alone when its copy is marked U.
+    DUPE_MARKER: (
+        ("1 record is a dupe, marked =", "{count} records are dupes, marked ="),
+        ("= 1 dupe", "= {count} dupes"),
+    ),
+}
+
+
+def mark_count_lines(counts: Counter, width: int) -> list[str]:
+    """MARK_COUNTS lines for the marks counted, long if all fit in `width`."""
+    forms = [
+        [wording[count != 1].format(count=count) for wording in MARK_COUNTS[marker]]
+        for marker in MARK_COUNTS
+        if (count := counts[marker])
+    ]
+    fits = all(len(long_form) <= width for long_form, _ in forms)
+    return [long_form if fits else short_form for long_form, short_form in forms]
+
 # The log's columns, (label, width): the marker, then the fields. Fixed
 # widths: DataTable doesn't redraw rows it already drew when an auto-width
 # column widens, which left the first entry truncated.
@@ -223,6 +254,12 @@ class PotaLoggerApp(App):
     #button-bar > Button {
         margin-left: 1;
     }
+    #mark-counts {
+        width: 1fr;
+        height: 3;
+        padding: 0 1;
+        color: $error;
+    }
     /* Notifications sit a row above the Settings and Quit buttons (3
        rows) and the footer (1), not over them, and a row above the
        log's sideways scrollbar while it shows. */
@@ -291,6 +328,7 @@ class PotaLoggerApp(App):
         yield EntryForm()
         yield DataTable(id="log-table", cell_padding=0)
         with Horizontal(id="button-bar"):
+            yield Static(id="mark-counts")
             # Mouse only, so tabbing through fields can't land on them.
             for button in (
                 Button("Settings", id="settings"),
@@ -314,8 +352,9 @@ class PotaLoggerApp(App):
             "show_horizontal_scrollbar",
             lambda shown: table.screen.query("ToastRack").set_class(shown, "-log-scrolls-sideways"),
         )
-        # COMMENT fills the log's width, which changes with the window and
-        # the log's vertical scrollbar, once laid out.
+        # Once laid out: COMMENT fills the log's width, which changes with
+        # the window and the log's vertical scrollbar, and the mark counts'
+        # long or short form follows their width.
         table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
         self.query_one("#field-freq").focus()
         if self.settings_error:
@@ -333,33 +372,8 @@ class PotaLoggerApp(App):
         self.edited_entries: list[dict] = []
         # The entry whose log row is selected, shown in the form.
         self.selected: dict | None = None
+        self.mark_counts_text = ""
         self.show_log()
-        if self.logbook.refused:
-            count = len(self.logbook.refused)
-            records = "record" if count == 1 else "records"
-            self.notify(
-                f"{count} {records} refused, marked {REFUSED_MARKER} at the top of the "
-                "log. Select one to see why.",
-                severity="error",
-                timeout=30,
-            )
-        repeats = self.repeats()
-        marks = [self.saved_marker(entry, *repeats) for entry in self.saved_entries]
-        shared = marks.count(SHARED_MARKER)
-        if shared:
-            self.notify(
-                f"{shared} records share a record ID, marked {SHARED_MARKER}. "
-                "Select one to see more.",
-                severity="error",
-                timeout=30,
-            )
-        dupes = marks.count(DUPE_MARKER)
-        if dupes:
-            self.notify(
-                f"{dupes} records are dupes, marked {DUPE_MARKER}. Select one to see more.",
-                severity="error",
-                timeout=30,
-            )
         for path, error in self.logbook.unsaved_ids:
             self.notify(
                 IDS_UNSAVED.format(name=path.name, error=error.strerror or error),
@@ -695,6 +709,16 @@ class PotaLoggerApp(App):
             [log_row(entry, columns, SESSION_MARKER) for entry in self.session_entries]
             + saved_rows
         )
+        self.mark_counts = Counter(str(row[0]).strip() for row in saved_rows)
+        self.show_mark_counts()
+
+    def show_mark_counts(self) -> None:
+        shown = self.query_one("#mark-counts", Static)
+        text = "\n".join(mark_count_lines(self.mark_counts, shown.content_region.width))
+        # Only on a change: an update lays the screen out again.
+        if text != self.mark_counts_text:
+            self.mark_counts_text = text
+            shown.update(Text(text))
 
     def log_columns(self) -> list[tuple[str, int]]:
         table = self.query_one("#log-table", DataTable)
@@ -702,11 +726,13 @@ class PotaLoggerApp(App):
 
     def fit_log(self, table: DataTable) -> None:
         """Redraw the log if its width calls for a different COMMENT column,
-        keeping the cursor and scroll where they were. Not under a modal:
-        the log is laid out again when it's back on top.
+        keeping the cursor and scroll where they were, and fit the mark
+        counts to theirs. Not under a modal: the log is laid out again when
+        it's back on top.
         """
         if table.screen is not self.screen:
             return
+        self.show_mark_counts()
         widths = [column.width - 2 for column in table.columns.values()]
         if widths == [width for _, width in self.log_columns()]:
             return
