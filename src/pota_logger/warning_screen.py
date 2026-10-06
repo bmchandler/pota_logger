@@ -1,5 +1,6 @@
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 
@@ -42,7 +43,7 @@ class WarningScreen(ModalScreen[bool]):
 
     def __init__(
         self,
-        message: str,
+        message: str | Content,
         confirm_label: str = "Confirm",
         can_go_back: bool = True,
         back_button: bool = True,

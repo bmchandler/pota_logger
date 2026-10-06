@@ -73,9 +73,11 @@ To do:
   cut at about two window widths (the old `6 records are dupes, marked
   =. Select one to see more.`, 54 characters, at 114 and 115 columns),
   and is fine either side: wider, it fits on one line; narrower, it
-  wraps cleanly. The mark counts and the file errors block (see Log
-  view and Storage) left toasts for this; what's left are a settings
-  file problem at start and the blocks while typing. Overriding Toast's
+  wraps cleanly. The mark counts, the file errors block, and the
+  settings file problem in the station-callsign block (see Log view,
+  Storage, and Settings) left toasts for this; what's left are the
+  blocks while typing and a correction refused in the unusual-callsign
+  warning (not blocking, so kept). Overriding Toast's
   50% max-width would only move the cut widths; explicit line breaks
   keep lines short enough to land on a cut width only in a very narrow
   window.
@@ -164,13 +166,16 @@ Session-level value:
   settings modal.
   Same shape check as CALL (letters, digits, up to two `/`, shaped like a
   call), uppercased; saving anything else is refused and the modal stays
-  open. An unusual call (same rule as CALL, e.g. `W11BC`, `W100AW`) opens
+  open, with why below the call in the error color (as the form shows
+  problems below COMMENT), only after a Save that couldn't, and gone
+  once the call is edited. An unusual call (same rule as CALL, e.g. `W11BC`, `W100AW`) opens
   the same unusual-callsign warning as CALL, where it can be corrected:
   Enter saves, Esc goes back to the settings modal.
 - **Required:** no entry can be saved without a station callsign set.
   While none is set, the status bar shows `NOCALL` and the usual warning
-  modal, used as a block, reads `A transmitting station callsign` / `is
-  required.` / `Press Enter to go to Settings.`, with no way to save
+  modal, used as a block, reads `A valid callsign for transmitting` /
+  `station is required.` / `Press Enter to go to Settings.`, with no way
+  to save
   anyway, no Esc, and one button, Settings: Enter opens the settings
   modal. It shows when the app starts with none set (first run, or a
   `data/settings.toml` with none, a bad one, or invalid TOML), and when
@@ -198,9 +203,12 @@ Session-level value:
   and lowercase (`station_callsign 'w1abc' should be uppercase, like
   W1ABC`) are refused, not tidied up on load. Either way the app
   starts with no call set, so the station-callsign block follows (see
-  Session-level value). A refused call opens in Settings, ready to
-  correct (most likely a slip, and the modal gets noticed where a
-  notification may not); it's there again if Settings is cancelled,
+  Session-level value), with the problem between its two parts, in the
+  error color, after a blank line and before one, full path included
+  (where `data/` is isn't obvious); it stays each time the block comes
+  back until Settings is saved, which rewrites the file. (Decided
+  2026-10-05; it was a notification at start.) A refused call opens in Settings, ready to
+  correct (most likely a slip); it's there again if Settings is cancelled,
   until a call is saved, which rewrites the file. Saving uppercases it,
   as usual. An unusual call (`W100AW`) loads without a warning: a value
   from a file is taken as meant. Only an empty call (`""`) means none is

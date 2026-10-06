@@ -8,6 +8,7 @@ from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.content import Content
 from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger import file_errors
@@ -194,10 +195,11 @@ WRITE_FAILED = (
 )
 
 # Shown, as a block, while no station callsign is set: at start, on Enter
-# in the form, and when Settings is left without one.
-STATION_CALLSIGN_REQUIRED = (
-    "A transmitting station callsign\nis required.\nPress Enter to go to Settings."
-)
+# in the form, and when Settings is left without one. A problem with the
+# settings file goes between the two, in the error color, until a call is
+# saved.
+STATION_CALLSIGN_REQUIRED = "A valid callsign for transmitting\nstation is required."
+GO_TO_SETTINGS = "Press Enter to go to Settings."
 
 
 def log_cell(value: str, width: int, style: str = "") -> Text:
@@ -366,8 +368,6 @@ class PotaLoggerApp(App):
         # long or short form follows their width.
         table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
         self.query_one("#field-freq").focus()
-        if self.settings_error:
-            self.notify(self.settings_error, severity="error", timeout=30)
         entries, problems = self.logbook.load()
         self.query_one(EntryForm).logged.extend(entries)
         # Saved entries newest first, under any refused rows (in file order,
@@ -844,9 +844,17 @@ class PotaLoggerApp(App):
         """Block until a station callsign is set: Enter opens Settings, and
         leaving it without one comes back here. Ctrl+Q still quits.
         """
+        if self.settings_error:
+            message = Content.assemble(
+                STATION_CALLSIGN_REQUIRED + "\n\n",
+                (self.settings_error, "$error"),
+                "\n\n" + GO_TO_SETTINGS,
+            )
+        else:
+            message = Content(STATION_CALLSIGN_REQUIRED + "\n" + GO_TO_SETTINGS)
         self.push_screen(
             WarningScreen(
-                STATION_CALLSIGN_REQUIRED,
+                message,
                 confirm_label="Settings",
                 can_go_back=False,
                 id="station-callsign-required",
@@ -857,6 +865,8 @@ class PotaLoggerApp(App):
     def apply_settings(self, settings: Settings | None) -> None:
         if settings is not None:
             self.settings = settings
+            # Saving rewrites the file, so whatever was wrong with it goes.
+            self.settings_error = None
             self.station_callsign_to_fix = ""
             save_settings(settings, self.settings_path)
             self.query_one(StatusBar).set_station_callsign(settings.station_callsign)

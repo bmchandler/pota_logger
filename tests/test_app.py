@@ -2243,7 +2243,8 @@ async def test_no_station_callsign_opens_on_required_block(settings_path):
     async with app.run_test() as pilot:
         assert app.screen.id == "station-callsign-required"
         assert required_message(app) == (
-            "A transmitting station callsign\nis required.\nPress Enter to go to Settings."
+            "A valid callsign for transmitting\nstation is required.\n"
+            "Press Enter to go to Settings."
         )
         assert [b.label.plain for b in app.screen.query(Button)] == ["Settings"]
         assert station_callsign(app) == "NOCALL"
@@ -2347,10 +2348,24 @@ async def test_invalid_station_callsign_is_refused(app, settings_path):
         await pilot.press("f2", *"w1tst/", "enter")
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "station-callsign-input"
-        assert [n.message for n in app._notifications] == [
-            "Station callsign 'w1tst/' has an empty part next to a /"
-        ]
+        assert settings_problem(app) == "Station callsign 'w1tst/' has an empty part next to a /"
+        assert not app._notifications
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        # Gone once the call is edited.
+        await pilot.press("backspace")
+        assert settings_problem(app) is None
+
+
+def settings_problem(app) -> str | None:
+    """What's shown below the station callsign in Settings, if anything."""
+    shown = app.screen.query_one("#settings-problem", Static)
+    return str(shown.render()) if shown.has_class("-shown") else None
+
+
+async def test_settings_open_with_no_problem_shown(app):
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert settings_problem(app) is None
 
 
 async def test_non_ascii_station_callsign_is_refused(app, settings_path):
@@ -2360,10 +2375,10 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
         app.screen.query_one("#station-callsign-input", Input).value = "W1ABÇ"
         await pilot.press("enter")
         assert isinstance(app.screen, SettingsScreen)
-        assert [n.message for n in app._notifications] == [
+        assert settings_problem(app) == (
             "Station callsign 'W1ABÇ' has non-ASCII characters: 'Ç'.\n"
             "Use plain ASCII, like W1ABC."
-        ]
+        )
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
@@ -2452,16 +2467,27 @@ async def test_closing_modal_keeps_entry_in_progress(app):
         assert app.query_one("#field-freq", Input).value == "14.074"
 
 
-async def test_broken_settings_file_notifies_and_keeps_running(settings_path):
+async def test_broken_settings_file_is_shown_in_the_required_block(settings_path):
     settings_path.parent.mkdir(parents=True)
     settings_path.write_text('station_callsign = "W1TST\n')
     app = PotaLoggerApp(settings_path=settings_path)
-    async with app.run_test():
+    async with app.run_test() as pilot:
         assert station_callsign(app) == "NOCALL"
         assert app.screen.id == "station-callsign-required"
-        messages = [n.message for n in app._notifications]
-        assert len(messages) == 1
-        assert str(settings_path) in messages[0]
+        assert not app._notifications
+        message = required_message(app)
+        assert message.startswith(
+            "A valid callsign for transmitting\nstation is required.\n\n"
+            f"Couldn't read {settings_path}: "
+        )
+        assert message.endswith("\n\nPress Enter to go to Settings.")
+        # Saving Settings rewrites the file, so it's not shown again.
+        await pilot.press("enter", "enter")
+        assert app.screen.id == "station-callsign-required"
+        assert required_message(app) == (
+            "A valid callsign for transmitting\nstation is required.\n"
+            "Press Enter to go to Settings."
+        )
 
 
 async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(settings_path):
@@ -2471,13 +2497,26 @@ async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(setting
     async with app.run_test() as pilot:
         assert station_callsign(app) == "NOCALL"
         assert app.screen.id == "station-callsign-required"
-        assert [n.message for n in app._notifications] == [
+        assert not app._notifications
+        problem = (
             f"{settings_path}: station_callsign 'W1' doesn't look like a callsign, like W1ABC"
-        ]
-        # In Settings to correct, and back there if cancelled.
+        )
+        assert required_message(app) == (
+            "A valid callsign for transmitting\nstation is required.\n\n"
+            f"{problem}\n\nPress Enter to go to Settings."
+        )
+        # In Settings to correct, with the problem shown only on Save, and
+        # back to the block (still showing it) if cancelled.
         await pilot.press("enter")
         assert app.focused.value == "W1"
-        await pilot.press("escape", "enter")
+        assert settings_problem(app) is None
+        await pilot.press("enter")
+        assert settings_problem(app) == (
+            "Station callsign 'W1' doesn't look like a callsign, like W1ABC"
+        )
+        await pilot.press("escape")
+        assert problem in required_message(app)
+        await pilot.press("enter")
         assert app.focused.value == "W1"
         await pilot.press("end", *"TST", "enter")
         assert len(app.screen_stack) == 1
@@ -2494,9 +2533,7 @@ async def test_station_callsign_in_file_must_be_as_saved(settings_path, call, pr
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test() as pilot:
         assert station_callsign(app) == "NOCALL"
-        assert [n.message for n in app._notifications] == [
-            f"{settings_path}: station_callsign {call!r} {problem}"
-        ]
+        assert f"{settings_path}: station_callsign {call!r} {problem}" in required_message(app)
         await pilot.press("enter")
         assert app.focused.value == call
         # Saved as the settings modal saves it.

@@ -1,7 +1,8 @@
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Label
+from textual.widgets import Button, Input, Label, Static
 
 from pota_logger.ascii_text import check_ascii
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
@@ -27,6 +28,17 @@ class SettingsScreen(ModalScreen[Settings | None]):
         text-style: bold;
         padding-bottom: 1;
     }
+    /* Why the call wasn't saved, below it, only after a Save that
+       couldn't; gone once it's edited. */
+    SettingsScreen #settings-problem {
+        display: none;
+        height: auto;
+        color: $error;
+        padding: 0 1;
+    }
+    SettingsScreen #settings-problem.-shown {
+        display: block;
+    }
     SettingsScreen #settings-buttons {
         height: auto;
         align-horizontal: right;
@@ -48,12 +60,21 @@ class SettingsScreen(ModalScreen[Settings | None]):
             yield Label("Settings", id="settings-title")
             yield Label("Station callsign")
             yield Input(value=self.settings.station_callsign, id="station-callsign-input")
+            yield Static(id="settings-problem")
             with Horizontal(id="settings-buttons"):
                 yield Button("Cancel", id="cancel")
                 yield Button("Save", id="save", variant="primary")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.action_save()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.show_problem("")
+
+    def show_problem(self, problem: str) -> None:
+        shown = self.query_one("#settings-problem", Static)
+        shown.update(Text(problem))
+        shown.set_class(bool(problem), "-shown")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save":
@@ -71,7 +92,7 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 check_ascii("Station callsign", text, "W1ABC")
                 callsign = parse_callsign(text, "Station callsign")
             except ValueError as error:
-                self.notify(str(error), severity="warning")
+                self.show_problem(str(error))
                 field.focus()
                 return
             if not is_usual_callsign(callsign):
