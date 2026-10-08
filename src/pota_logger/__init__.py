@@ -127,6 +127,32 @@ def log_columns(entries: list[dict], room: int = 0) -> list[tuple[str, int]]:
     ]
 
 
+# Shown after a sorted column's header: ascending, descending.
+SORT_ARROWS = ("▲", "▼")
+
+
+def header_cell(label: str, width: int, arrow: str = "") -> Text:
+    """A log column's header, with `arrow` if the log is sorted by it:
+    after a space when that fits the column, or else in the cell's right
+    padding.
+    """
+    if arrow and len(label) + 2 <= width:
+        return log_cell(f"{label} {arrow}", width)
+    return Text(f" {label:<{width}}{arrow or ' '}")
+
+
+def sort_key(entry: dict, name: str) -> tuple:
+    """An entry's place in a Sort by column `name`: its value (text
+    ignoring case), then its timestamp. So DATE sorts by date, then time
+    of day; TIME by time of day alone, then date (0100 on any date before
+    2300 on any date). DATE descending is the usual newest-first order.
+    """
+    value = entry[name]
+    if isinstance(value, str):
+        value = value.casefold()
+    return (value, entry["DATE"], entry["TIME"])
+
+
 # Style of the first saved row when entries were typed this session: a
 # divider between those above (as typed) and the saved ones (sorted). An
 # overline sits on the cell's top edge, where an underline would sit at the
@@ -312,6 +338,7 @@ class PotaLoggerApp(App):
         Binding("f2", "open_settings", "Settings"),
         Binding("f3", "edit_entry", "Edit"),
         Binding("f4", "delete_entry", "Delete"),
+        Binding("f5", "sort", "Sort"),
         Binding("ctrl+s", "screenshot", "Screenshot"),
         # Shown in the form's border title while editing, not the footer.
         Binding("escape", "step_back", "Back", show=False),
@@ -383,7 +410,13 @@ class PotaLoggerApp(App):
         # rows against.
         self.saved_entries: list[dict] = []
         self.log_loaded = False
+        # Entries typed this session, marked in the log; those typed since
+        # the last Sort (or start) go above the saved ones, as typed.
         self.session_entries: list[dict] = []
+        self.typed_entries: list[dict] = []
+        # The column the log is sorted by and whether descending, once
+        # sorted.
+        self.sort_by: tuple[str, bool] | None = None
         # Saved entries edited this session, marked in the log.
         self.edited_entries: list[dict] = []
         # The entry whose log row is selected, shown in the form.
@@ -484,22 +517,33 @@ class PotaLoggerApp(App):
     def entry_saved(self, values: dict) -> None:
         self.query_one(EntryForm).entry_saved(values)
         self.session_entries.append(values)
+        self.typed_entries.append(values)
+        table = self.query_one("#log-table", DataTable)
+        # Redrawing puts the cursor back in the first column; it stays in
+        # its own, so f5 sorts by the same column.
+        column = table.cursor_column
         self.show_log()
         # Highlighted, so f3 edits the entry just typed. scroll_to_row
         # brings it into view.
-        row = len(self.session_entries) - 1
-        self.query_one("#log-table", DataTable).move_cursor(row=row, scroll=False)
+        row = len(self.typed_entries) - 1
+        table.move_cursor(row=row, column=column, scroll=False)
         self.call_after_refresh(self.scroll_to_row, row)
 
     def log_entries(self) -> list[dict]:
-        """The entries in the log table's order: this session's, then saved."""
-        return self.session_entries + self.saved_entries
+        """The entries in the log table's order: those typed since the last
+        Sort, then saved (or sorted).
+        """
+        return self.typed_entries + self.saved_entries
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action == "step_back":
             return self.selected is not None
         if action == "open_settings":
             return self.SETTINGS_AFTER_SETUP
+        # Only with the cell cursor, whose column is the one to sort by:
+        # shown dimmed while a row is selected.
+        if action == "sort":
+            return None if self.selected is not None else True
         return True
 
     def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
@@ -655,16 +699,17 @@ class PotaLoggerApp(App):
         form = self.query_one(EntryForm)
         for entries in (
             self.session_entries,
+            self.typed_entries,
             self.saved_entries,
             self.edited_entries,
             form.logged,
         ):
             entries[:] = [logged for logged in entries if logged is not entry]
         table = self.query_one("#log-table", DataTable)
-        row = table.cursor_row
+        row, column = table.cursor_coordinate
         self.show_log()
         if table.row_count:
-            table.move_cursor(row=min(row, table.row_count - 1))
+            table.move_cursor(row=min(row, table.row_count - 1), column=column)
         if form.editing is not None:
             form.finish_edit(entry, *self.entry_view(entry))
             table.can_focus = True
@@ -714,12 +759,13 @@ class PotaLoggerApp(App):
         if self.logbook.is_refused(event.old):
             form.logged.append(event.new)
         # Marked edited once; edited again, the mark carries over below.
-        if any(entry is event.old for entry in self.saved_entries) and not any(
-            entry is event.old for entry in self.edited_entries
+        if not any(
+            entry is event.old for entry in self.session_entries + self.edited_entries
         ):
             self.edited_entries.append(event.old)
         for entries in (
             self.session_entries,
+            self.typed_entries,
             self.saved_entries,
             self.edited_entries,
             form.logged,
@@ -735,6 +781,40 @@ class PotaLoggerApp(App):
         table.can_focus = True
         table.focus()
 
+    def action_sort(self) -> None:
+        # App bindings stay live under a modal; sort only from the main
+        # screen.
+        if len(self.screen_stack) > 1:
+            return
+        self.sort_log(self.query_one("#log-table", DataTable).cursor_column)
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        # Like f5, only while no row is selected.
+        if self.selected is None:
+            self.sort_log(event.column_index)
+
+    def sort_log(self, column: int) -> None:
+        """Sort every entry by a log column, ascending, or descending if
+        it's sorted ascending already, under any refused rows (in their
+        order: their values may not read). Entries typed since go above,
+        as typed. The cursor goes to the top of the column.
+        """
+        # The marker column has no header to sort by.
+        if column == 0:
+            return
+        name = FIELDS[column - 1][0]
+        descending = self.sort_by == (name, False)
+        self.sort_by = (name, descending)
+        entries = self.log_entries()
+        refused = [entry for entry in entries if self.logbook.is_refused(entry)]
+        rest = [entry for entry in entries if not self.logbook.is_refused(entry)]
+        self.saved_entries = refused + sorted(
+            rest, key=lambda entry: sort_key(entry, name), reverse=descending
+        )
+        self.typed_entries = []
+        self.show_log()
+        self.query_one("#log-table", DataTable).move_cursor(row=0, column=column)
+
     def show_log(self) -> None:
         # DataTable can't insert a row mid-table, so it's redrawn in full,
         # columns too, as COMMENT's width follows the entries shown.
@@ -742,7 +822,10 @@ class PotaLoggerApp(App):
         table.clear(columns=True)
         columns = self.log_columns()
         for label, width in columns:
-            table.add_column(log_cell(label, width), width=width + 2)
+            arrow = ""
+            if self.sort_by is not None and self.sort_by[0] == label:
+                arrow = SORT_ARROWS[self.sort_by[1]]
+            table.add_column(header_cell(label, width, arrow), width=width + 2)
         repeats = self.repeats()
         saved_rows = [
             log_row(
@@ -750,13 +833,13 @@ class PotaLoggerApp(App):
                 columns,
                 self.saved_marker(entry, *repeats),
                 # The divider, over the first saved row.
-                DIVIDER_STYLE if self.session_entries and index == 0 else "",
+                DIVIDER_STYLE if self.typed_entries and index == 0 else "",
                 as_is=self.logbook.is_refused(entry),
             )
             for index, entry in enumerate(self.saved_entries)
         ]
         table.add_rows(
-            [log_row(entry, columns, SESSION_MARKER) for entry in self.session_entries]
+            [log_row(entry, columns, SESSION_MARKER) for entry in self.typed_entries]
             + saved_rows
         )
         self.mark_counts = Counter(str(row[0]).strip() for row in saved_rows)
@@ -806,6 +889,9 @@ class PotaLoggerApp(App):
         )
 
     def saved_marker(self, entry: dict, shared_ids: set[str], dupe_keys: set[tuple]) -> str:
+        # This session's entries keep their mark once sorted in.
+        if any(entry is typed for typed in self.session_entries):
+            return SESSION_MARKER
         if self.logbook.is_refused(entry):
             return REFUSED_MARKER
         if id_key(entry) in shared_ids:

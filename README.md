@@ -57,6 +57,12 @@ logged contact, edit that record's COMMENT.
 - The log below the form shows this session's entries in the order typed,
   to check line by line against the paper. Saved entries follow, newest
   first.
+- **F5** sorts the log by the column the cursor is in, or click a column
+  header (not while a row is selected). The first sort is ascending;
+  again reverses it. DATE sorts by date and time, so DATE twice gives
+  the usual newest-first order; TIME sorts by time of day alone. Entries typed
+  after a sort go on top, as typed. Refused (`!`) rows stay at the top.
+  The next start shows the usual order.
 - The first column marks each row's status:
 
   | Mark | Meaning |

@@ -151,17 +151,28 @@ updated in the same change whenever a rule changes.
   selected (`finish_edit`), then to none (`EntryForm.hide`). `f4`
   confirms with `DeleteScreen` (Enter twice), then `Logbook.delete` and
   the app's `entry_deleted`. Entries are
-  matched by identity (`is`): `session_entries`, `saved_entries`, and
+  matched by identity (`is`): `session_entries`, `typed_entries`,
+  `saved_entries`, and
   `EntryForm.logged` share the same dicts. Every entry dict carries its `STATION_CALLSIGN`.
-- The log table shows `session_entries` (typed order) above
+- The log table shows `typed_entries` (typed since start or the last
+  Sort, in typed order) above
   `saved_entries` (newest first), and is redrawn in full on each save
   (`show_log`), since DataTable can't insert a row mid-table.
   Its first column, with no header, is the status marker
   (`SESSION_MARKER` on session entries, `EDITED_MARKER` on saved ones in
   `edited_entries`); tests' `table_rows` leaves it out (and strips
   padding), and `table_markers` reads it. When there
-  are session entries, the first saved row is overlined as a divider
+  are typed entries, the first saved row is overlined as a divider
   (`DIVIDER_STYLE`).
+- Sort (`f5` on the cell cursor's column, or `HeaderSelected`) is the
+  app's `sort_log`: refused rows first, then every other entry (typed
+  ones moved out of `typed_entries`) by `sort_key`; `sort_by` holds the
+  column and direction for the header's arrow (`header_cell`). Only with
+  the cell cursor (no row selected: `check_action` dims f5, and the
+  header handler checks `selected`). `sort_key`'s DATE/TIME behavior is
+  decided (see REQUIREMENTS.md Log view); keep it.
+  `session_entries` holds every entry typed this session, for the `•`
+  mark (`saved_marker` gives it once sorted in).
 - Log cells are Rich `Text` built by `log_cell`, padded a space each
   side, with the table's `cell_padding` at 0, so the divider's line is
   unbroken; column widths (`log_columns`: `LOG_COLUMNS`, with COMMENT

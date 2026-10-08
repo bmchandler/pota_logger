@@ -69,10 +69,10 @@ form in a narrow window; selecting a log row and editing its entry in
 the form (see Editing); the log's COMMENT column filling the log's
 width, or as wide as the longest COMMENT shown, apart from the form's
 100-character limit, so the divider reaches the right edge (see Entry
-fields). The visual layout is settled; wording tweaks
+fields); the Sort action, `f5` or a header click (see Log view). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-To do: nothing beyond Sort and ADIF export (see below). Known issues
+To do: nothing beyond ADIF export (see below). Known issues
 that won't be fixed are listed in README.md's Noted issues.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
@@ -97,7 +97,7 @@ are checked and fixed, with no need to open a CSV. Its status column shows
 each row's state, the form makes every change, and only the operator
 changes a record.
 
-Also not built: the Sort action (see Log view) and ADIF export.
+Also not built: ADIF export.
 
 Ideas considered and deferred:
 
@@ -218,7 +218,7 @@ Session-level value:
 - The app always uses its own light outdoors theme; there's no theme
   switching.
 - The footer shows `^q Quit`, `f3 Edit` and `f4 Delete`
-  (see Editing), and `^s Screenshot` (saves an SVG of the screen to the Downloads
+  (see Editing), `f5 Sort` (see Log view), and `^s Screenshot` (saves an SVG of the screen to the Downloads
   folder).
 - The footer's right end shows the terminal size as columns x rows
   (`120x30`), updated live as the window is resized.
@@ -434,15 +434,46 @@ Session-level value:
   underline sat partway up a highlighted row, at the font's underline
   position). There's none until an entry is typed, or when nothing is
   saved yet. A terminal without overline support shows no divider, rather
-  than something that looks like a glitch. When the planned Sort is
-  built, the divider goes away on sorting (nothing is in typed order any
-  more), while the `•` marks stay.
+  than something that looks like a glitch. The divider goes away on
+  sorting (nothing is in typed order any more), while the `•` marks stay,
+  and comes back with the next entry typed.
 - Every value is shown as entered, brackets included (e.g. a COMMENT of
   `RSGB [bold]Field[/bold] Day`); nothing in a cell is read as styling.
-- A **Sort** action (planned) orders the log by any column when the
-  operator asks for it. It sorts every entry, this session's included, so
-  their typed order is lost, just as after a restart. How it's triggered
-  and whether it toggles newest/oldest are decided when it's built.
+- **Sort** (decided 2026-10-07) orders the log by a column: `f5 Sort`
+  sorts by the column the log's cell cursor is in (it's always shown,
+  even while the form has focus), and a click on a column header sorts
+  by that one, for the mouse (DataTable's stock header click, which does
+  nothing on its own). Both work only with the cell cursor, while no row
+  is selected (nor editing): a selected row's highlight covers the whole
+  row, so there's no column to sort by (`f5 Sort` is dimmed in the
+  footer then; decided 2026-10-07). The first sort by a column is ascending (A to Z,
+  low to high, oldest first); sorting by it again reverses it, and
+  another column starts ascending again. The sorted column's header
+  shows `▲` (ascending) or `▼` (descending) after its name, or in the
+  cell's right padding when the column has no room for a space and the
+  arrow (`ST▲`). Values are compared as values, not as shown: FREQ, PWR,
+  DATE, and TIME as numbers, dates, and times (7 MHz before 14 MHz),
+  text ignoring case. Entries alike in the column go by timestamp
+  (oldest first ascending, newest first descending).
+- DATE and TIME (decided 2026-10-07, keep as is): DATE sorts by the full
+  timestamp, date and then time of day, so DATE descending is the
+  usual newest-first order, the way back to it after other sorts (apart
+  from refused rows, still on top, and this session's entries, now
+  sorted in). TIME sorts by time of day alone, across dates, then by
+  date: ascending, 0100 on 2026.09.24, 0100 on 2026.09.25, then 2300 on
+  2026.09.24, 2300 on 2026.09.25. Entries with the same timestamp keep
+  the order they had. The marker column has no
+  header and doesn't sort: `f5` with the cursor there does nothing.
+- A Sort takes in every entry, this session's included (their typed
+  order is lost, as after a restart; they keep their `•`). Entries typed
+  after it go above the sorted ones, as typed, with the divider back, so
+  what was just typed is always in view; the next Sort takes them in
+  too. Rows refused on load stay at the top, in file order, whatever the
+  sort, as their values may not read. The cursor goes to the top of the
+  sorted column. An edit saved after a sort keeps its place, as always. The
+  cursor keeps its column when an entry is saved or deleted, so `f5`
+  right after typing sorts by the same column again. The sort lasts until
+  the app is closed; the next start shows the usual order.
 
 ## Storage
 
