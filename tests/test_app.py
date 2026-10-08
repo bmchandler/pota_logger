@@ -1723,6 +1723,9 @@ async def test_failed_delete_write_keeps_the_entry(app, settings_path, monkeypat
 # Refused rows, fixed in the app
 
 REFUSED_ROW = f"7030000,cw,K1BBB,1234,,599,579,.5,20260925,53,Loud,W1TST,{K1BBB_ID}\n"
+# As the app keeps it, with how MODE and PWR are written fixed on load:
+# still refused for PARK and TIME, which it doesn't change.
+REFUSED_FIXED = REFUSED_ROW.replace(",cw,", ",CW,").replace(",.5,", ",0.5,")
 
 
 def write_refused(settings_path, refused=REFUSED_ROW):
@@ -1737,14 +1740,15 @@ def write_refused(settings_path, refused=REFUSED_ROW):
 
 
 async def test_refused_row_shown_as_is_and_marked_at_the_top(app, settings_path):
-    write_refused(settings_path)
+    path = write_refused(settings_path)
     async with app.run_test():
         # Above K1AAA, though K1AAA is newer.
         assert table_calls(app) == ["K1BBB", "K1AAA"]
         assert table_markers(app) == ["!", ""]
-        assert table_rows(app)[0] == REFUSED_ROW.rstrip().split(",")[:-2]
+        assert table_rows(app)[0] == REFUSED_FIXED.rstrip().split(",")[:-2]
         assert mark_counts(app) == ["1 record refused, marked !"]
         assert not app._notifications
+    assert path.read_text() == LOG_HEADER + REFUSED_FIXED
 
 
 async def test_refused_rows_stay_under_session_entries(app, settings_path):
@@ -1761,11 +1765,7 @@ async def test_selected_refused_row_shows_what_reads_as_typed(app, settings_path
     write_refused(settings_path)
     async with app.run_test() as pilot:
         await select_row(app, pilot, 0)
-        assert field_values(app) == K1BBB_VALUES | {
-            "MODE": "cw",
-            "PARK": "1234",
-            "TIME": "53",
-        }
+        assert field_values(app) == K1BBB_VALUES | {"PARK": "1234", "TIME": "53"}
         # Esc out of editing shows it the same way.
         await pilot.press("f3", "escape")
         assert field_values(app)["TIME"] == "53"
@@ -1840,17 +1840,15 @@ async def test_selected_refused_row_lists_its_problems(app, settings_path):
         assert problem_lines(app) == [
             "Refused from 20260925.csv row 2:",
             "- TIME '53' should be HHMM, like 2123.",
-            "- MODE 'cw' should be uppercase, like CW. Saving makes it CW.",
             "- PARK '1234' should be 'US-1234' in a log file. Saving makes it US-1234.",
-            "- PWR '.5' should be '0.5' in a log file. Saving makes it 0.5.",
         ]
-        assert invalid_fields(app) == ["MODE", "PARK", "PWR", "TIME"]
+        assert invalid_fields(app) == ["PARK", "TIME"]
         # The list stays while editing, as found in the file; a field's red
         # border goes once it's changed (stock Input behavior).
         await pilot.press("f3")
         fill(app, {"TIME": "0053"})
-        assert len(problem_lines(app)) == 5
-        assert invalid_fields(app) == ["MODE", "PARK", "PWR"]
+        assert len(problem_lines(app)) == 3
+        assert invalid_fields(app) == ["PARK"]
         # Gone with another row selected, or none.
         await pilot.press("escape", "down")
         assert problem_lines(app) == []
@@ -2028,9 +2026,12 @@ async def test_refused_rows_bad_id_is_replaced_when_fixed(app, settings_path):
     assert parse_id(record_id) == record_id
 
 
-async def test_uppercase_id_matches_its_copy_and_is_kept_lowercase(app, settings_path):
-    # Refused for its uppercase ID, with a copy in the next day's file.
-    path = write_refused(settings_path, K1BBB_ROW.replace(K1BBB_ID, K1BBB_ID.upper()))
+async def test_uppercase_id_is_fixed_on_load_and_matches_its_copy(app, settings_path):
+    # Its ID in uppercase, refused for TIME, with a copy in the next day's
+    # file.
+    path = write_refused(
+        settings_path, K1BBB_ROW.replace(K1BBB_ID, K1BBB_ID.upper()).replace(",1900,", ",19,")
+    )
     moved = K1BBB_ROW.replace("20260925", "20260926")
     (settings_path.parent / "20260926.csv").write_text(
         LOG_HEADER + K1AAA_ROW.replace("20260925", "20260926") + moved
@@ -2041,12 +2042,14 @@ async def test_uppercase_id_matches_its_copy_and_is_kept_lowercase(app, settings
         await select_row(app, pilot, 0)
         assert problem_lines(app) == [
             "Refused from 20260925.csv row 2:",
-            f"- UUIDv4 '{K1BBB_ID.upper()}' should be lowercase. Saving makes it lowercase.",
+            "- TIME '19' should be HHMM, like 2123.",
             "Excluding COMMENT, duplicate record(s) exist:",
-            "- Same UUIDv4 in 20260926.csv, with a different DATE.",
+            "- Same UUIDv4 in 20260926.csv, with a different DATE and TIME.",
             "Edit field values (f3) or delete (f4) as makes sense.",
         ]
-        await pilot.press("f3", "enter")
+        await pilot.press("f3")
+        fill(app, {"TIME": "1900"})
+        await pilot.press("enter")
         assert table_markers(app) == ["U", "", "U"]
     assert path.read_text() == LOG_HEADER + K1BBB_ROW
 
@@ -2066,7 +2069,7 @@ async def test_filled_ids_that_cant_be_written_block_until_fixed(app, settings_p
             "Fix the files, then start the app again."
         )
     assert file_errors_text(settings_path) == [
-        f"{path}: couldn't add record IDs: Permission denied. Check permissions."
+        f"{path}: couldn't save changes made on load: Permission denied. Check permissions."
     ]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW.replace(K1AAA_ID, "") + K1BBB_ROW
 
@@ -2086,7 +2089,7 @@ async def test_rows_to_fix_and_ids_unwritten_block_together(app, settings_path, 
         )
     assert file_errors_text(settings_path) == [
         f"{path} row 3: has 11 values, should have 13",
-        f"{path}: couldn't add record IDs: Permission denied. Check permissions.",
+        f"{path}: couldn't save changes made on load: Permission denied. Check permissions.",
     ]
 
 
@@ -2595,20 +2598,12 @@ async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(setting
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
-@pytest.mark.parametrize(
-    "call, problem",
-    [("w1tst", "should be uppercase, like W1TST"), (" W1TST ", "should have no spaces around it, like W1TST")],
-)
-async def test_station_callsign_in_file_must_be_as_saved(settings_path, call, problem):
+@pytest.mark.parametrize("call", ["w1tst", " W1TST "])
+async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_path, call):
     settings_path.parent.mkdir(parents=True)
     settings_path.write_text(f'station_callsign = "{call}"\n')
     app = PotaLoggerApp(settings_path=settings_path)
-    async with app.run_test() as pilot:
-        assert station_callsign(app) == "NOCALL"
-        assert f"{settings_path}: station_callsign {call!r} {problem}" in required_message(app)
-        await pilot.press("enter")
-        assert app.focused.value == call
-        # Saved as the settings modal saves it.
-        await pilot.press("enter")
+    async with app.run_test():
         assert station_callsign(app) == "W1TST"
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert len(app.screen_stack) == 1
+    assert settings_path.read_text() == 'station_callsign = "W1TST"\n'

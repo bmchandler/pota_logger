@@ -67,11 +67,6 @@ def test_unusual_station_callsign_loads_as_meant(settings_path):
         ('"W1-TST"', "station_callsign 'W1-TST' can only use letters, digits, and /"),
         ('"W1TSÉ"', "station_callsign 'W1TSÉ' has non-ASCII characters: 'É'."),
         ("1234", "station_callsign '1234' doesn't look like a callsign, like W1ABC"),
-        ('"w1tst"', "station_callsign 'w1tst' should be uppercase, like W1TST"),
-        ('"VE3/W1tst"', "station_callsign 'VE3/W1tst' should be uppercase, like VE3/W1TST"),
-        ('" W1TST "', "station_callsign ' W1TST ' should have no spaces around it, like W1TST"),
-        ('"W1TST "', "station_callsign 'W1TST ' should have no spaces around it, like W1TST"),
-        ('"  "', "station_callsign '  ' should be empty, with no spaces"),
         ('"W1 TST"', "station_callsign 'W1 TST' can only use letters, digits, and /"),
         ('"W1TST\\t"', "station_callsign 'W1TST\\t' has non-ASCII characters: '\\t'."),
         ('"W1TST🙂"', "station_callsign 'W1TST🙂' has non-ASCII characters: '🙂'."),
@@ -85,7 +80,30 @@ def test_bad_station_callsign_is_refused(settings_path, value, message):
 
 
 def test_refused_station_callsign_keeps_the_text_to_fix(settings_path):
-    write_settings(settings_path, 'station_callsign = " w1tst "\n')
+    write_settings(settings_path, 'station_callsign = " w1-tst "\n')
     with pytest.raises(StationCallsignError) as error:
         load_settings(settings_path)
-    assert error.value.text == " w1tst "
+    assert error.value.text == " w1-tst "
+
+
+@pytest.mark.parametrize(
+    "value, callsign",
+    [
+        ('"w1tst"', "W1TST"),
+        ('"VE3/W1tst"', "VE3/W1TST"),
+        ('" W1TST "', "W1TST"),
+        ('" w1tst"', "W1TST"),
+        # Just spaces: none set.
+        ('"  "', ""),
+    ],
+)
+def test_how_the_station_callsign_is_written_is_fixed(settings_path, value, callsign):
+    write_settings(settings_path, f"station_callsign = {value}\n")
+    settings = load_settings(settings_path)
+    assert settings == Settings(station_callsign=callsign)
+    assert settings.fixed
+
+
+def test_station_callsign_as_saved_isnt_fixed(settings_path):
+    write_settings(settings_path, 'station_callsign = "W1TST"\n')
+    assert not load_settings(settings_path).fixed

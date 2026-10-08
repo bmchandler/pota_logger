@@ -158,10 +158,9 @@ DUPE_OTHER_COMMENT = (
 )
 DUPE_NO_COMMENT = ("- Another record without a COMMENT.", "- {count} other records without a COMMENT.")
 
-# At start, when blank record IDs were filled in but the file couldn't be
-# written.
-# A file's filled-in record IDs that couldn't be written, in file_errors.txt.
-IDS_UNSAVED = "{path}: couldn't add record IDs: {error}. Check permissions."
+# A file changed on load (blank record IDs filled in, values fixed) that
+# couldn't be written, in file_errors.txt.
+UNSAVED_ON_LOAD = "{path}: couldn't save changes made on load: {error}. Check permissions."
 
 # The block at start while log files need fixing by hand: lines for rows
 # or files that can't be read, for files that can't be written (or
@@ -231,8 +230,8 @@ def log_row(
 
 
 def id_key(entry: dict) -> str | None:
-    """An entry's record ID, to match on: lowercase, as a refused row's may
-    be uppercase. None if it doesn't read.
+    """An entry's record ID, to match on; None if it doesn't read (a
+    refused row's).
     """
     try:
         return parse_id(entry["UUIDv4"])
@@ -331,6 +330,13 @@ class PotaLoggerApp(App):
         self.station_callsign_to_fix = ""
         try:
             self.settings = load_settings(settings_path)
+            if self.settings.fixed:
+                # How the call was written, fixed. If it can't be saved, it's
+                # fixed again at the next start.
+                try:
+                    save_settings(self.settings, settings_path)
+                except OSError:
+                    pass
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
             self.settings_error = f"Couldn't read {settings_path}: {error}"
@@ -407,13 +413,13 @@ class PotaLoggerApp(App):
 
     def block_on_file_errors(self, problems: list[str]) -> bool:
         """Record what in the log files needs fixing by hand (rows or files
-        that can't be read, `problems`, and record IDs that couldn't be
-        written) in file_errors.txt, and block with Quit as the only way on
+        that can't be read, `problems`, and changes made on load that
+        couldn't be written) in file_errors.txt, and block with Quit as the only way on
         if there's anything; True if so. With nothing, file_errors.txt goes.
         """
         unsaved = [
-            IDS_UNSAVED.format(path=path, error=error.strerror or error)
-            for path, error in self.logbook.unsaved_ids
+            UNSAVED_ON_LOAD.format(path=path, error=error.strerror or error)
+            for path, error in self.logbook.unsaved
         ]
         try:
             path = file_errors.record(
@@ -687,9 +693,9 @@ class PotaLoggerApp(App):
 
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
         if self.logbook.is_refused(event.old):
-            # Stored lowercase; an ID that doesn't read can't be kept.
+            # An ID that doesn't read can't be kept.
             try:
-                event.new["UUIDv4"] = parse_id(event.new["UUIDv4"])
+                parse_id(event.new["UUIDv4"])
             except ValueError:
                 event.new["UUIDv4"] = new_id()
         # Until it's saved, the form stays in edit mode, to try again or

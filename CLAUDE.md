@@ -107,7 +107,7 @@ updated in the same change whenever a rule changes.
   dupe block's modal closes back to the form as typed, new or edit.
 - logbook.py holds the CSV storage, `Logbook` (`app.logbook`): `load`
   at start (entries plus a message per skipped row or file, which with
-  `unsaved_ids` go in `file_errors.txt`, file_errors.py, behind the app's
+  `unsaved` go in `file_errors.txt`, file_errors.py, behind the app's
   `block_on_file_errors` modal, Quit only) keeps each
   file's lines in `files`, the only source of truth while the app runs;
   `append` on each save and `replace` for an edit (only that row's lines
@@ -115,7 +115,9 @@ updated in the same change whenever a rule changes.
   `LogWriteError` with the `writes` left, which the app's `save` retries
   from a modal (Esc: nothing saved; the form keeps the entry, as it's
   cleared only by `EntryForm.entry_saved`). `check_row` finds every
-  `Problem` in a row (field, message, note on what saving fixes). Rows
+  `Problem` in a row (field, message, note on what saving fixes), after
+  `load` has fixed how each value is written (`tidied`: spaces, case, a
+  number's form; never COMMENT, nor what a value means). Rows
   refused on load that split into COLUMNS are kept in `Logbook.refused`
   (`Refused`: a dict of raw text, file, line, problems), shown at the top
   of `saved_entries` marked `!` (`REFUSED_MARKER`), with their problems
@@ -124,7 +126,8 @@ updated in the same change whenever a rule changes.
   `Logbook.is_refused` before formatting an entry's values. Every row
   ends with its record ID (`UUIDv4`, record_ids.py), set in
   `EntryForm.submit` and kept by an edit; `load` fills in a blank one
-  (the only write on load; a failed write goes in `unsaved_ids`), and
+  (written on load with the `tidied` fixes; a failed write goes in
+  `unsaved`), and
   `appended` skips a row already in the file, ID included. Entries
   sharing an ID are marked `SHARED_MARKER` (`U`) and explained below
   COMMENT; saved definite dupes likewise get `DUPE_MARKER` (`=`), listed

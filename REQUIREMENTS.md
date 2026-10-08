@@ -46,10 +46,11 @@ saved ones newest first, with a divider between, and saved ones edited
 this session marked `✎`; see Log view); CSV
 storage (see Storage), with each log row and the settings file's
 station callsign checked at start against the entry rules that refuse a
-value, each held to exactly what the app writes, and hand-tested in Vim
+value, each held to what the app writes (how a value is written fixed
+on load), and hand-tested in Vim
 and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
 while it runs, the only source of truth for the log files; deleting an entry (see Editing); fixing or deleting a row refused on
-load, in the app (see Storage); a record ID on every log row, with rows
+load, in the app, with how a value is written fixed on load (see Storage); a record ID on every log row, with rows
 sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
 marked `=` at start (see Entry behavior); the status bar; the
 settings modal, opened to set the station callsign at first start,
@@ -194,12 +195,13 @@ Session-level value:
   <error>`. The station callsign gets CALL's checks that refuse a value
   (plain ASCII, then its shape), with CALL's messages naming the
   `station_callsign` key: `<file>: station_callsign 'W1' doesn't look
-  like a callsign, like W1ABC`. A hand edit is held to the strictest
-  rule: the call must be exactly as the app saves it, so spaces around
-  it (`station_callsign ' W1ABC ' should have no spaces, like W1ABC`)
-  and lowercase (`station_callsign 'w1abc' should be uppercase, like
-  W1ABC`) are refused, not tidied up on load. Either way the app
-  starts with no call set, so the station-callsign block follows (see
+  like a callsign, like W1ABC`. As in a log file (see Storage), how the
+  call is written is fixed at start, and the file saved again, with no
+  message (decided 2026-10-07; they were refused): spaces around it and
+  its case (` w1abc ` as `W1ABC`). If the file can't be written, the
+  call is still used as fixed, and fixed again at the next start. A
+  refused call leaves the app
+  starting with no call set, so the station-callsign block follows (see
   Session-level value), with the problem between its two parts, in the
   error color, after a blank line and before one, full path included
   (where `data/` is isn't obvious); it stays each time the block comes
@@ -208,8 +210,8 @@ Session-level value:
   correct (most likely a slip); it's there again if Settings is cancelled,
   until a call is saved, which rewrites the file. Saving uppercases it,
   as usual. An unusual call (`W100AW`) loads without a warning: a value
-  from a file is taken as meant. Only an empty call (`""`) means none is
-  set yet; one of just spaces is refused too.
+  from a file is taken as meant. Only an empty call (`""`, or just spaces)
+  means none is set yet.
 
 ## Theme and keys
 
@@ -488,14 +490,14 @@ Session-level value:
     start, refused rows included, and the file rewritten: the ID goes at
     the end of the row's last line (where a blank ID, written as nothing
     or `""`, sits, as the last column), and every other byte of the file
-    stays as it was. This is the one exception to the app never tidying a
-    log file on its own: an ID can't be fixed in the app (it has no
-    field) and is tedious and error-prone to make by hand. If the file
+    stays as it was (unless the row's values are fixed on load too; see
+    Storage). An ID can't be fixed in the app (it has no field) and is
+    tedious and error-prone to make by hand. If the file
     can't be written, the app blocks at start until it's fixed (`Couldn't
     write to file or directory.` / `Check permissions.`; see the file
     errors block in Storage), listing it in `file_errors.txt` (`<file>:
-    couldn't add record IDs: Permission denied. Check permissions.`); the
-    IDs are added again at the next start.
+    couldn't save changes made on load: Permission denied. Check
+    permissions.`); the changes are made again at the next start.
   - An ID that isn't blank must be a UUID as the app writes it, or the
     row is refused (`UUIDv4 'abc' should be a UUID as the app writes it,
     like 1b4e28ba-2fa1-4d2b-883f-0016d3cca427. Saving gives it a new
@@ -503,10 +505,9 @@ Session-level value:
     valid UUID makes the row look like a new record; that isn't caught.
   - Uppercase is read as the same ID, as the UUID standard (RFC 9562)
     reads it, though it writes lowercase; macOS's `uuidgen` writes
-    uppercase, so a hand-added row may have one. Like any value not in
-    its stored form, the row is refused (`UUIDv4 '1B4E…' should be
-    lowercase. Saving makes it lowercase.`), but the ID is kept, and it
-    still matches a lowercase copy of itself for the `U` mark. Other
+    uppercase, so a hand-added row may have one. It's made lowercase on
+    load, like any value's case (see Storage), so it matches a lowercase
+    copy of itself for the `U` mark. Other
     forms Python reads as a UUID (no hyphens, braces, `urn:uuid:`) are
     refused as not an ID.
   - No upgrade of existing files: before the first release, `data/` is
@@ -608,8 +609,7 @@ Session-level value:
   the file while editing; Enter runs the entry checks as usual. A problem
   that saving fixes on its own says how: `Saving makes it US-1234.`
   whenever the entry form would take the value as shown there (a short
-  form, lowercase, spaces around it, a number written another way, or
-  FREQ `14.250`, read as MHz), or `Saving moves it to 20260924.csv.` (a
+  form, or FREQ `14.250`, read as MHz), or `Saving moves it to 20260924.csv.` (a
   DATE in another date's file).
 - The form shows a refused row's FREQ, PWR, and DATE as they'd be typed
   when they read (FREQ `7030000` as `7.030.000`), and every other value
@@ -618,23 +618,37 @@ Session-level value:
   and its save replaces its lines in its file (or moves it to its DATE's
   file); then it's marked `✎`, its list goes, and it joins the entries
   checked for dupes. Its STATION_CALLSIGN, which has no field in the
-  form, is saved as the station callsign, which it is, perhaps in
-  another case (`w1tst` as `W1TST`); one that doesn't read at all, or
+  form, is saved as the station callsign, which it is; one that
+  doesn't read at all, or
   is another call, is listed with `Manually correct CSV log file.`
   (`- STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign,
   W1TST. Manually correct CSV log file.`), and `f3` says so too. It can be deleted
   (`f4`) like any entry. A row too broken to split (wrong number of
   values, a stray quote) is skipped, and blocks the app at start until
-  fixed by hand (see above). The app never tidies or rewrites a log file on its own, since
-  automatic changes to a hand-edited file could make a slip worse (e.g.
-  a stray quote that joins lines). The one exception is filling in a
-  blank record ID (see Record IDs).
-- A hand edit is held to the strictest rule: every value must be
-  written exactly as the app writes it, so nothing is tidied up on load.
+  fixed by hand (see above).
+- At start, the app fixes how a value is written, never what it means
+  (decided 2026-10-07): spaces around a value, its case (`w1abc` as
+  `W1ABC`, an uppercase record ID as lowercase), and a number written
+  another way (FREQ `014285500`, PWR `.5` or `60.0`) are fixed in every
+  row that splits into columns, refused or not, and that row's lines
+  are rewritten, with no message. It's how a value is written, so
+  nothing is lost or guessed. COMMENT, the operator's own note, is never
+  changed. Anything that changes what's written stays as found, and the
+  row is refused, to fix in the app: a short form the entry form takes
+  (PARK `1234` as `US-1234`), FREQ `14.250` in MHz, or a DATE in
+  another date's file. Filling in a blank record ID (see Record IDs) is
+  the only other change the app makes to a log file on its own. (It
+  used to refuse these too, and rewrite nothing, so automatic changes
+  couldn't make a slip worse, e.g. a stray quote joining lines; a row
+  too broken to split into columns is still left as it is.)
+- Otherwise a hand edit is held to the strictest rule: every value must
+  be written as the app writes it. `data/settings.toml`'s call gets the
+  same fixes (see Settings).
 - A row's checks, stopping at the first problem: the number of values;
-  each column in order for non-ASCII, then spaces before or after the
-  value (`CALL ' W1ABC' should have no spaces around it, like W1ABC`;
-  spaces inside a COMMENT are fine); a blank column other than ST or
+  each column in order for non-ASCII, then spaces before or after a
+  COMMENT (`COMMENT 'Loud ' should have no spaces around it, like
+  Loud`; spaces inside it are fine, and other columns' are fixed on
+  load); a blank column other than ST or
   COMMENT (STATION_CALLSIGN included, as no entry is saved without one;
   a blank UUIDv4 is filled in first, see Record IDs);
   FREQ, PWR, and DATE as numbers (FREQ in Hz, DATE as YYYYMMDD in 2000
@@ -644,12 +658,9 @@ Session-level value:
   value (FREQ in a band, MODE, CALL and STATION_CALLSIGN's shape, PARK,
   ST, SNT and RCD against MODE, PWR's range, TIME), and UUIDv4 as the
   app writes it, in either case; each value in its
-  stored form, the "Stored as" column in Entry fields: lowercase is
-  refused (`MODE 'usb' should be uppercase, like USB`; for UUIDv4,
-  uppercase), and so is any
-  other form the entry form would take, or a number written another way
-  (`PARK '1234' should be 'US-1234' in a log file`, likewise PARK
-  `US1234`, PWR `.5` or `60.0`, FREQ `014285500`); DATE matching the
+  stored form, the "Stored as" column in Entry fields: any other form
+  the entry form would take is refused (`PARK '1234' should be
+  'US-1234' in a log file`, likewise PARK `US1234`); DATE matching the
   file's name (`DATE '20260924' should match the file name,
   20260925.csv`); then SSB near a voice edge. Entry warnings (unusual
   call and the rest) aren't checked: a saved entry was confirmed when

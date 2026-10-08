@@ -165,10 +165,10 @@ class Logbook:
         # Rows refused on load that still split into COLUMNS, to show and
         # fix in the app.
         self.refused: list[Refused] = []
-        # Files whose blank IDs were filled in on load but couldn't be
-        # written, with why. The app's copy holds the IDs, so the next save
-        # to the file writes them.
-        self.unsaved_ids: list[tuple[Path, OSError]] = []
+        # Files changed on load (blank IDs filled in, values fixed) that
+        # couldn't be written, with why. The app's copy holds the changes,
+        # so the next save to the file writes them.
+        self.unsaved: list[tuple[Path, OSError]] = []
 
     def write(self, writes: list[Write]) -> None:
         """Write each file in turn, keeping each as the app's copy once
@@ -265,10 +265,10 @@ class Logbook:
         row. Every row must hold `station_callsign`, the one call the log
         is kept under. Rows that can't be read are kept in the app's copy
         of the file; those that still split into COLUMNS go in `refused`,
-        the rest are skipped. A blank ID (a row added by hand) is filled in
-        with a new one and the file rewritten, the one change the app
-        makes to a file on its own; a file that can't be written goes in
-        `unsaved_ids`.
+        the rest are skipped. The app changes a file on its own only to
+        fill in a blank ID (a row added by hand) with a new one, and to fix
+        how a value is written (see `tidied`), rewriting that row's lines;
+        a file that can't be written goes in `unsaved`.
         """
         entries, problems = [], []
         for path in sorted(self.log_dir.glob(LOG_FILE_PATTERN)):
@@ -289,16 +289,32 @@ class Logbook:
             if header != COLUMNS:
                 problems.append(f"{path} row 1: header should be {','.join(COLUMNS)}")
                 continue
-            filled = False
-            for row in reader:
+            changed = False
+            # Rows rewritten with their values fixed: (start, end) line
+            # indexes, and the row. Done once the file is read, as it's read
+            # from `lines`.
+            rewritten = []
+            while True:
+                # The row's lines are lines[start:end].
+                start = reader.line_num
+                row = next(reader, None)
+                if row is None:
+                    break
+                end = reader.line_num
                 if not row:  # a blank line, e.g. left at the end by an editor
                     continue
-                if len(row) == len(COLUMNS) and not row[-1]:
-                    row[-1] = new_id()
-                    # The row's last line, which ends with its ID.
-                    last = reader.line_num - 1
-                    lines[last] = with_id(lines[last], row[-1])
-                    filled = True
+                if len(row) == len(COLUMNS):
+                    fixed = [tidied(name, text) for name, text in zip(COLUMNS, row)]
+                    if not fixed[-1]:
+                        fixed[-1] = new_id()
+                    if fixed[:-1] == row[:-1] and not row[-1]:
+                        # Only the ID filled in, at the end of the row's last
+                        # line, leaving the rest of the line as it was.
+                        lines[end - 1] = with_id(lines[end - 1], fixed[-1])
+                    elif fixed != row:
+                        rewritten.append((start, end, fixed))
+                    changed = changed or fixed != row
+                    row = fixed
                 try:
                     values, row_problems = check_row(row, path.stem, station_callsign)
                 except ValueError as error:
@@ -310,11 +326,15 @@ class Logbook:
                     )
                 else:
                     entries.append(values)
-            if filled:
+            for start, end, row in reversed(rewritten):
+                # The row keeps its old line ending (or none, as the last line).
+                ending = lines[end - 1][len(lines[end - 1].rstrip("\r\n")) :]
+                lines[start:end] = [row_line(row, ending)]
+            if changed:
                 try:
                     write_lines(path, bom, lines)
                 except OSError as error:
-                    self.unsaved_ids.append((path, error))
+                    self.unsaved.append((path, error))
         return entries, problems
 
 
@@ -372,18 +392,28 @@ LOADERS = {
 }
 
 
-def stored_form_problem(name: str, text: str, stored: str) -> str:
-    """Why a value that loads isn't written as the app writes it: a short
-    form the entry form takes (PARK 1234), lowercase (uppercase for the
-    record ID), or a number written another way (PWR .5, FREQ with a
-    leading zero).
+def tidied(name: str, text: str) -> str:
+    """A value from a log file in its stored form, if it differs only in
+    how it's written: spaces around it, its case (W1abc, a record ID in
+    uppercase), or a number written another way (FREQ with a leading zero,
+    PWR .5). Anything else, a value that changes what it means (PARK 1234
+    as US-1234, FREQ 14.250 in MHz) or doesn't read, is left as it is, to
+    fix in the app. COMMENT, the operator's own note, is never changed.
     """
-    if text.upper() == stored:
-        return f"{name} {text!r} should be uppercase, like {stored}"
-    # A record ID, the one value stored lowercase. Too long to repeat.
-    if text.lower() == stored:
-        return f"{name} {text!r} should be lowercase"
-    return f"{name} {text!r} should be {stored!r} in a log file"
+    if name == "COMMENT" or not text.isascii():
+        return text
+    trimmed = text.strip(" ")
+    if name not in LOADERS or not trimmed:
+        return trimmed
+    try:
+        stored = stored_text(name, LOADERS[name](trimmed))
+    except (ValueError, ArithmeticError):
+        return trimmed
+    # The loaders take FREQ and PWR only as plain numbers, so any other
+    # difference is in how the number is written.
+    if name in ("FREQ", "PWR") or stored.upper() == trimmed.upper():
+        return stored
+    return trimmed
 
 
 def check_row(
@@ -424,8 +454,7 @@ def check_row(
         except ValueError as error:
             problems.append(Problem(name, str(error), NO_FIELD_NOTES.get(name, "")))
     # Another call means a record from another log (multiple calls are out
-    # of scope), so it isn't changed in the app. One only in another case
-    # reads as this call, a stored-form problem below.
+    # of scope), so it isn't changed in the app.
     if values.get("STATION_CALLSIGN", station_callsign) != station_callsign:
         text = texts["STATION_CALLSIGN"]
         problems.append(
@@ -440,9 +469,10 @@ def check_row(
         if name in values:
             stored = stored_text(name, values[name])
             if texts[name] != stored:
-                message = stored_form_problem(name, texts[name], stored)
-                note = "Saving makes it lowercase." if name == "UUIDv4" else f"Saving makes it {stored}."
-                problems.append(Problem(name, message, note))
+                # A short form the entry form takes (PARK 1234); how a
+                # value is written was fixed on load (see `tidied`).
+                message = f"{name} {texts[name]!r} should be {stored!r} in a log file"
+                problems.append(Problem(name, message, f"Saving makes it {stored}."))
     if "DATE" in values:
         day = f"{values['DATE']:%Y%m%d}"
         if day != file_date:

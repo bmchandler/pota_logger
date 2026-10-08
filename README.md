@@ -106,14 +106,18 @@ start until it's fixed, and lists each one, by file and row, in
 `data/file_errors.txt`. A file the app can't write blocks it the same
 way.
 
-The app changes a file on its own in only one case: a row with a blank
-record ID gets a new one when the app starts.
+When the app starts, it changes a file on its own only to fix how a value
+is written, never what it means: spaces around a value, its case (`w1abc`
+as `W1ABC`), and a number written another way (`.5` as `0.5`). A COMMENT is
+never changed. A row with a blank record ID also gets a new one. The call in
+`data/settings.toml` gets the same fixes for spaces and case.
 
 ### Hand-editing the data files
 
 The files are meant to stay readable and editable in a text editor (like
-Vim) or a spreadsheet (like LibreOffice Calc). The app holds them to exactly
-the form it writes, so that a slip gets caught instead of guessed at.
+Vim) or a spreadsheet (like LibreOffice Calc). The app holds them to the
+form it writes, so that a slip gets caught instead of guessed at. Only how a
+value is written (spaces, case, a number's form) is fixed for you.
 
 **Do:**
 
@@ -129,13 +133,13 @@ the form it writes, so that a slip gets caught instead of guessed at.
 
   | Column | Write it as | Not |
   |---|---|---|
-  | FREQ | Hz: `14074500` | `14.074.5`, `014074500` |
-  | MODE | `SSB`, `USB`, `LSB`, or `CW` | `usb` |
-  | CALL, STATION_CALLSIGN | Uppercase: `W1ABC` | `w1abc` |
-  | PARK | Full reference: `US-0464` | `464`, `us-0464` |
-  | ST | A state code, `NA`, or empty | `nj` |
+  | FREQ | Hz: `14074500` | `14.074.5` |
+  | MODE | `SSB`, `USB`, `LSB`, or `CW` | `FT8` |
+  | CALL, STATION_CALLSIGN | Uppercase: `W1ABC` | |
+  | PARK | Full reference: `US-0464` | `464`, `US464` |
+  | ST | A state code, `NA`, or empty | `XX` |
   | SNT, RCD | 2 digits (3 on CW): `59`, `599` | |
-  | PWR | Watts: `60`, `0.5` | `.5`, `60.0`, `60W` |
+  | PWR | Watts: `60`, `0.5` | `60W` |
   | DATE | `YYYYMMDD`: `20261001` | `2026-10-01`, `10/01/2026` |
   | TIME | 4 digits, `HHMM`: `0053` | `53`, `00:53` |
 
@@ -152,10 +156,7 @@ the form it writes, so that a slip gets caught instead of guessed at.
 - **Don't copy a row to make a new record without emptying its UUIDv4.**
   Two rows with one ID are taken as one record saved twice, and marked `U`.
 - **Don't make up or change an ID.** Leave it empty and let the app make one.
-  An uppercase ID is read, but the row is refused until it's saved in
-  lowercase.
-- **Don't put spaces around a value,** for example `, W1ABC,`. Spaces inside a
-  COMMENT are fine.
+- **Don't start or end a COMMENT with a space.** Spaces inside it are fine.
 - **Don't use non-ASCII characters** (accents, curly quotes, full-width
   digits, emoji) or line breaks inside a value.
 - **Don't add, remove, rename, or reorder columns.**

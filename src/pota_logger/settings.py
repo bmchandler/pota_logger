@@ -1,9 +1,9 @@
 import json
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from pota_logger.ascii_text import check_ascii, check_trimmed
+from pota_logger.ascii_text import check_ascii
 from pota_logger.callsigns import parse_callsign
 
 # src/pota_logger/settings.py -> project root
@@ -14,6 +14,9 @@ SETTINGS_PATH = DATA_DIR / "settings.toml"
 @dataclass
 class Settings:
     station_callsign: str = ""
+    # Whether loading fixed how the file wrote a value, so it's to be
+    # saved again. Not a setting, so settings compare without it.
+    fixed: bool = field(default=False, compare=False)
 
 
 class StationCallsignError(ValueError):
@@ -28,10 +31,10 @@ class StationCallsignError(ValueError):
 
 def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     """Load settings, or defaults if the file doesn't exist yet. The
-    station callsign is checked like CALL ("" means none is set yet), and
-    must be exactly as saved: no spaces around it, and uppercase. The
-    unusual-call warning is for the settings modal only, as a call from
-    the file is taken as meant.
+    station callsign is checked like CALL ("" means none is set yet), with
+    how it's written fixed, as in a log file: spaces around it, and its
+    case (`fixed` says so). The unusual-call warning is for the settings
+    modal only, as a call from the file is taken as meant.
 
     Raises tomllib.TOMLDecodeError if the file has been hand-edited into
     invalid TOML, or StationCallsignError (with a message for the
@@ -41,21 +44,17 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
         return Settings()
     with path.open("rb") as f:
         data = tomllib.load(f)
-    # Held to exactly what's saved, as a hand edit is the only way to get
-    # anything else: only "" means none is set.
-    callsign = str(data.get("station_callsign", ""))
+    # A hand edit is the only way to get anything but what's saved. Only
+    # "" (or spaces) means none is set.
+    text = str(data.get("station_callsign", ""))
+    callsign = text.strip(" ") if text.isascii() else text
     if callsign:
         try:
             check_ascii("station_callsign", callsign)
-            check_trimmed("station_callsign", callsign)
-            parsed = parse_callsign(callsign, "station_callsign")
-            if parsed != callsign:
-                raise ValueError(
-                    f"station_callsign {callsign!r} should be uppercase, like {parsed}"
-                )
+            callsign = parse_callsign(callsign, "station_callsign")
         except ValueError as error:
-            raise StationCallsignError(str(error), callsign) from None
-    return Settings(station_callsign=callsign)
+            raise StationCallsignError(str(error), text) from None
+    return Settings(station_callsign=callsign, fixed=callsign != text)
 
 
 def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:

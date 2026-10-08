@@ -433,7 +433,7 @@ class EntryForm(Vertical):
 
     def submit(self, values: dict) -> None:
         # A log holds one call, the station callsign (a refused row's is it,
-        # perhaps in another case, or it can't be edited).
+        # or it can't be edited).
         values = values | {"STATION_CALLSIGN": self.app.settings.station_callsign}
         if self.editing is not None:
             # An edited entry keeps its record ID.

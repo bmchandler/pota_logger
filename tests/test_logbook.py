@@ -192,26 +192,12 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",W1TST", ","), "Missing: STATION_CALLSIGN"),
         # One call per log: the station callsign, in any case.
         (ROW.replace(",W1TST", ",W1XYZ"), "STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign, W1TST"),
-        (ROW.replace(",W1TST", ",w1xyz"), "STATION_CALLSIGN 'w1xyz' doesn't match the station callsign, W1TST"),
-        # Held to exactly what the app writes: no spaces around a value.
-        (ROW.replace(",W1ABC,", ", W1ABC,"), "CALL ' W1ABC' should have no spaces around it, like W1ABC"),
+        # COMMENT, the operator's own note, is never changed on load.
         (ROW.replace(",,W1TST", ",Nice signal ,W1TST"), "COMMENT 'Nice signal ' should have no spaces around it, like Nice signal"),
-        (ROW.replace(",NJ,", ", ,"), "ST ' ' should be empty, with no spaces"),
-        (ROW.replace(",W1TST", ",W1TST "), "STATION_CALLSIGN 'W1TST ' should have no spaces around it, like W1TST"),
-        # No lowercase.
-        (ROW.replace(",USB,", ",usb,"), "MODE 'usb' should be uppercase, like USB"),
-        (ROW.replace(",W1ABC,", ",w1abc,"), "CALL 'w1abc' should be uppercase, like W1ABC"),
-        (ROW.replace("US-1234", "us-1234"), "PARK 'us-1234' should be uppercase, like US-1234"),
-        (ROW.replace(",NJ,", ",nj,"), "ST 'nj' should be uppercase, like NJ"),
-        (ROW.replace(",W1TST", ",w1tst"), "STATION_CALLSIGN 'w1tst' should be uppercase, like W1TST"),
-        # No short forms or numbers written another way.
+        # No short forms: they change what's written, not just how.
         (ROW.replace("US-1234", "1234"), "PARK '1234' should be 'US-1234' in a log file"),
         (ROW.replace("US-1234", "US1234"), "PARK 'US1234' should be 'US-1234' in a log file"),
         (ROW.replace("US-1234", "us464"), "PARK 'us464' should be 'US-0464' in a log file"),
-        (ROW.replace("14285500", "014285500"), "FREQ '014285500' should be '14285500' in a log file"),
-        (ROW.replace(",60,", ",60.0,"), "PWR '60.0' should be '60' in a log file"),
-        (ROW.replace(",60,", ",060,"), "PWR '060' should be '60' in a log file"),
-        (ROW.replace(",60,", ",.5,"), "PWR '.5' should be '0.5' in a log file"),
         # DATE as its file's name.
         (ROW.replace("20260925", "20260924"), "DATE '20260924' should match the file name, 20260925.csv"),
     ],
@@ -221,6 +207,49 @@ def test_bad_row_is_skipped_and_named(log_dir, row, message):
     entries, problems = load_entries(log_dir)
     assert [entry["CALL"] for entry in entries] == ["K2DEF"]
     assert problems == [f"{log_dir / '20260925.csv'} row 2: {message}"]
+
+
+@pytest.mark.parametrize(
+    ("row", "fixed"),
+    [
+        # Spaces around a value.
+        (ROW.replace(",W1ABC,", ", W1ABC ,"), ROW),
+        (ROW.replace(",NJ,", ", ,"), ROW.replace(",NJ,", ",,")),
+        (ROW.replace(",W1TST", ",W1TST "), ROW),
+        (ROW.replace(ID, f" {ID}"), ROW),
+        # Its case.
+        (ROW.replace(",USB,", ",usb,"), ROW),
+        (ROW.replace(",W1ABC,", ",w1abc,"), ROW),
+        (ROW.replace("US-1234", "us-1234"), ROW),
+        (ROW.replace(",NJ,", ",nj,"), ROW),
+        (ROW.replace(",W1TST", ",w1tst"), ROW),
+        (ROW.replace(ID, ID.upper()), ROW),
+        # A number written another way.
+        (ROW.replace("14285500", "014285500"), ROW),
+        (ROW.replace(",60,", ",60.0,"), ROW),
+        (ROW.replace(",60,", ",060,"), ROW),
+        (ROW.replace(",60,", ",.5,"), ROW.replace(",60,", ",0.5,")),
+    ],
+)
+def test_how_a_value_is_written_is_fixed_on_load(log_dir, row, fixed):
+    write_log(log_dir, "20260925.csv", HEADER + row + OTHER_ROW)
+    entries, problems = load_entries(log_dir)
+    assert len(entries) == 2
+    assert problems == []
+    assert (log_dir / "20260925.csv").read_text() == HEADER + fixed + OTHER_ROW
+
+
+def test_fixed_on_load_in_a_row_still_refused(log_dir):
+    # PARK's short form and COMMENT's spaces are left, to fix in the app.
+    row = ROW.replace(",W1ABC,US-1234,", ",w1abc ,1234,").replace(",,W1TST", ",Loud ,W1TST")
+    write_log(log_dir, "20260925.csv", HEADER + row)
+    book = Logbook(log_dir)
+    book.load("W1TST")
+    fixed = row.replace(",w1abc ,", ",W1ABC,")
+    assert (log_dir / "20260925.csv").read_text() == HEADER + fixed
+    [refused] = book.refused
+    assert refused.row["CALL"] == "W1ABC"
+    assert [problem.field for problem in refused.problems] == ["COMMENT", "PARK"]
 
 
 def test_blank_optional_values_load(log_dir):
@@ -439,7 +468,7 @@ def test_delete_of_a_missing_row_changes_nothing(log_dir):
 
 
 def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
-    refused = ROW.replace(",USB,", ",usb,")
+    refused = ROW.replace(",1953,", ",53,")
     write_log(log_dir, "20260925.csv", HEADER + refused + ROW.replace(",", ";"))
     book = Logbook(log_dir)
     entries, problems = book.load("W1TST")
@@ -450,7 +479,7 @@ def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
             dict(zip(HEADER.rstrip().split(","), refused.rstrip().split(","))),
             path,
             2,
-            [Problem("MODE", "MODE 'usb' should be uppercase, like USB", "Saving makes it USB.")],
+            [Problem("TIME", "TIME '53' should be HHMM, like 2123")],
         )
     ]
     # Too broken to split: skipped, to fix by hand.
@@ -458,7 +487,7 @@ def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
 
 
 def test_refused_row_can_be_fixed(log_dir):
-    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",USB,", ",usb,") + OTHER_ROW)
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace("US-1234", "1234") + OTHER_ROW)
     book = Logbook(log_dir)
     book.load("W1TST")
     row = book.refused[0][0]
@@ -519,18 +548,12 @@ def test_every_problem_in_a_row_is_found(log_dir):
     book = Logbook(log_dir)
     book.load("W1TST")
     assert book.refused[0].problems == [
-        # usb reads as USB, so SNT is checked against it.
+        # usb fixed on load as USB, so SNT is checked against it.
         Problem("SNT", "SNT '599' needs MODE CW for a 3-digit report"),
         Problem("PWR", "PWR 'lots' should be watts, like 60 or 0.5"),
         Problem("TIME", "TIME '53' should be HHMM, like 2123"),
-        Problem("MODE", "MODE 'usb' should be uppercase, like USB", "Saving makes it USB."),
         Problem(
             "PARK", "PARK '1234' should be 'US-1234' in a log file", "Saving makes it US-1234."
-        ),
-        Problem(
-            "STATION_CALLSIGN",
-            "STATION_CALLSIGN 'w1tst' should be uppercase, like W1TST",
-            "Saving makes it W1TST.",
         ),
         Problem(
             "DATE",
@@ -554,14 +577,14 @@ def test_unreadable_station_callsign_is_to_fix_by_hand(log_dir):
 
 
 def test_other_station_callsign_is_to_fix_by_hand(log_dir):
-    # Not also listed as lowercase: it's another call either way.
+    # Its case fixed on load, but another call.
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",W1TST", ",w1xyz"))
     book = Logbook(log_dir)
     book.load("W1TST")
     assert book.refused[0].problems == [
         Problem(
             "STATION_CALLSIGN",
-            "STATION_CALLSIGN 'w1xyz' doesn't match the station callsign, W1TST",
+            "STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign, W1TST",
             "Manually correct CSV log file.",
         )
     ]
@@ -584,13 +607,11 @@ def test_reports_arent_checked_against_a_mode_at_fault(log_dir):
                 "FREQ", "FREQ '14.250' should be Hz, like 14074500", "Saving makes it 14250000."
             ),
         ),
-        # The form trims spaces.
+        # The form reads 1234 as a US park.
         (
-            ROW.replace(",W1ABC,", ", W1ABC,"),
+            ROW.replace("US-1234", "1234"),
             Problem(
-                "CALL",
-                "CALL ' W1ABC' should have no spaces around it, like W1ABC",
-                "Saving makes it W1ABC.",
+                "PARK", "PARK '1234' should be 'US-1234' in a log file", "Saving makes it US-1234."
             ),
         ),
     ],
@@ -618,7 +639,7 @@ V1_ID = "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
     [
         # Version 1, not 4.
         (V1_ID, f"UUIDv4 '{V1_ID}' should be a UUID as the app writes it, like {ID}"),
-        (f" {ID}", f"UUIDv4 ' {ID}' should have no spaces around it, like {ID}"),
+        ("abc", f"UUIDv4 'abc' should be a UUID as the app writes it, like {ID}"),
     ],
 )
 def test_bad_id_is_refused_and_saving_gives_a_new_one(log_dir, text, message):
@@ -626,18 +647,6 @@ def test_bad_id_is_refused_and_saving_gives_a_new_one(log_dir, text, message):
     book = Logbook(log_dir)
     book.load("W1TST")
     assert book.refused[0].problems == [Problem("UUIDv4", message, "Saving gives it a new one.")]
-
-
-def test_uppercase_id_is_refused_and_saving_keeps_it_lowercase(log_dir):
-    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, ID.upper()) + OTHER_ROW)
-    book = Logbook(log_dir)
-    book.load("W1TST")
-    [refused] = book.refused
-    assert refused.problems == [
-        Problem("UUIDv4", f"UUIDv4 '{ID.upper()}' should be lowercase", "Saving makes it lowercase.")
-    ]
-    book.replace(refused.row, SAVED)
-    assert (log_dir / "20260925.csv").read_text() == HEADER + ROW + OTHER_ROW
 
 
 def test_blank_id_is_filled_in_on_load(log_dir, monkeypatch):
@@ -694,7 +703,7 @@ def test_filled_id_that_cant_be_written_is_saved_with_the_next_change(log_dir, m
     entries, problems = book.load("W1TST")
     assert len(entries) == 1
     assert problems == []
-    [(path, error)] = book.unsaved_ids
+    [(path, error)] = book.unsaved
     assert path == log_dir / "20260925.csv"
     assert error.strerror == "Permission denied"
     assert (log_dir / "20260925.csv").read_text() == HEADER + ROW.replace(ID, "")
