@@ -15,7 +15,7 @@ from pota_logger import file_errors
 from pota_logger.dates import format_date, format_time
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
-from pota_logger.entry_form import FIELDS, EntryForm
+from pota_logger.entry_form import LOG_FIELDS, EntryForm
 from pota_logger.freq import format_freq
 from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
@@ -108,7 +108,7 @@ def mark_count_lines(counts: Counter, width: int) -> list[str]:
 # column widens, which left the first entry truncated.
 LOG_COLUMNS = [("", len(SESSION_MARKER))] + [
     (name, max(len(name), DISPLAY_LENGTHS.get(name, max_length)))
-    for name, _, max_length in FIELDS
+    for name, _, max_length in LOG_FIELDS
 ]
 
 
@@ -243,7 +243,7 @@ def log_row(
     as_is: bool = False,
 ) -> list[Text]:
     """An entry's cells in the log table (`columns` from log_columns): its
-    marker, then FIELDS order. `as_is` shows a refused row's values as they
+    marker, then LOG_FIELDS order. `as_is` shows a refused row's values as they
     are in the file.
     """
     shown = values
@@ -251,7 +251,7 @@ def log_row(
         shown = values | {
             name: format_value(values[name]) for name, format_value in FORMATTERS.items()
         }
-    cells = [marker] + [shown[name] for name, _, _ in FIELDS]
+    cells = [marker] + [shown[name] for name, _, _ in LOG_FIELDS]
     return [log_cell(cell, width, style) for cell, (_, width) in zip(cells, columns)]
 
 
@@ -802,7 +802,7 @@ class PotaLoggerApp(App):
         # The marker column has no header to sort by.
         if column == 0:
             return
-        name = FIELDS[column - 1][0]
+        name = LOG_FIELDS[column - 1][0]
         descending = self.sort_by == (name, False)
         self.sort_by = (name, descending)
         entries = self.log_entries()

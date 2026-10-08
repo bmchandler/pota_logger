@@ -81,8 +81,11 @@ updated in the same change whenever a rule changes.
   differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
   states.py, reports.py, power.py, dates.py. sidebands.py holds the
   MODE-and-FREQ sideband rules.
-- `entry_form.py` holds `FIELDS` (name, placeholder, longest value):
-  `ROW_FIELDS` for the top row, then COMMENT, laid out below it. Also
+- `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
+  entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
+  laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is
+  paper-log order, for the log table's columns and the CSV's: use it,
+  not `FIELDS`, wherever column order matters. Also
   `PARSERS`, `REPORTS` (parsed after, since they depend on MODE),
   `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `__init__.py`
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.

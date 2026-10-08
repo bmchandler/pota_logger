@@ -18,16 +18,19 @@ US amateur bands from 80m to 10m, WARC bands included.
 
 ### Fast entry
 
-- One row of fields in paper-log order: FREQ, MODE, CALL, PARK, ST, SNT, RCD,
-  PWR, DATE, TIME, with COMMENT on the line below. Tab moves between fields,
-  and Enter saves.
+- One row of fields, those typed on every entry first: FREQ, CALL, PARK, ST,
+  SNT, RCD, TIME, then PWR, DATE, and MODE (carried forward; MODE starts
+  as `SSB`), with COMMENT on the line below. Tab moves between fields, and
+  Enter saves. The log keeps paper-log order: FREQ, MODE, CALL, PARK, ST,
+  SNT, RCD, PWR, DATE, TIME, COMMENT.
 - Shorthand typing:
   - FREQ in MHz, with digits left out: `14.074.5`, `14.0745`, `14074`, and
     `141501` (read as 14.150.100) all work.
   - PARK as a bare number for US parks: `464` becomes `US-0464`, and `jp1234`
     becomes `JP-1234`.
   - DATE as `YYMMDD`, TIME as `HHMM`, and any case for MODE and CALL.
-- PWR and DATE carry over to the next entry. MODE starts each entry as `SSB`.
+- PWR, DATE, and MODE carry over to the next entry. MODE starts as `SSB` when
+  the app opens.
 - DATE starts as today's local date, which suits typing up a session right
   after it's over. All dates and times are UTC.
 - SNT and RCD hint `599` when MODE is CW, and `59` otherwise.

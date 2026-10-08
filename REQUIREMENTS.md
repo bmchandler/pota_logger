@@ -69,7 +69,9 @@ form in a narrow window; selecting a log row and editing its entry in
 the form (see Editing); the log's COMMENT column filling the log's
 width, or as wide as the longest COMMENT shown, apart from the form's
 100-character limit, so the divider reaches the right edge (see Entry
-fields); the Sort action, `f5` or a header click (see Log view). The visual layout is settled; wording tweaks
+fields); the Sort action, `f5` or a header click (see Log view); the form's
+fields in entry order, apart from the log's paper-log order (see Entry
+fields). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
 To do: nothing beyond ADIF export (see below). Known issues
@@ -131,20 +133,27 @@ Ideas considered and deferred:
 
 ## Entry fields
 
-In entry order (mirrors the paper log). All times and dates are UTC.
+In paper-log order, the order of the log table's columns and the CSV
+files'. The form's top row takes them in entry order instead (decided
+2026-10-08): FREQ, CALL, PARK, ST, SNT, RCD, TIME, PWR, DATE, MODE. The
+fields typed on every entry come first, without a Tab past a field that
+rarely changes; PWR (changes now and then in a session), DATE (once a
+session, or twice across a UTC midnight), and MODE (nearly always the
+same all session) come last, so Enter is usually pressed before reaching
+them. COMMENT stays below the row. All times and dates are UTC.
 
 | Field | Entered as | Stored as | Displayed as | Notes |
 |---|---|---|---|---|
 | FREQ | Always MHz, shorthand allowed: `14`, `14.1`, `14.0745`, `14.074.5`, `14074`, `28312456` | Integer Hz | Always in full: `14.000.000`, `14.074.500` | Never carried forward. Missing digits are filled with zeros. After a dot, up to 6 fractional MHz digits, optionally with a second dot after the 3 kHz digits (`14.1` is `14.100.000`; `14.0745` and `14.074.5` are `14.074.500`). Bare digits are the same with the dot left out; the MHz part is whichever of 1 or 2 leading digits lands in a band (`141501` is `14.150.100`, `3985` is `3.985.000`). Across 80m to 10m only one reading ever fits. Must be inside a US amateur band from 80m to 10m. |
-| MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | Defaults to `SSB` on each new entry. Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
+| MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | `SSB` at app start, then carried forward (decided 2026-10-08: a session switched to CW is likely CW throughout). Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. Last in the top row of the form. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
 | PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, `US-4566@US-WY`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012`, `US-4566@US-WY` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER, optionally @LOCATION. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. LOCATION is a 4 to 6 character ISO 3166-2 code (`US-WY`), only for parks spanning more than one, like trails. Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference (17 characters); the log column is 17 wide. |
 | ST | `NJ`, `NA`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC) or `NA`. Not checked against the park; no park database is kept. |
-| SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. The placeholder follows MODE as a hint: `599` while MODE is `CW` (any case), `59` for any other MODE typed. It updates when leaving MODE (Tab, Shift+Tab, or a click), not on each keystroke, and goes back to `59` after a save, since MODE resets to `SSB`. Only the placeholder changes, which shows only while the field is empty: a value already typed is never cleared or changed. The non-ASCII message's example (`59, or 599 on CW`) stays as is. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
+| SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. The placeholder follows MODE as a hint: `599` while MODE is `CW` (any case), `59` for any other MODE typed. It updates when leaving MODE (Tab, Shift+Tab, or a click), not on each keystroke, and stays as it was after a save, since MODE carries forward. With MODE last in the form, a new session's first CW entry shows `59` while the reports are typed; the digit check on Enter catches a missing third digit. Only the placeholder changes, which shows only while the field is empty: a value already typed is never cleared or changed. The non-ASCII message's example (`59, or 599 on CW`) stays as is. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
-| TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Last in the top row of the form. Must be a real time, 0000 to 2359. |
+| TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Must be a real time, 0000 to 2359. |
 | COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME and fills the rest of the log's width (beside its vertical scrollbar, when shown), so the columns and the divider reach the right edge; it widens past that for the longest COMMENT shown, so each is seen whole, a longer one from a file included, and is never narrower than its header. The log scrolls sideways when it's wider than the window. The column is worked out again on each redraw of the log (each save, edit, or delete) and when the log's width changes (the window resized, or the vertical scrollbar coming or going), keeping the cursor, selection, and scroll. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
 
 Session-level value:
@@ -249,8 +258,8 @@ Session-level value:
   separately.
 - An entry can't be saved until every required field is filled in and valid.
   ST and COMMENT are the only optional fields.
-- Only DATE and PWR carry forward to the next entry. Everything else is
-  entered fresh each time (MODE resets to `SSB`).
+- Only DATE, PWR, and MODE carry forward to the next entry (MODE starts
+  as `SSB` at app start). Everything else is entered fresh each time.
 - Multi-park activations: each park is a separate entry.
 - Entries may be typed in any time order, with no warning. The paper log
   isn't always in time order (an entry is sometimes finished after later
@@ -481,7 +490,8 @@ Session-level value:
 - Stored in a `data/` folder under the project.
 - One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
 - `data/` is ignored by git, so logs stay out of the code history.
-- Column names use the same shorthand and order as the entry fields:
+- Column names use the same shorthand and order as the log table (see
+  Entry fields):
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME, COMMENT`, then
   `STATION_CALLSIGN` and `UUIDv4` (the record ID).
 - Record IDs (built 2026-10-05). Each row's `UUIDv4` is a random UUID

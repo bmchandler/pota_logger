@@ -30,9 +30,9 @@ from pota_logger.sidebands import check_sideband
 from pota_logger.states import parse_state
 from pota_logger.warning_screen import WarningScreen
 
-# (name, placeholder, longest expected value) in paper-log entry order, for
-# the fields in the top row of the form.
-ROW_FIELDS = [
+# (name, placeholder, longest expected value) for the fields above COMMENT,
+# in paper-log order: the log table's columns and the CSV files'.
+LOG_ROW_FIELDS = [
     ("FREQ", "14.074.5", 10),  # 29.700.000
     ("MODE", "SSB", 3),
     ("CALL", "W1ABC", 12),  # VE3/W1ABC/P
@@ -45,6 +45,12 @@ ROW_FIELDS = [
     ("TIME", "1953", 4),
 ]
 
+# The form's top row, in entry order: the fields typed on every entry
+# first, then PWR, DATE, and MODE, which carry forward, so Enter is
+# usually pressed before reaching them.
+ENTRY_ORDER = ["FREQ", "CALL", "PARK", "ST", "SNT", "RCD", "TIME", "PWR", "DATE", "MODE"]
+ROW_FIELDS = sorted(LOG_ROW_FIELDS, key=lambda field: ENTRY_ORDER.index(field[0]))
+
 # Input border and padding (4) plus a cell for the cursor.
 INPUT_EXTRA_WIDTH = 5
 
@@ -52,8 +58,9 @@ INPUT_EXTRA_WIDTH = 5
 ROW_WIDTH = sum(max_length + INPUT_EXTRA_WIDTH for _, _, max_length in ROW_FIELDS)
 COMMENT_LENGTH = ROW_WIDTH - INPUT_EXTRA_WIDTH
 
-# Every field, in entry order.
+# Every field, in entry order, and in log column order.
 FIELDS = ROW_FIELDS + [("COMMENT", "", COMMENT_LENGTH)]
+LOG_FIELDS = LOG_ROW_FIELDS + [("COMMENT", "", COMMENT_LENGTH)]
 
 # Most fields take any length, so their rules can explain what's wrong.
 # COMMENT takes what fits in view; PARK scrolls to ADIF's longest
@@ -63,13 +70,13 @@ INPUT_LIMITS = {"PARK": PARK_MAX_LENGTH, "COMMENT": COMMENT_LENGTH}
 # Fields turned from entered text into values, in entry order.
 PARSERS = {
     "FREQ": parse_freq,
-    "MODE": parse_mode,
     "CALL": parse_callsign,
     "PARK": parse_park,
     "ST": parse_state,
+    "TIME": parse_time,
     "PWR": parse_power,
     "DATE": parse_date,
-    "TIME": parse_time,
+    "MODE": parse_mode,
 }
 
 # Signal reports, parsed after PARSERS since their rules depend on MODE.
@@ -82,7 +89,8 @@ CW_REPORT_PLACEHOLDER = "599"
 # Fields that may be left blank.
 OPTIONAL = {"ST", "COMMENT"}
 
-# Value each field starts with, and resets to after an entry.
+# Value each field starts with, and resets to after an entry unless it's
+# carried forward.
 DEFAULTS = {"MODE": "SSB"}
 
 # Fields whose default is computed fresh at app start rather than fixed.
@@ -96,7 +104,7 @@ ASCII_EXAMPLES = {name: placeholder for name, placeholder, _ in FIELDS} | {
 }
 
 # Fields that keep their value for the next entry.
-CARRY_FORWARD = {"PWR", "DATE"}
+CARRY_FORWARD = {"PWR", "DATE", "MODE"}
 
 # A saved entry's values as they'd be typed, to edit in the form; the rest
 # are shown as stored.

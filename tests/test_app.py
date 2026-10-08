@@ -8,7 +8,7 @@ from textual.widgets import Button, DataTable, Input, Static
 from pota_logger import PotaLoggerApp, dates, header_cell, mark_count_lines, sort_key
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.delete_screen import DeleteScreen
-from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, ROW_FIELDS, EntryForm
+from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, LOG_FIELDS, ROW_FIELDS, EntryForm
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import Settings, load_settings, save_settings
 from pota_logger.settings_screen import SettingsScreen
@@ -142,7 +142,7 @@ async def test_narrow_form_scrollbar_lines_up_with_comment_and_keeps_gaps(app):
 async def test_narrow_form_scrolls_to_the_focused_field(app):
     async with app.run_test(size=(90, 24)) as pilot:
         form = app.query_one(EntryForm)
-        field = app.query_one("#field-time", Input)
+        field = app.query_one(f"#field-{ROW_FIELDS[-1][0].lower()}", Input)
         field.focus()
         # Focus queues a scroll into view, which then animates.
         await pilot.pause()
@@ -151,18 +151,24 @@ async def test_narrow_form_scrolls_to_the_focused_field(app):
         assert form.region.contains_region(field.region)
 
 
-async def test_tab_order_follows_paper_log_then_table(app):
+async def test_tab_order_follows_entry_order_then_table(app):
+    # Fields typed on every entry first; PWR, DATE, and MODE carry
+    # forward, so they come last.
+    entry_order = ["FREQ", "CALL", "PARK", "ST", "SNT", "RCD", "TIME", "PWR", "DATE", "MODE"]
     async with app.run_test():
         chain = [w.id for w in app.screen.focus_chain]
-        assert chain == [f"field-{name.lower()}" for name, _, _ in FIELDS] + ["log-table"]
+        assert chain == [f"field-{name.lower()}" for name in entry_order + ["COMMENT"]] + [
+            "log-table"
+        ]
 
 
-async def test_log_table_columns_match_fields(app):
+async def test_log_table_columns_keep_paper_log_order(app):
+    paper_log = ["FREQ", "MODE", "CALL", "PARK", "ST", "SNT", "RCD", "PWR", "DATE", "TIME"]
     async with app.run_test():
         table = app.query_one("#log-table", DataTable)
         # The first column, with no header, holds the session marker.
         labels = [str(c.label).strip() for c in table.columns.values()]
-        assert labels == [""] + [n for n, _, _ in FIELDS]
+        assert labels == [""] + paper_log + ["COMMENT"]
 
 
 async def test_fields_fit_longest_expected_values(app):
@@ -273,9 +279,9 @@ async def test_enter_adds_row_in_field_order(app):
 async def test_typed_entry_with_tab_between_fields(app):
     async with app.run_test() as pilot:
         # Tabbing into MODE selects the SSB default, so typing replaces it.
-        for value in ENTRY.values():
-            await pilot.press(*value, "tab")
-        await pilot.press("shift+tab", "enter")  # back onto TIME, then Enter
+        for name, _, _ in FIELDS:
+            await pilot.press(*ENTRY[name], "tab")
+        await pilot.press("shift+tab", "enter")  # back onto COMMENT, then Enter
         assert table_rows(app) == [ENTRY_ROW]
 
 
@@ -611,12 +617,12 @@ async def test_three_digit_report_allowed_on_cw(app):
         assert [row[6] for row in table_rows(app)] == ["579"]
 
 
-async def test_after_entry_fields_reset_except_power_and_date(app):
+async def test_after_entry_fields_reset_except_power_date_and_mode(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY)
         app.query_one("#field-time", Input).focus()
         await pilot.press("enter")
-        expected = {name: "" for name in ENTRY} | {"MODE": "SSB", "PWR": "60", "DATE": "260925"}
+        expected = {name: "" for name in ENTRY} | {"MODE": "USB", "PWR": "60", "DATE": "260925"}
         assert field_values(app) == expected
         assert app.focused.id == "field-freq"
 
@@ -627,7 +633,7 @@ async def test_entries_append_in_entered_order(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"CALL": "W1AAB", "TIME": "1900"})
         await pilot.press("enter")
-        time_column = [name for name, _, _ in FIELDS].index("TIME")
+        time_column = [name for name, _, _ in LOG_FIELDS].index("TIME")
         assert [row[time_column] for row in table_rows(app)] == ["20:00", "19:00"]
 
 
@@ -737,8 +743,9 @@ async def test_mode_has_placeholder_and_no_autofill(app):
         assert mode.placeholder == "SSB"
         assert mode.suggester is None
         # Tab moves on and leaves exactly what was typed.
-        await pilot.press(*"14.074", "tab", "s", "tab")
-        assert app.focused.id == "field-call"
+        app.query_one("#field-date", Input).focus()
+        await pilot.press("tab", "s", "tab")
+        assert app.focused.id == "field-comment"
         assert mode.value == "s"
 
 
@@ -774,7 +781,8 @@ async def test_report_placeholders_leave_typed_reports_alone(app):
         assert report_placeholders(app) == ["599", "599"]
 
 
-async def test_report_placeholders_reset_after_cw_entry(app):
+async def test_report_placeholders_stay_cw_after_cw_entry(app):
+    # MODE carries forward, so the next entry is on CW too.
     async with app.run_test() as pilot:
         app.query_one("#field-mode", Input).focus()
         fill(app, CW_ENTRY)
@@ -782,7 +790,8 @@ async def test_report_placeholders_reset_after_cw_entry(app):
         assert report_placeholders(app) == ["599", "599"]
         await pilot.press("enter")
         assert len(table_rows(app)) == 1
-        assert report_placeholders(app) == ["59", "59"]
+        assert field_values(app)["MODE"] == "CW"
+        assert report_placeholders(app) == ["599", "599"]
 
 
 async def test_single_letter_mode_blocks_entry(app):
@@ -843,8 +852,8 @@ async def test_rows_drawn_in_full_without_redraw(app):
     }
     async with app.run_test(size=(120, 24)) as pilot:
         # Typed key by key: the bug needed the redraws that typing causes.
-        for value in typed.values():
-            await pilot.press(*value, "tab")
+        for name, _, _ in ROW_FIELDS:
+            await pilot.press(*typed[name], "tab")
         await pilot.press("shift+tab", "enter")
         await pilot.pause()
         assert drawn_table_row(app, 0).split() == [
@@ -860,7 +869,7 @@ async def test_rows_drawn_in_full_without_redraw(app):
 
 async def test_date_column_before_time(app):
     async with app.run_test():
-        names = [name for name, _, _ in FIELDS]
+        names = [name for name, _, _ in LOG_FIELDS]
         assert names.index("DATE") == names.index("TIME") - 1
 
 
@@ -1090,7 +1099,7 @@ async def test_no_divider_without_saved_entries(app):
 # Sorting
 
 # The log's column index of each field (the marker column is 0).
-LOG_COLUMN = {name: index for index, (name, _, _) in enumerate(FIELDS, start=1)}
+LOG_COLUMN = {name: index for index, (name, _, _) in enumerate(LOG_FIELDS, start=1)}
 
 
 def headers(app) -> list[str]:
@@ -1685,8 +1694,8 @@ async def test_edited_session_entry_stays_marked_in_typed_place(app, settings_pa
         await pilot.press("enter")
         assert table_calls(app) == ["N3GHI", "K2DEF"]
         assert table_markers(app) == ["•", "•"]
-        # Esc leaves the selection: a fresh entry, PWR and DATE carried
-        # forward.
+        # Esc leaves the selection: a fresh entry, PWR, DATE, and MODE
+        # carried forward.
         await pilot.press("escape")
         assert field_values(app)["CALL"] == ""
         assert field_values(app)["DATE"] == "260925"

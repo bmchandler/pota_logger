@@ -10,7 +10,7 @@ from typing import NamedTuple
 from pota_logger.ascii_text import check_ascii, check_trimmed
 from pota_logger.callsigns import parse_callsign
 from pota_logger.dates import parse_time
-from pota_logger.entry_form import ENTRY_FORMATTERS, FIELDS, OPTIONAL, PARSERS, REPORTS
+from pota_logger.entry_form import ENTRY_FORMATTERS, FIELDS, LOG_FIELDS, OPTIONAL, PARSERS, REPORTS
 from pota_logger.freq import in_us_band
 from pota_logger.modes import parse_mode
 from pota_logger.parks import parse_park
@@ -23,7 +23,7 @@ from pota_logger.states import parse_state
 # CSV columns: the entry fields in entry order, the station callsign, then
 # the record ID. The ID is last, so a blank one can be filled in at the end
 # of its line, leaving the rest of the line as it was.
-COLUMNS = [name for name, _, _ in FIELDS] + ["STATION_CALLSIGN", "UUIDv4"]
+COLUMNS = [name for name, _, _ in LOG_FIELDS] + ["STATION_CALLSIGN", "UUIDv4"]
 
 # One file per UTC date, named YYYYMMDD.csv.
 LOG_FILE_PATTERN = "[0-9]" * 8 + ".csv"
