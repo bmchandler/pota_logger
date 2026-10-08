@@ -432,6 +432,56 @@ async def test_confirm_button_saves(app):
         assert len(table_rows(app)) == 1
 
 
+async def test_warning_opens_with_no_button_focused(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter")
+        assert app.focused is None
+
+
+async def test_tab_moves_between_warning_buttons(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "tab")
+        assert app.focused.id == "back"
+        await pilot.press("tab")
+        assert app.focused.id == "confirm"
+        await pilot.press("tab")
+        assert app.focused.id == "back"
+        await pilot.press("shift+tab")
+        assert app.focused.id == "confirm"
+
+
+async def test_enter_on_tabbed_back_button_goes_back(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "tab", "enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert table_rows(app) == []
+        assert app.focused.id == "field-date"
+
+
+async def test_enter_on_tabbed_confirm_button_saves(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "tab", "tab", "enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert len(table_rows(app)) == 1
+
+
+async def test_lone_button_not_focusable(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        fill(app, ENTRY)
+        await pilot.press("enter")
+        # The dupe block: one button, and Enter or Esc closes it.
+        assert isinstance(app.screen, WarningScreen)
+        assert not app.screen.query_one("#confirm").can_focus
+        await pilot.press("tab")
+        assert app.focused is None
+
+
 async def test_escape_from_future_warning_returns_to_date(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | FUTURE)
@@ -2081,6 +2131,33 @@ async def test_escape_keeps_the_entry_even_after_one_enter(app, settings_path):
         assert table_calls(app) == ["K1AAA", "K1BBB"]
         assert app.selected is app.saved_entries[1]
     assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+async def test_delete_button_tabbed_to_takes_enter_twice(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 1)
+        await pilot.press("f4", "tab", "tab")
+        assert app.focused.id == "confirm"
+        await pilot.press("enter")
+        # A button takes no second press during its 0.2 second press
+        # effect (stock).
+        await pilot.pause(0.25)
+        assert isinstance(app.screen, DeleteScreen)
+        assert app.screen.armed
+        await pilot.press("enter")
+        # The button's press is a message, handled after the key.
+        await pilot.pause()
+        assert table_calls(app) == ["K1AAA"]
+
+
+async def test_back_button_tabbed_to_keeps_the_entry(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 1)
+        await pilot.press("f4", "tab", "enter")
+        assert not isinstance(app.screen, DeleteScreen)
+        assert table_calls(app) == ["K1AAA", "K1BBB"]
 
 
 async def test_delete_while_editing_drops_the_edit(app, settings_path):

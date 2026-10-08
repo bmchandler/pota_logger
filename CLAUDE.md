@@ -204,6 +204,10 @@ updated in the same change whenever a rule changes.
   a single edge like `margin-bottom` in a more specific rule resets the
   other three sides, so set all four; `height: auto` doesn't count a
   horizontal scrollbar, so keep outer spacing in margins, not padding.
+  A screen's `AUTO_FOCUS = None` means the app's setting (focus the
+  first focusable); `""` focuses nothing (WarningScreen, so Enter
+  confirms until Tab picks a button). A focused Button ignores a second
+  Enter during its 0.2 second press effect.
 - Prefer stock Textual behavior and looks; the user decides when to
   override them (e.g. the form scrollbar's overhang was kept as stock).
 

@@ -355,7 +355,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 - Warnings flag entries that are probably, but not certainly, wrong. The
   first Enter opens a warning modal instead of saving; Enter there
   confirms, and Esc goes back to the form without saving, on the field
-  to fix. When several warnings apply, they come one after another.
+  to fix. When several warnings apply, they come one after another. In
+  any modal with two buttons (Back and Confirm, Try again, or Delete),
+  Tab and Shift+Tab move between them, Back first (decided 2026-10-08);
+  neither is highlighted at first, so Enter confirms until Tab picks one,
+  and then presses the one highlighted. A one-button modal's button is
+  for the mouse.
   - **Unusual CALL** (see CALL): reads `W11BC is an unusual callsign.` /
     `Correct and/or confirm with Enter.` and holds the call, ready to
     edit. Enter saves the entry with the call as it is in the modal (still

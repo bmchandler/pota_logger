@@ -13,6 +13,9 @@ class WarningScreen(ModalScreen[bool]):
     Esc, so Enter (on `confirm_label`'s button) is the only way on. With
     `back_button` False, there's no Back button, but Esc still goes back:
     a notice with one button, where either key closes it.
+
+    With two buttons, Tab moves between them (Back first); none has focus
+    at first, so Enter confirms until Tab picks one, and then presses it.
     """
 
     DEFAULT_CSS = """
@@ -41,6 +44,10 @@ class WarningScreen(ModalScreen[bool]):
 
     BINDINGS = [("enter", "confirm", "Confirm"), ("escape", "cancel", "Back")]
 
+    # Nothing focused on opening, so Enter confirms (stock focuses the
+    # first button, Back). "", as None means the app's setting.
+    AUTO_FOCUS = ""
+
     def __init__(
         self,
         message: str | Content,
@@ -59,12 +66,12 @@ class WarningScreen(ModalScreen[bool]):
         with Vertical():
             yield Label(self.message, id="warning-message")
             with Horizontal(id="warning-buttons"):
-                # Mouse only, so Enter always confirms instead of pressing Back.
                 buttons = [Button(self.confirm_label, id="confirm", variant="warning")]
                 if self.can_go_back and self.back_button:
                     buttons.insert(0, Button("Back", id="back"))
                 for button in buttons:
-                    button.can_focus = False
+                    # A lone button is mouse only: Enter and Esc do it all.
+                    button.can_focus = len(buttons) > 1
                     yield button
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
