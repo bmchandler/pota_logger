@@ -69,7 +69,9 @@ form in a narrow window; selecting a log row and editing its entry in
 the form (see Editing); the log's COMMENT column filling the log's
 width, or as wide as the longest COMMENT shown, apart from the form's
 100-character limit, so the divider reaches the right edge (see Entry
-fields); the Sort action, `f5` or a header click (see Log view); the form's
+fields); the Sort action, `f5` or a header click (see Log view); COMMENT's
+POTA info, two settings in a Settings modal now open after setup (see
+COMMENT's POTA info); the form's
 fields in entry order, apart from the log's paper-log order (see Entry
 fields). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
@@ -154,17 +156,16 @@ them. COMMENT stays below the row. All times and dates are UTC.
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
 | DATE | `260925` (YYMMDD, years 2000–2099) | Part of the entry's UTC timestamp (`20260925` in CSV) | `2026.09.25` | Carried forward. Must be a real calendar date. Still a UTC date; only the *default* on app start is today's local date (not UTC), since the app is usually opened right after a session and the first entries typed often predate a UTC midnight rollover that's already happened locally. |
 | TIME | `1953` (24-hour HHMM) | Part of the entry's UTC timestamp (`1953` in CSV) | `19:53` | Must be a real time, 0000 to 2359. |
-| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never filled in by the app from other fields, and never carried forward: it's the operator's own note, whose use changes over time. Its log column follows TIME and fills the rest of the log's width (beside its vertical scrollbar, when shown), so the columns and the divider reach the right edge; it widens past that for the longest COMMENT shown, so each is seen whole, a longer one from a file included, and is never narrower than its header. The log scrolls sideways when it's wider than the window. The column is worked out again on each redraw of the log (each save, edit, or delete) and when the log's width changes (the window resized, or the vertical scrollbar coming or going), keeping the cursor, selection, and scroll. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
+| COMMENT | Free text, e.g. `POTA US-1234 NC`, `RSGB Field Day Serial #042` | Text, as entered | Same | Optional. On its own line below the other fields, as wide as that row, and takes only what fits there (currently 100 characters). Any plain ASCII character is allowed (see the non-ASCII rule in Entry behavior). Never carried forward: it's the operator's own note, whose use changes over time. Filled in by the app only with its POTA info, when Settings turns that on (see COMMENT's POTA info below). Its log column follows TIME and fills the rest of the log's width (beside its vertical scrollbar, when shown), so the columns and the divider reach the right edge; it widens past that for the longest COMMENT shown, so each is seen whole, a longer one from a file included, and is never narrower than its header. The log scrolls sideways when it's wider than the window. The column is worked out again on each redraw of the log (each save, edit, or delete) and when the log's width changes (the window resized, or the vertical scrollbar coming or going), keeping the cursor, selection, and scroll. Exported as ADIF `COMMENT` (what QRZ shows as Comments). |
 
 Session-level value:
 
 - **Station callsign:** the operator's own call. It's shown in a top status
   area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
   settings modal at first start, and only then: a log holds one call (see
-  Scope), so Settings doesn't open once one is set (no F2 in the footer,
-  no Settings button). A call change means a new log: archive the log
-  files, then edit `data/settings.toml` by hand. The Settings code stays,
-  switched off (`SETTINGS_AFTER_SETUP`), for settings to come.
+  Scope), so once one is set, Settings (F2, or the Settings button)
+  opens without it (decided 2026-10-08). A call change means a new log:
+  archive the log files, then edit `data/settings.toml` by hand.
 - **One call per log** (decided 2026-10-06): every log row's
   STATION_CALLSIGN must be the station callsign, checked at start; a row
   with another call is refused (see Storage) and fixed by hand. So the
@@ -195,9 +196,24 @@ Session-level value:
 
 ## Settings
 
-- A settings modal holds app-wide settings, starting with the station
-  callsign. Future settings go there too. For now it opens only while no
-  call is set (see Session-level value).
+- A settings modal holds app-wide settings: the station callsign while
+  none is set (see Session-level value), then two checkboxes (stock
+  Textual: Space or Enter toggles one), both off by default, since
+  others may not want them. A box shows its X only when checked (decided
+  2026-10-08; stock, a dimmed X shows when unchecked too, which reads as
+  checked):
+  `New: Pre-populate COMMENT with POTA info.` and
+  `Edit: Update COMMENT with POTA info.` (see COMMENT's POTA info). It
+  opens at first start, from the station-callsign block, and after that
+  with F2 or the Settings button, showing only the checkboxes. Save (or
+  Enter in the call) saves them all; Esc or Cancel changes nothing.
+- In `data/settings.toml` they're `new_comment_pota_info` and
+  `edit_comment_pota_info`, `true` or `false`; a missing one is off (a
+  file from before them). Anything else (`"yes"`) is off and blocks at
+  start like a log file needing fixing by hand (see Storage):
+  `<file>: new_comment_pota_info 'yes' must be true or false`. Fixing the
+  call's spaces or case isn't saved then, as saving would hide the
+  problem.
 - Settings are saved in `data/settings.toml`.
 - At start, the file is checked like the log files (see Storage).
   Invalid TOML is reported as `Couldn't read <file>:
@@ -222,11 +238,39 @@ Session-level value:
   from a file is taken as meant. Only an empty call (`""`, or just spaces)
   means none is set yet.
 
+## COMMENT's POTA info
+
+Decided 2026-10-08. QRZ.com doesn't show POTA info, so the operator tags
+an entry's COMMENT with it, which Settings can have the app fill in.
+
+- `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
+  starts as `POTA ` (a space to type on after), at start, after each
+  save, and when the setting is turned on with COMMENT blank. On leaving
+  PARK or ST (Tab, Shift+Tab, or a click), and on Enter (which doesn't
+  leave the field), it's rewritten from the values as they read:
+  `POTA US-1234 NJ`, `POTA US-1234` (or `POTA BB-0010`) with ST blank or
+  not a state, and `POTA ` again until PARK reads. An ST typed before
+  PARK waits for it (no `POTA NJ`). Turned off, a COMMENT that's still
+  just the app's goes blank.
+- `Edit: Update COMMENT with POTA info.`: while editing a saved entry,
+  its COMMENT is rewritten the same way if it starts with the POTA info
+  its PARK and ST give; otherwise (blank, or other text) it's left alone.
+- Only the POTA info at the start of COMMENT is rewritten; whatever
+  follows it is kept (`POTA US-1234 NJ Great signal` with PARK 5678 is
+  `POTA US-5678 NJ Great signal`). Once that info is changed by hand, or
+  something is typed after a bare `POTA ` (most likely the info itself),
+  COMMENT is the operator's and isn't changed, unless it already starts
+  with the info PARK and ST give, which the app then takes as its own
+  (so `POTA US-1234 NJ` typed by hand isn't repeated). A rewrite that
+  wouldn't fit COMMENT's limit is skipped.
+- QRZ has no field for a POTA location like `BB-PH`; it can go in
+  COMMENT, typed after the info.
+
 ## Theme and keys
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The footer shows `^q Quit`, `f3 Edit` and `f4 Delete`
+- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` and `f4 Delete`
   (see Editing), `f5 Sort` (see Log view), and `^s Screenshot` (saves an SVG of the screen to the Downloads
   folder).
 - The footer's right end shows the terminal size as columns x rows

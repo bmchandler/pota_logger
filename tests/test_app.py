@@ -3,12 +3,19 @@ from datetime import date, time
 
 import pytest
 from textual.command import CommandPalette
-from textual.widgets import Button, DataTable, Input, Static
+from textual.widgets import Button, Checkbox, DataTable, Input, Static
 
 from pota_logger import PotaLoggerApp, dates, header_cell, mark_count_lines, sort_key
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.delete_screen import DeleteScreen
-from pota_logger.entry_form import COMMENT_LENGTH, FIELDS, LOG_FIELDS, ROW_FIELDS, EntryForm
+from pota_logger.entry_form import (
+    COMMENT_LENGTH,
+    FIELDS,
+    LOG_FIELDS,
+    ROW_FIELDS,
+    EntryForm,
+    pota_info,
+)
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import Settings, load_settings, save_settings
 from pota_logger.settings_screen import SettingsScreen
@@ -36,9 +43,9 @@ def footer_keys(app) -> list[str]:
     return [key for key, active in app.screen.active_bindings.items() if active.binding.show]
 
 
-async def test_footer_shows_quit_edit_delete_sort_and_screenshot(app):
+async def test_footer_shows_quit_settings_edit_delete_sort_and_screenshot(app):
     async with app.run_test():
-        assert footer_keys(app) == ["ctrl+q", "f3", "f4", "f5", "ctrl+s"]
+        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "f5", "ctrl+s"]
 
 
 async def test_footer_shows_terminal_size_and_follows_resize(app):
@@ -974,6 +981,220 @@ async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, me
         assert field_values(app)[name] == value
 
 
+# COMMENT's POTA info (Settings)
+
+
+@pytest.mark.parametrize(
+    "park, state, info",
+    [
+        ("1234", "NJ", "POTA US-1234 NJ"),
+        ("1234", "nj", "POTA US-1234 NJ"),
+        ("1234", "", "POTA US-1234"),
+        ("bb10", "", "POTA BB-0010"),
+        ("US-4566@US-WY", "WY", "POTA US-4566@US-WY WY"),
+        # An ST that isn't a state is left out; an ST alone waits for PARK.
+        ("1234", "XX", "POTA US-1234"),
+        ("", "NJ", "POTA"),
+        ("12345678", "NJ", "POTA"),
+        ("１２３４", "", "POTA"),
+        ("1234", "ＮＪ", "POTA US-1234"),
+    ],
+)
+def test_pota_info(park, state, info):
+    assert pota_info(park, state) == info
+
+
+@pytest.fixture
+def pota_app(settings_path):
+    """The app with both POTA info settings on."""
+    save_settings(
+        Settings("W1TST", new_comment_pota_info=True, edit_comment_pota_info=True), settings_path
+    )
+    return PotaLoggerApp(settings_path=settings_path)
+
+
+def comment(app) -> str:
+    return app.query_one("#field-comment", Input).value
+
+
+async def type_and_leave(app, pilot, name: str, value: str) -> None:
+    """Set a field's value from inside it, then Tab out."""
+    field = app.query_one(f"#field-{name.lower()}", Input)
+    field.focus()
+    field.value = value
+    await pilot.press("tab")
+
+
+async def test_comment_starts_blank_with_the_setting_off(app):
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        assert comment(app) == ""
+
+
+async def test_new_comment_starts_with_pota_then_park_then_state(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        assert comment(app) == "POTA "
+        await type_and_leave(app, pilot, "PARK", "1234")
+        assert comment(app) == "POTA US-1234"
+        await type_and_leave(app, pilot, "ST", "nj")
+        assert comment(app) == "POTA US-1234 NJ"
+        await type_and_leave(app, pilot, "ST", "")
+        assert comment(app) == "POTA US-1234"
+
+
+async def test_state_before_park_waits_for_it(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "ST", "NJ")
+        assert comment(app) == "POTA "
+        await type_and_leave(app, pilot, "PARK", "1234")
+        assert comment(app) == "POTA US-1234 NJ"
+        # A park that doesn't read goes back to waiting.
+        await type_and_leave(app, pilot, "PARK", "12345678")
+        assert comment(app) == "POTA "
+
+
+async def test_pota_info_rewritten_keeping_what_follows(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        await type_and_leave(app, pilot, "ST", "NJ")
+        app.query_one("#field-comment", Input).value += " Great signal"
+        await type_and_leave(app, pilot, "PARK", "5678")
+        assert comment(app) == "POTA US-5678 NJ Great signal"
+        await type_and_leave(app, pilot, "ST", "")
+        assert comment(app) == "POTA US-5678 Great signal"
+
+
+async def test_text_typed_after_a_bare_pota_is_left_alone(pota_app):
+    # Most likely POTA info typed by hand.
+    app = pota_app
+    async with app.run_test() as pilot:
+        app.query_one("#field-comment", Input).value = "POTA US-9999"
+        await type_and_leave(app, pilot, "PARK", "1234")
+        assert comment(app) == "POTA US-9999"
+
+
+async def test_pota_info_typed_by_hand_is_not_repeated(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        app.query_one("#field-comment", Input).value = "POTA US-1234 NJ Great signal"
+        await type_and_leave(app, pilot, "PARK", "1234")
+        await type_and_leave(app, pilot, "ST", "NJ")
+        assert comment(app) == "POTA US-1234 NJ Great signal"
+        # Then it's the app's to rewrite.
+        await type_and_leave(app, pilot, "ST", "")
+        assert comment(app) == "POTA US-1234 Great signal"
+
+
+async def test_pota_info_changed_by_hand_is_left_alone(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        app.query_one("#field-comment", Input).value = "POTA US-1243"
+        await type_and_leave(app, pilot, "PARK", "5678")
+        assert comment(app) == "POTA US-1243"
+        app.query_one("#field-comment", Input).value = "Field Day"
+        await type_and_leave(app, pilot, "PARK", "1234")
+        assert comment(app) == "Field Day"
+
+
+async def test_pota_info_left_as_is_if_it_would_not_fit(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        full = "POTA US-1234 " + "x" * (COMMENT_LENGTH - len("POTA US-1234 "))
+        app.query_one("#field-comment", Input).value = full
+        await type_and_leave(app, pilot, "ST", "NJ")
+        assert comment(app) == full
+
+
+async def test_enter_in_park_saves_its_pota_info_then_starts_over(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "", "ST": "NJ", "COMMENT": "POTA "})
+        app.query_one("#field-park", Input).focus()
+        await pilot.press(*"1234", "enter")
+        assert table_rows(app)[0][-1] == "POTA US-1234 NJ"
+        assert comment(app) == "POTA "
+        assert app.focused.id == "field-freq"
+
+
+async def test_pota_info_kept_while_an_entry_is_shown(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "Saved"})
+        await pilot.press("enter")
+        await type_and_leave(app, pilot, "PARK", "1234")
+        await select_row(app, pilot, 0)
+        assert comment(app) == "Saved"
+        await pilot.press("escape")
+        assert comment(app) == "POTA US-1234"
+        await type_and_leave(app, pilot, "ST", "NJ")
+        assert comment(app) == "POTA US-1234 NJ"
+
+
+async def test_edited_comment_updated_from_its_park_and_state(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "POTA US-1234 NJ Great signal"})
+        await pilot.press("enter")
+        await edit_row(app, pilot, 0)
+        await type_and_leave(app, pilot, "PARK", "5678")
+        assert comment(app) == "POTA US-5678 NJ Great signal"
+        await pilot.press("enter")
+        assert table_rows(app)[0][-1] == "POTA US-5678 NJ Great signal"
+
+
+async def test_edited_comment_without_its_pota_info_left_alone(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"CALL": "W1AAA", "COMMENT": ""})
+        await pilot.press("enter")
+        fill(app, ENTRY | {"CALL": "W1AAB", "COMMENT": "POTA US-9999"})
+        await pilot.press("enter")
+        for row in (0, 1):
+            await edit_row(app, pilot, row)
+            await type_and_leave(app, pilot, "PARK", "5678")
+            assert comment(app) == field_values(app)["COMMENT"] == ["", "POTA US-9999"][row]
+            await pilot.press("escape", "escape")
+
+
+async def test_edited_comment_left_alone_with_the_edit_setting_off(settings_path):
+    save_settings(Settings("W1TST", new_comment_pota_info=True), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"COMMENT": "POTA US-1234 NJ"})
+        await pilot.press("enter")
+        await edit_row(app, pilot, 0)
+        await type_and_leave(app, pilot, "PARK", "5678")
+        assert comment(app) == "POTA US-1234 NJ"
+
+
+async def test_setting_turned_on_or_off_mid_entry(app):
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        await pilot.press("f2", "space")
+        await pilot.click("#save")
+        assert comment(app) == "POTA US-1234"
+        await pilot.press("f2", "space")
+        await pilot.click("#save")
+        assert comment(app) == ""
+
+
+async def test_setting_turned_off_keeps_a_comment_typed_on(pota_app):
+    app = pota_app
+    async with app.run_test() as pilot:
+        await type_and_leave(app, pilot, "PARK", "1234")
+        app.query_one("#field-comment", Input).value += " Great signal"
+        await pilot.press("f2", "space")
+        await pilot.click("#save")
+        assert comment(app) == "POTA US-1234 Great signal"
+        await type_and_leave(app, pilot, "PARK", "5678")
+        assert comment(app) == "POTA US-1234 Great signal"
+
+
 # Storage
 
 LOG_HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN,UUIDv4\n"
@@ -1671,7 +1892,6 @@ async def test_log_fitted_to_a_new_width_keeps_the_selected_row(app, settings_pa
         assert field_values(app)["CALL"] == "K1BBB"
 
 
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_log_fitted_after_a_resize_under_a_modal(app):
     async with app.run_test(size=(107, 24)) as pilot:
         await pilot.press("f2")
@@ -2456,11 +2676,11 @@ async def test_buttons_not_focusable(app):
 
 
 @pytest.fixture
-def settings_after_setup(app):
-    """Settings opening once a call is set, as kept for settings to come
-    (SETTINGS_AFTER_SETUP), so the modal's own tests still run.
+def no_call_app(settings_path):
+    """The app at first start, with no station callsign: Settings, with
+    the call to set, opens with Enter from the block.
     """
-    app.SETTINGS_AFTER_SETUP = True
+    return PotaLoggerApp(settings_path=settings_path)
 
 
 def required_message(app) -> str:
@@ -2530,77 +2750,136 @@ async def test_loads_saved_callsign(app):
         assert station_callsign(app) == "W1TST"
 
 
-async def test_settings_closed_once_a_call_is_set(app):
-    async with app.run_test() as pilot:
-        assert not app.query_one("#settings").display
-        await pilot.press("f2")
-        assert len(app.screen_stack) == 1
-
-
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_footer_shows_settings_when_kept_open_after_setup(app):
-    async with app.run_test():
-        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "f5", "ctrl+s"]
-        assert app.query_one("#settings").display
-
-
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_settings_button_opens_modal(app):
     async with app.run_test() as pilot:
+        assert app.query_one("#settings").display
         await pilot.click("#settings")
         assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "new_comment_pota_info"
+
+
+def setting_labels(app) -> list[str]:
+    return [str(box.label) for box in app.screen.query(Checkbox)]
+
+
+SETTING_LABELS = [
+    "New: Pre-populate COMMENT with POTA info.",
+    "Edit: Update COMMENT with POTA info.",
+]
+
+
+async def test_settings_after_setup_hide_the_call(app):
+    # A log holds one call, so it isn't changed in Settings.
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert not app.screen.query("#station-callsign-input")
+        assert setting_labels(app) == SETTING_LABELS
+        assert [box.value for box in app.screen.query(Checkbox)] == [False, False]
+
+
+def checkbox_marks(app) -> list[str]:
+    """The character inside each checkbox, as drawn."""
+    return [box.render().plain[1] for box in app.screen.query(Checkbox)]
+
+
+async def test_checkbox_x_shows_only_when_checked(app):
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert checkbox_marks(app) == [" ", " "]
+        await pilot.press("space")
+        assert checkbox_marks(app) == ["X", " "]
+        await pilot.press("space")
+        assert checkbox_marks(app) == [" ", " "]
+
+
+async def test_settings_at_first_start_show_the_call_and_the_rest(no_call_app):
+    app = no_call_app
+    async with app.run_test() as pilot:
+        await pilot.press("enter")
         assert app.focused.id == "station-callsign-input"
+        assert setting_labels(app) == SETTING_LABELS
 
 
-@pytest.mark.usefixtures("settings_after_setup")
+async def test_settings_saved_after_setup_keep_the_call(app, settings_path):
+    async with app.run_test() as pilot:
+        # Space toggles the focused checkbox (stock), Enter too.
+        await pilot.press("f2", "space", "tab", "enter")
+        await pilot.click("#save")
+        assert not isinstance(app.screen, SettingsScreen)
+        assert station_callsign(app) == "W1TST"
+        expected = Settings("W1TST", new_comment_pota_info=True, edit_comment_pota_info=True)
+        assert app.settings == expected
+        assert load_settings(settings_path) == expected
+
+
+async def test_settings_saved_at_first_start_with_the_call(no_call_app, settings_path):
+    app = no_call_app
+    async with app.run_test() as pilot:
+        await pilot.press("enter", *"w1tst", "tab", "space")
+        await pilot.click("#save")
+        assert load_settings(settings_path) == Settings("W1TST", new_comment_pota_info=True)
+
+
+async def test_settings_open_as_saved(settings_path):
+    save_settings(Settings("W1TST", edit_comment_pota_info=True), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert [box.value for box in app.screen.query(Checkbox)] == [False, True]
+
+
+async def test_bad_setting_in_file_blocks_for_fixing_by_hand(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "w1tst"\nnew_comment_pota_info = "yes"\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.screen.id == "file-errors"
+        assert not app.settings.new_comment_pota_info
+        errors = (settings_path.parent / "file_errors.txt").read_text()
+        assert f"{settings_path}: new_comment_pota_info 'yes' must be true or false" in errors
+    # Not saved with the call's case fixed, which would hide the problem.
+    assert "w1tst" in settings_path.read_text()
+
+
 async def test_f2_opens_modal_from_field(app):
     async with app.run_test() as pilot:
         await pilot.press("f2")
         assert isinstance(app.screen, SettingsScreen)
 
 
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_f2_does_not_stack_modals(app):
     async with app.run_test() as pilot:
         await pilot.press("f2", "f2")
         assert len(app.screen_stack) == 2
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_settings_shows_the_current_call(app):
+async def test_save_uppercases_updates_status_and_file(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("f2")
-        assert app.focused.value == "W1TST"
-
-
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_save_uppercases_updates_status_and_file(app, settings_path):
-    async with app.run_test() as pilot:
-        # Typing replaces the call, selected on opening.
-        await pilot.press("f2", *"w1abc", "enter")
+        await pilot.press("enter", *"w1abc", "enter")
         assert not isinstance(app.screen, SettingsScreen)
         assert station_callsign(app) == "W1ABC"
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_save_button_saves(app, settings_path):
+async def test_save_button_saves(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("f2")
+        await pilot.press("enter")
         app.screen.query_one("#station-callsign-input", Input).value = "W1ABC"
         await pilot.click("#save")
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_invalid_station_callsign_is_refused(app, settings_path):
+async def test_invalid_station_callsign_is_refused(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("f2", *"w1tst/", "enter")
+        await pilot.press("enter", *"w1tst/", "enter")
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "station-callsign-input"
         assert settings_problem(app) == "Station callsign 'w1tst/' has an empty part next to a /"
         assert not app._notifications
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert not settings_path.exists()
         # Gone once the call is edited.
         await pilot.press("backspace")
         assert settings_problem(app) is None
@@ -2612,10 +2891,10 @@ def settings_problem(app) -> str | None:
     return str(shown.render()) if shown.has_class("-shown") else None
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_settings_open_with_no_problem_shown(app):
+async def test_settings_open_with_no_problem_shown(no_call_app):
+    app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("f2")
+        await pilot.press("enter")
         assert settings_problem(app) is None
 
 
@@ -2633,10 +2912,10 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_cleared_station_callsign_saves_and_asks_for_one(app, settings_path):
+async def test_blank_station_callsign_saves_and_asks_for_one(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("f2")
+        await pilot.press("enter")
         app.screen.query_one("#station-callsign-input", Input).value = "  "
         await pilot.press("enter")
         assert app.screen.id == "station-callsign-required"
@@ -2647,13 +2926,14 @@ async def test_cleared_station_callsign_saves_and_asks_for_one(app, settings_pat
 
 
 async def open_settings_with(app, pilot, call: str) -> None:
-    await pilot.press("f2")
+    """From the station-callsign block, Settings with `call` saved."""
+    await pilot.press("enter")
     app.screen.query_one("#station-callsign-input", Input).value = call
     await pilot.press("enter")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_unusual_station_callsign_warns_and_enter_saves(app, settings_path):
+async def test_unusual_station_callsign_warns_and_enter_saves(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "w111111ab")
         assert isinstance(app.screen, CallsignWarningScreen)
@@ -2665,19 +2945,19 @@ async def test_unusual_station_callsign_warns_and_enter_saves(app, settings_path
         assert load_settings(settings_path) == Settings(station_callsign="W111111AB")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_unusual_station_callsign_escape_returns_to_settings(app, settings_path):
+async def test_unusual_station_callsign_escape_returns_to_settings(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
         await pilot.press("escape")
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "station-callsign-input"
         assert app.focused.value == "W11BC"
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        assert not settings_path.exists()
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_unusual_station_callsign_corrected_in_warning(app, settings_path):
+async def test_unusual_station_callsign_corrected_in_warning(no_call_app, settings_path):
+    app = no_call_app
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
         app.screen.query_one("#callsign-warning-input", Input).value = "W1ÅBC"
@@ -2691,8 +2971,8 @@ async def test_unusual_station_callsign_corrected_in_warning(app, settings_path)
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
-async def test_f2_over_station_callsign_warning_does_not_stack(app):
+async def test_f2_over_station_callsign_warning_does_not_stack(no_call_app):
+    app = no_call_app
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
         await pilot.press("f2")
@@ -2700,25 +2980,22 @@ async def test_f2_over_station_callsign_warning_does_not_stack(app):
         assert sum(isinstance(s, SettingsScreen) for s in app.screen_stack) == 1
 
 
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", "backspace", "escape")
+        await pilot.press("f2", "space", "escape")
         assert not isinstance(app.screen, SettingsScreen)
-        assert station_callsign(app) == "W1TST"
+        assert app.settings == Settings(station_callsign="W1TST")
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_cancel_button_cancels(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", "backspace")
+        await pilot.press("f2", "space")
         await pilot.click("#cancel")
-        assert station_callsign(app) == "W1TST"
+        assert app.settings == Settings(station_callsign="W1TST")
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
-@pytest.mark.usefixtures("settings_after_setup")
 async def test_closing_modal_keeps_entry_in_progress(app):
     async with app.run_test() as pilot:
         await pilot.press(*"14.074", "f2", "escape")
@@ -2790,4 +3067,8 @@ async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_pat
     async with app.run_test():
         assert station_callsign(app) == "W1TST"
         assert len(app.screen_stack) == 1
-    assert settings_path.read_text() == 'station_callsign = "W1TST"\n'
+    assert settings_path.read_text() == (
+        'station_callsign = "W1TST"\n'
+        "new_comment_pota_info = false\n"
+        "edit_comment_pota_info = false\n"
+    )

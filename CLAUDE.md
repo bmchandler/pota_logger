@@ -97,10 +97,16 @@ updated in the same change whenever a rule changes.
 - One station callsign per log (multiple calls, OPERATOR, and multiple
   logbooks are out of scope): `Logbook.load(station_callsign)` refuses a
   row with another call (note `FIX_BY_HAND`, which `f3` checks), so the app's
-  `load_log` waits until a call is set. Settings opens only from the
-  station-callsign block; `SETTINGS_AFTER_SETUP` (False) keeps the
-  button and F2 code for settings to come, and the modal's tests turn it
-  on with the `settings_after_setup` fixture.
+  `load_log` waits until a call is set. Settings shows the call only
+  while none is set (`SettingsScreen(with_callsign)`); after that, F2
+  opens it with just the on/off settings (`SWITCHES` in settings.py, as
+  `SettingCheckbox`, which draws its X only when checked). Tests of the
+  call in the modal use the `no_call_app` fixture, opening Settings with
+  Enter from the block.
+- COMMENT's POTA info: `EntryForm.pota_comment` is the info (`pota_info`)
+  the app last wrote at the start of COMMENT, None while its setting is
+  off for the entry in the form; `update_pota_comment` runs on leaving
+  PARK or ST and on Enter, and `settings_changed` after Settings saves.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: no station callsign set (the app's `require_station_callsign`
   block, which leads to Settings), missing fields, `check_ascii` on every

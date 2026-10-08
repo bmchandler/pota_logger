@@ -1,5 +1,6 @@
 import tomllib
 from collections import Counter
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -325,13 +326,6 @@ class PotaLoggerApp(App):
     # its Theme command would switch away from the POTA theme.
     ENABLE_COMMAND_PALETTE = False
 
-    # Whether Settings (the button and F2) opens once a station callsign
-    # is set. Its only setting is the call, set once: a log holds one call,
-    # so changing it means a new log (archive the files, edit
-    # settings.toml). Until then Settings opens only from the
-    # station-callsign block; kept for settings to come.
-    SETTINGS_AFTER_SETUP = False
-
     # Redeclares Textual's built-in ctrl+q so it shows in the footer.
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
@@ -357,9 +351,10 @@ class PotaLoggerApp(App):
         self.station_callsign_to_fix = ""
         try:
             self.settings = load_settings(settings_path)
-            if self.settings.fixed:
+            if self.settings.fixed and not self.settings.problems:
                 # How the call was written, fixed. If it can't be saved, it's
-                # fixed again at the next start.
+                # fixed again at the next start (as it is while the file has
+                # a problem to fix by hand, which saving would hide).
                 try:
                     save_settings(self.settings, settings_path)
                 except OSError:
@@ -380,9 +375,10 @@ class PotaLoggerApp(App):
         with Horizontal(id="button-bar"):
             yield Static(id="mark-counts")
             # Mouse only, so tabbing through fields can't land on them.
-            settings = Button("Settings", id="settings")
-            settings.display = self.SETTINGS_AFTER_SETUP
-            for button in (settings, Button("Quit", id="quit", variant="warning")):
+            for button in (
+                Button("Settings", id="settings"),
+                Button("Quit", id="quit", variant="warning"),
+            ):
                 button.can_focus = False
                 yield button
         with Horizontal(id="footer-bar"):
@@ -434,6 +430,7 @@ class PotaLoggerApp(App):
         """
         self.log_loaded = True
         entries, problems = self.logbook.load(self.settings.station_callsign)
+        problems += [f"{self.settings_path}: {problem}" for problem in self.settings.problems]
         self.query_one(EntryForm).logged.extend(entries)
         # Saved entries newest first, under any refused rows (in file order,
         # to be seen and fixed); entries typed this session go above them in
@@ -538,8 +535,6 @@ class PotaLoggerApp(App):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action == "step_back":
             return self.selected is not None
-        if action == "open_settings":
-            return self.SETTINGS_AFTER_SETUP
         # Only with the cell cursor, whose column is the one to sort by:
         # shown dimmed while a row is selected.
         if action == "sort":
@@ -933,10 +928,13 @@ class PotaLoggerApp(App):
         self.show_settings()
 
     def show_settings(self) -> None:
-        shown = Settings(
-            station_callsign=self.settings.station_callsign or self.station_callsign_to_fix
+        # The station callsign only while none is set: a log holds one.
+        with_callsign = not self.settings.station_callsign
+        shown = replace(
+            self.settings,
+            station_callsign=self.settings.station_callsign or self.station_callsign_to_fix,
         )
-        self.push_screen(SettingsScreen(shown), self.apply_settings)
+        self.push_screen(SettingsScreen(shown, with_callsign), self.apply_settings)
 
     def require_station_callsign(self) -> None:
         """Block until a station callsign is set: Enter opens Settings, and
@@ -968,6 +966,7 @@ class PotaLoggerApp(App):
             self.station_callsign_to_fix = ""
             save_settings(settings, self.settings_path)
             self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
+            self.query_one(EntryForm).settings_changed()
         if not self.settings.station_callsign:
             self.require_station_callsign()
         elif not self.log_loaded:

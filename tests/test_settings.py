@@ -11,7 +11,11 @@ def test_load_missing_file_returns_defaults(settings_path):
 
 def test_save_creates_data_dir(settings_path):
     save_settings(Settings(station_callsign="W1TST"), settings_path)
-    assert settings_path.read_text() == 'station_callsign = "W1TST"\n'
+    assert settings_path.read_text() == (
+        'station_callsign = "W1TST"\n'
+        "new_comment_pota_info = false\n"
+        "edit_comment_pota_info = false\n"
+    )
 
 
 def test_round_trip(settings_path):
@@ -23,7 +27,38 @@ def test_save_escapes_quotes(settings_path):
     # A call never has these (the settings modal refuses them), but the
     # file stays valid TOML whatever it's given.
     save_settings(Settings(station_callsign='A"B\\C'), settings_path)
-    assert tomllib.loads(settings_path.read_text()) == {"station_callsign": 'A"B\\C'}
+    assert tomllib.loads(settings_path.read_text())["station_callsign"] == 'A"B\\C'
+
+
+def test_switches_round_trip(settings_path):
+    settings = Settings("W1TST", new_comment_pota_info=True, edit_comment_pota_info=True)
+    save_settings(settings, settings_path)
+    assert load_settings(settings_path) == settings
+    save_settings(Settings("W1TST", edit_comment_pota_info=True), settings_path)
+    assert load_settings(settings_path) == Settings("W1TST", edit_comment_pota_info=True)
+
+
+@pytest.mark.parametrize(
+    "value, shown",
+    [('"yes"', "'yes'"), ('"true"', "'true'"), ("1", "1"), ("[]", "[]")],
+)
+def test_switch_not_true_or_false_is_off_with_a_problem(settings_path, value, shown):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(
+        f'station_callsign = "W1TST"\nnew_comment_pota_info = true\nedit_comment_pota_info = {value}\n'
+    )
+    settings = load_settings(settings_path)
+    assert settings == Settings("W1TST", new_comment_pota_info=True)
+    assert settings.problems == [f"edit_comment_pota_info {shown} must be true or false"]
+
+
+def test_missing_switches_are_off(settings_path):
+    # A file from before the switches.
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\n')
+    settings = load_settings(settings_path)
+    assert settings == Settings("W1TST")
+    assert settings.problems == []
 
 
 def test_missing_key_uses_default(settings_path):

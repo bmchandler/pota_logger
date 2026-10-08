@@ -11,12 +11,27 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 SETTINGS_PATH = DATA_DIR / "settings.toml"
 
 
+# Settings' labels in the modal, as dictated.
+NEW_COMMENT_POTA_INFO = "New: Pre-populate COMMENT with POTA info."
+EDIT_COMMENT_POTA_INFO = "Edit: Update COMMENT with POTA info."
+
+# The on/off settings, by their key in the file.
+SWITCHES = ["new_comment_pota_info", "edit_comment_pota_info"]
+
+
 @dataclass
 class Settings:
     station_callsign: str = ""
+    # COMMENT starts as "POTA ", then takes PARK and ST as they're
+    # entered: in a new entry, and in an edited one.
+    new_comment_pota_info: bool = False
+    edit_comment_pota_info: bool = False
     # Whether loading fixed how the file wrote a value, so it's to be
     # saved again. Not a setting, so settings compare without it.
     fixed: bool = field(default=False, compare=False)
+    # What in the file needs fixing by hand, other than the call (those
+    # settings are off meanwhile). Not a setting either.
+    problems: list[str] = field(default_factory=list, compare=False)
 
 
 class StationCallsignError(ValueError):
@@ -36,6 +51,9 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     case (`fixed` says so). The unusual-call warning is for the settings
     modal only, as a call from the file is taken as meant.
 
+    An on/off setting that isn't `true` or `false` is off, with a
+    message in `problems`.
+
     Raises tomllib.TOMLDecodeError if the file has been hand-edited into
     invalid TOML, or StationCallsignError (with a message for the
     operator) if its station callsign is refused.
@@ -54,12 +72,22 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
             callsign = parse_callsign(callsign, "station_callsign")
         except ValueError as error:
             raise StationCallsignError(str(error), text) from None
-    return Settings(station_callsign=callsign, fixed=callsign != text)
+    switches = {}
+    problems = []
+    for key in SWITCHES:
+        value = data.get(key, False)
+        if isinstance(value, bool):
+            switches[key] = value
+        else:
+            problems.append(f"{key} {value!r} must be true or false")
+    return Settings(
+        station_callsign=callsign, **switches, fixed=callsign != text, problems=problems
+    )
 
 
 def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     # JSON string escaping is valid for TOML basic strings.
-    path.write_text(
-        f"station_callsign = {json.dumps(settings.station_callsign, ensure_ascii=False)}\n"
-    )
+    lines = [f"station_callsign = {json.dumps(settings.station_callsign, ensure_ascii=False)}"]
+    lines += [f"{key} = {json.dumps(getattr(settings, key))}" for key in SWITCHES]
+    path.write_text("".join(f"{line}\n" for line in lines))

@@ -127,6 +127,38 @@ WARNINGS = [
 ]
 
 
+# COMMENT's POTA info with no valid PARK yet, as the app writes it: a
+# space to type on after.
+POTA_START = "POTA "
+
+
+def pota_info(park_text: str, state_text: str) -> str:
+    """COMMENT's POTA info from what's typed in PARK and ST: `POTA US-1234
+    NJ`, `POTA US-1234` with no valid ST, or `POTA` until PARK is valid
+    (an ST alone waits for it).
+    """
+    try:
+        check_ascii("PARK", park_text)
+        park = parse_park(park_text)
+    except ValueError:
+        return POTA_START.rstrip()
+    try:
+        check_ascii("ST", state_text)
+        state = parse_state(state_text)
+    except ValueError:
+        state = ""
+    return f"POTA {park} {state}".rstrip()
+
+
+def starts_with_info(comment: str, info: str, bare: bool = False) -> bool:
+    """Whether COMMENT starts with POTA info `info` as a whole word, or
+    is just that if `bare`.
+    """
+    if bare or comment.rstrip() == info:
+        return comment.rstrip() == info
+    return comment.startswith(info + " ")
+
+
 def labeled_input(name: str, placeholder: str, max_length: int) -> Vertical:
     factory = DEFAULT_FACTORIES.get(name)
     field = Input(
@@ -235,6 +267,16 @@ class EntryForm(Vertical):
         self.editing: dict | None = None
         self.put_aside: dict[str, str] = {}
         self.last_field: Input | None = None
+        # The POTA info (pota_info) the app last wrote at the start of
+        # COMMENT, to rewrite as PARK and ST change; None while the
+        # setting for the entry in the form is off. Put aside, like the
+        # fields, while an entry is shown.
+        self.pota_comment: str | None = None
+        self.put_aside_pota_comment: str | None = None
+
+    def on_mount(self) -> None:
+        if self.app.settings.new_comment_pota_info:
+            self.start_pota_comment()
 
     def watch_show_horizontal_scrollbar(self, show: bool) -> None:
         self.set_class(show, "-scrolling")
@@ -255,6 +297,61 @@ class EntryForm(Vertical):
     def on_input_blurred(self, event: Input.Blurred) -> None:
         if event.input.id == "field-mode":
             self.show_report_placeholders()
+        if event.input.id in ("field-park", "field-st"):
+            self.update_pota_comment()
+
+    def start_pota_comment(self) -> None:
+        """Start a new entry's COMMENT with its POTA info."""
+        self.field("COMMENT").value = POTA_START
+        self.pota_comment = POTA_START.rstrip()
+        self.update_pota_comment()
+
+    def update_pota_comment(self) -> None:
+        """Rewrite the POTA info at the start of COMMENT for PARK and ST as
+        they are, keeping what follows it. Not once that info is changed
+        by hand (or typed after a bare POTA, unless it's what PARK and ST
+        give), nor if the result wouldn't fit.
+        """
+        if self.pota_comment is None:
+            return
+        comment = self.field("COMMENT")
+        old = self.pota_comment
+        new = pota_info(self.field("PARK").value, self.field("ST").value)
+        # Typed in already. The longer info is checked first: one can start
+        # the other (POTA US-1234 and POTA US-1234 NJ).
+        typed_in = starts_with_info(comment.value, new)
+        if typed_in and len(new) > len(old):
+            self.pota_comment = new
+            return
+        if not starts_with_info(comment.value, old, bare=old == POTA_START.rstrip()):
+            if typed_in:
+                self.pota_comment = new
+            return
+        rest = comment.value[len(old) :]
+        value = new + rest if rest.strip() else new
+        if value == POTA_START.rstrip():
+            value = POTA_START
+        if len(value) > COMMENT_LENGTH:
+            return
+        comment.value = value
+        self.pota_comment = new
+
+    def settings_changed(self) -> None:
+        """Start or stop a new entry's POTA info in COMMENT, as its setting
+        is turned on (COMMENT still blank) or off (COMMENT still just the
+        app's). An entry shown or edited meanwhile keeps its COMMENT, and
+        the edit setting applies from the next edit.
+        """
+        if self.shown is not None:
+            return
+        on = self.app.settings.new_comment_pota_info
+        comment = self.field("COMMENT")
+        if on and self.pota_comment is None and not comment.value.strip():
+            self.start_pota_comment()
+        elif not on and self.pota_comment is not None:
+            if comment.value.strip() == self.pota_comment:
+                comment.value = ""
+            self.pota_comment = None
 
     def show_report_placeholders(self) -> None:
         """Hint 599 in SNT and RCD while MODE is CW, 59 otherwise. While an
@@ -290,6 +387,8 @@ class EntryForm(Vertical):
         """
         if self.shown is None:
             self.put_aside = {name: self.field(name).value for name, _, _ in FIELDS}
+            self.put_aside_pota_comment = self.pota_comment
+        self.pota_comment = None
         self.shown = entry
         for name, _, _ in FIELDS:
             if texts is None:
@@ -315,6 +414,10 @@ class EntryForm(Vertical):
         for name, _, _ in FIELDS:
             self.field(name).disabled = False
         self.show_report_placeholders()
+        # An edited entry's COMMENT is updated only if it starts with the
+        # POTA info its PARK and ST give.
+        if self.app.settings.edit_comment_pota_info:
+            self.pota_comment = pota_info(self.field("PARK").value, self.field("ST").value)
         self.border_title = EDITING_TITLE
         self.add_class("-editing")
         self.field("FREQ").focus()
@@ -340,6 +443,7 @@ class EntryForm(Vertical):
         self.shown = None
         for name, value in self.put_aside.items():
             self.field(name).value = value
+        self.pota_comment = self.put_aside_pota_comment
         for name, _, _ in FIELDS:
             self.field(name).disabled = False
         self.show_problems([])
@@ -356,6 +460,8 @@ class EntryForm(Vertical):
         if not self.app.settings.station_callsign:
             self.app.require_station_callsign()
             return
+        # Enter in PARK or ST doesn't leave it.
+        self.update_pota_comment()
         values = self.values()
         missing = [name for name, value in values.items() if not value and name not in OPTIONAL]
         if missing:
@@ -457,5 +563,8 @@ class EntryForm(Vertical):
         for name, _, _ in FIELDS:
             if name not in CARRY_FORWARD:
                 self.field(name).value = DEFAULTS.get(name, "")
+        self.pota_comment = None
+        if self.app.settings.new_comment_pota_info:
+            self.start_pota_comment()
         self.show_report_placeholders()
         self.field("FREQ").focus()

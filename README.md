@@ -97,6 +97,14 @@ logged contact, edit that record's COMMENT.
   one call: a row with another call is refused, to fix by hand. When your
   call changes, start a new log: move the old log files out of `data/`,
   then set the new call in `data/settings.toml`.
+- **F2** (or the Settings button) opens Settings, with two checkboxes, both
+  off at first:
+  - `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
+    starts as `POTA `, and becomes `POTA US-1234 NJ` (or `POTA US-1234`
+    with no state) as you leave PARK and ST. Anything you type after that
+    is kept when PARK or ST change.
+  - `Edit: Update COMMENT with POTA info.`: editing a record updates the
+    same info, if its COMMENT starts with it.
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 
