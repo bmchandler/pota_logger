@@ -73,7 +73,8 @@ fields); the Sort action, `f5` or a header click (see Log view); COMMENT's
 POTA info, two settings in a Settings modal now open after setup (see
 COMMENT's POTA info); the form's
 fields in entry order, apart from the log's paper-log order (see Entry
-fields). The visual layout is settled; wording tweaks
+fields); Tab between a modal's two buttons (see Entry behavior); an
+unchanged edit saving nothing and left unmarked (see Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
 To do: nothing beyond ADIF export (see below). Known issues

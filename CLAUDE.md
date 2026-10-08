@@ -109,9 +109,10 @@ updated in the same change whenever a rule changes.
   PARK or ST and on Enter, and `settings_changed` after Settings saves.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: no station callsign set (the app's `require_station_callsign`
-  block, which leads to Settings), missing fields, `check_ascii` on every
-  field (with `ASCII_EXAMPLES`), `PARSERS`, `REPORTS`, `check_sideband`,
-  `blocked_as_dupe`, the unusual-CALL modal (then `blocked_as_dupe` again,
+  block, which leads to Settings), `update_pota_comment` (not a check),
+  missing fields, `check_ascii` on every field (with `ASCII_EXAMPLES`),
+  `PARSERS` (in entry order), `REPORTS`, `check_sideband`,
+  `unchanged_edit` (steps back, saving nothing), `blocked_as_dupe`, the unusual-CALL modal (then `blocked_as_dupe` again,
   as the call may change there), then each of `WARNINGS` in order. The
   dupe block's modal closes back to the form as typed, new or edit.
 - logbook.py holds the CSV storage, `Logbook` (`app.logbook`): `load`

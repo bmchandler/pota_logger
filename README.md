@@ -47,6 +47,8 @@ The app sorts mistakes into two kinds:
   unusual callsign, a voice signal outside the voice range, a state on a
   non-US park, or a time in the future. Enter saves anyway; Esc goes back to
   fix it. A real but odd contact copied from paper can always be saved.
+  Tab moves between a modal's Back and Confirm buttons, and Enter then
+  presses the one highlighted.
 
 ### Dupes
 
@@ -81,7 +83,8 @@ logged contact, edit that record's COMMENT.
 - Double-click a row, or Tab into the log and press Enter, to select it. The
   form shows it read-only.
 - **F3** edits the selected record in the form. Enter saves it, through the
-  same checks as a new entry.
+  same checks as a new entry. If nothing changed, Enter just steps back, as
+  Esc does, and the record isn't marked edited.
 - **F4** deletes it, after a confirmation that takes Enter twice. There is no
   undo.
 - **Esc** steps back: from editing to selected, then to nothing selected,
