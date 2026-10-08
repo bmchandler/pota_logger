@@ -1891,6 +1891,53 @@ async def test_cancelled_edit_leaves_no_mark(app, settings_path):
         assert table_markers(app) == ["", ""]
 
 
+async def test_unchanged_edit_saves_nothing_and_leaves_no_mark(app, settings_path):
+    path = write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        # The same values, typed another way.
+        fill(app, {"FREQ": "7.03", "PWR": ".5", "PARK": "5678", "MODE": "cw"})
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert app.query_one(EntryForm).editing is None
+        assert app.selected["CALL"] == "K1BBB"
+        assert app.focused.id == "log-table"
+        assert table_markers(app) == ["", ""]
+        assert not app._notifications
+    assert path.read_text() == LOG_HEADER + K1AAA_ROW + K1BBB_ROW
+
+
+async def test_unchanged_edit_skips_the_warnings(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | FUTURE)
+        await pilot.press("enter", "enter")
+        await edit_row(app, pilot, 0)
+        await pilot.press("enter")
+        assert not isinstance(app.screen, WarningScreen)
+        assert app.query_one(EntryForm).editing is None
+        assert table_markers(app) == ["•"]
+
+
+async def test_unchanged_edit_after_a_change_stays_marked_once(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        fill(app, {"COMMENT": "QSB"})
+        await pilot.press("enter", "f3", "enter")
+        assert table_markers(app) == ["", "✎"]
+        assert len(app.edited_entries) == 1
+
+
+async def test_bad_field_in_an_edit_is_refused_before_the_unchanged_check(app, settings_path):
+    write_two_saved(settings_path)
+    async with app.run_test() as pilot:
+        await edit_row(app, pilot, 1)
+        fill(app, {"TIME": "2500"})
+        await pilot.press("enter")
+        assert app.query_one(EntryForm).editing is not None
+        assert app.focused.id == "field-time"
+
+
 async def test_edit_keeps_a_comment_longer_than_the_field_takes(app, settings_path):
     comment = "x" * (COMMENT_LENGTH + 20)
     path = write_two_saved(settings_path)

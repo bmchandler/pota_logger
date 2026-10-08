@@ -153,7 +153,9 @@ updated in the same change whenever a rule changes.
   the `-selected` class, and calls `EntryForm.show(entry)` (fields
   disabled, what the form held put aside); `RowHighlighted` moves the
   selection, or snaps back to the edited row while editing. `f3` calls
-  `EntryForm.edit()`; Enter runs the usual checks, then `submit` posts
+  `EntryForm.edit()`; Enter runs the usual checks (an edit that reads
+  the same, `unchanged_edit`, stops after the field checks and steps
+  back as Esc does), then `submit` posts
   `Edited(old, new)` instead of `Submitted`, and the app's
   `on_entry_form_edited` saves it with `Logbook.replace`, then calls
   `finish_edit(new)`. Esc (`action_step_back`) goes from editing to

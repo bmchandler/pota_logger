@@ -417,8 +417,13 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   if another row is clicked. The log still scrolls with the mouse wheel,
   to read other entries.
 - Enter saves the change through every check and warning a new entry
-  gets, changed fields or not, except that the entry isn't checked
-  against itself (an unchanged entry is no dupe).
+  gets, except that the entry isn't checked against itself (an
+  unchanged entry is no dupe). If, once each field reads (so `7.03` is
+  `7.030.000`), nothing changed, Enter just goes back to the row
+  selected, as Esc does (decided 2026-10-08): no dupe block or warning,
+  nothing written, and no `✎` mark (one already there stays). A field
+  that doesn't read is still refused first. A refused row (`!`) always
+  saves, changed or not, as saving is what fixes it.
 - Esc steps back one level at a time: from editing to the row still
   selected (changes dropped, no prompt; focus back in the log), then to
   no row selected, with the form's entry put aside back, and focus on the

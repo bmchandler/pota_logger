@@ -496,6 +496,11 @@ class EntryForm(Vertical):
             self.notify(str(error), severity="warning")
             self.field("MODE").focus()
             return
+        if self.unchanged_edit(values | parsed):
+            # Nothing to save, check, or mark edited: back to the entry
+            # selected, as Esc goes.
+            self.app.action_step_back()
+            return
         if self.blocked_as_dupe(values | parsed):
             return
         if not is_usual_callsign(parsed["CALL"]):
@@ -505,6 +510,15 @@ class EntryForm(Vertical):
             )
             return
         self.check_warnings(values | parsed, WARNINGS)
+
+    def unchanged_edit(self, values: dict) -> bool:
+        """Whether an edit leaves the entry as it was: every field reads
+        the same (14.0745 is 14.074.500). Not for a refused row, which
+        saving fixes.
+        """
+        if self.editing is None or self.app.logbook.is_refused(self.editing):
+            return False
+        return all(values[name] == self.editing[name] for name, _, _ in FIELDS)
 
     def confirm_unusual_call(self, values: dict, call: str | None) -> None:
         if call is None:
