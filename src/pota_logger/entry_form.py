@@ -407,24 +407,11 @@ class EntryForm(Vertical):
         typed.
         """
         logged = [entry for entry in self.logged if entry is not self.editing]
-        if not is_dupe(values | {"STATION_CALLSIGN": self.station_callsign()}, logged):
+        if not is_dupe(values | {"STATION_CALLSIGN": self.app.settings.station_callsign}, logged):
             return False
         message = NEW_DUPE_MESSAGE if self.editing is None else EDIT_DUPE_MESSAGE
         self.app.push_screen(WarningScreen(message, confirm_label=DUPE_BUTTON, back_button=False))
         return True
-
-    def station_callsign(self) -> str:
-        """The STATION_CALLSIGN an entry is saved with: an edited one keeps
-        its own (a refused row's as it reads, e.g. w1tst as W1TST), a new
-        one gets Settings'.
-        """
-        if self.editing is None:
-            return self.app.settings.station_callsign
-        text = self.editing["STATION_CALLSIGN"]
-        try:
-            return parse_callsign(text, "STATION_CALLSIGN")
-        except ValueError:
-            return text
 
     def check_warnings(self, values: dict, warnings: list) -> None:
         # An edited entry isn't checked against itself, e.g. as a dupe.
@@ -445,17 +432,14 @@ class EntryForm(Vertical):
         self.submit(values)
 
     def submit(self, values: dict) -> None:
+        # A log holds one call, the station callsign (a refused row's is it,
+        # perhaps in another case, or it can't be edited).
+        values = values | {"STATION_CALLSIGN": self.app.settings.station_callsign}
         if self.editing is not None:
-            # An edited entry keeps the station callsign it was logged with,
-            # and its record ID.
-            kept = {name: self.editing[name] for name in ("STATION_CALLSIGN", "UUIDv4")}
-            self.post_message(self.Edited(self.editing, values | kept))
+            # An edited entry keeps its record ID.
+            self.post_message(self.Edited(self.editing, values | {"UUIDv4": self.editing["UUIDv4"]}))
             return
-        values = values | {
-            "STATION_CALLSIGN": self.app.settings.station_callsign,
-            "UUIDv4": new_id(),
-        }
-        self.post_message(self.Submitted(values))
+        self.post_message(self.Submitted(values | {"UUIDv4": new_id()}))
 
     def entry_saved(self, values: dict) -> None:
         self.logged.append(values)

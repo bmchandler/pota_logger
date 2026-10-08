@@ -32,12 +32,13 @@ async def test_uses_pota_theme(app):
         assert app.theme == "pota"
 
 
-async def test_footer_shows_quit_settings_edit_delete_and_screenshot(app):
+def footer_keys(app) -> list[str]:
+    return [key for key, active in app.screen.active_bindings.items() if active.binding.show]
+
+
+async def test_footer_shows_quit_edit_delete_and_screenshot(app):
     async with app.run_test():
-        shown = [
-            key for key, active in app.screen.active_bindings.items() if active.binding.show
-        ]
-        assert shown == ["ctrl+q", "f2", "f3", "f4", "ctrl+s"]
+        assert footer_keys(app) == ["ctrl+q", "f3", "f4", "ctrl+s"]
 
 
 async def test_footer_shows_terminal_size_and_follows_resize(app):
@@ -237,7 +238,7 @@ def table_rows(app) -> list[list[str]]:
 
 
 def mark_counts(app) -> list[str]:
-    """The lines counting marked rows, beside the Settings button."""
+    """The lines counting marked rows, beside the Quit button."""
     text = str(app.query_one("#mark-counts", Static).render())
     return text.splitlines()
 
@@ -1486,6 +1487,7 @@ async def test_log_fitted_to_a_new_width_keeps_the_selected_row(app, settings_pa
         assert field_values(app)["CALL"] == "K1BBB"
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_log_fitted_after_a_resize_under_a_modal(app):
     async with app.run_test(size=(107, 24)) as pilot:
         await pilot.press("f2")
@@ -1822,7 +1824,7 @@ async def test_mark_counts_follow_the_log_until_none_are_left(app, settings_path
 
 async def test_refused_rows_are_counted_beside_the_buttons(app, settings_path):
     write_refused(settings_path, REFUSED_ROW + REFUSED_ROW.replace("K1BBB", "K2CCC"))
-    async with app.run_test(size=(60, 24)) as pilot:
+    async with app.run_test(size=(36, 24)) as pilot:
         assert mark_counts(app) == ["! 2 refused"]
         # The long form once it fits.
         await pilot.resize_terminal(80, 24)
@@ -1901,6 +1903,38 @@ async def test_refused_rows_station_callsign_is_stored_as_read(app, settings_pat
     assert path.read_text() == LOG_HEADER + K1BBB_ROW
 
 
+async def test_refused_rows_other_station_callsign_cant_be_fixed_in_app(app, settings_path):
+    write_refused(settings_path, K1BBB_ROW.replace("W1TST", "W1XYZ"))
+    async with app.run_test() as pilot:
+        await select_row(app, pilot, 0)
+        assert problem_lines(app) == [
+            "Refused from 20260925.csv row 2:",
+            "- STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign, W1TST. "
+            "Manually correct CSV log file.",
+        ]
+        await pilot.press("f3")
+        assert app.query_one(EntryForm).editing is None
+        assert list(app._notifications)[-1].message == (
+            "STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign, W1TST. "
+            "Manually correct CSV log file."
+        )
+
+
+async def test_log_loads_once_a_station_callsign_is_set(settings_path):
+    write_refused(settings_path, K1BBB_ROW.replace("W1TST", "W1XYZ"))
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        assert app.screen.id == "station-callsign-required"
+        assert table_calls(app) == []
+        await pilot.press("enter")
+        app.screen.query_one("#station-callsign-input", Input).value = "W1TST"
+        await pilot.press("enter")
+        assert len(app.screen_stack) == 1
+        # Checked against the call just set.
+        assert table_calls(app) == ["K1BBB", "K1AAA"]
+        assert table_markers(app) == ["!", ""]
+
+
 async def test_refused_rows_unreadable_station_callsign_cant_be_fixed_in_app(
     app, settings_path
 ):
@@ -1909,8 +1943,8 @@ async def test_refused_rows_unreadable_station_callsign_cant_be_fixed_in_app(
         await edit_row(app, pilot, 0)
         assert app.query_one(EntryForm).editing is None
         assert list(app._notifications)[-1].message == (
-            "STATION_CALLSIGN '123' doesn't look like a callsign, like W1ABC. That can't "
-            "be fixed in the app: fix it by hand, or delete the record."
+            "STATION_CALLSIGN '123' doesn't look like a callsign, like W1ABC. "
+            "Manually correct CSV log file."
         )
 
 
@@ -2234,6 +2268,14 @@ async def test_buttons_not_focusable(app):
 # Settings
 
 
+@pytest.fixture
+def settings_after_setup(app):
+    """Settings opening once a call is set, as kept for settings to come
+    (SETTINGS_AFTER_SETUP), so the modal's own tests still run.
+    """
+    app.SETTINGS_AFTER_SETUP = True
+
+
 def required_message(app) -> str:
     return str(app.screen.query_one("#warning-message", Static).render())
 
@@ -2301,6 +2343,21 @@ async def test_loads_saved_callsign(app):
         assert station_callsign(app) == "W1TST"
 
 
+async def test_settings_closed_once_a_call_is_set(app):
+    async with app.run_test() as pilot:
+        assert not app.query_one("#settings").display
+        await pilot.press("f2")
+        assert len(app.screen_stack) == 1
+
+
+@pytest.mark.usefixtures("settings_after_setup")
+async def test_footer_shows_settings_when_kept_open_after_setup(app):
+    async with app.run_test():
+        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "ctrl+s"]
+        assert app.query_one("#settings").display
+
+
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_settings_button_opens_modal(app):
     async with app.run_test() as pilot:
         await pilot.click("#settings")
@@ -2308,24 +2365,28 @@ async def test_settings_button_opens_modal(app):
         assert app.focused.id == "station-callsign-input"
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_f2_opens_modal_from_field(app):
     async with app.run_test() as pilot:
         await pilot.press("f2")
         assert isinstance(app.screen, SettingsScreen)
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_f2_does_not_stack_modals(app):
     async with app.run_test() as pilot:
         await pilot.press("f2", "f2")
         assert len(app.screen_stack) == 2
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_settings_shows_the_current_call(app):
     async with app.run_test() as pilot:
         await pilot.press("f2")
         assert app.focused.value == "W1TST"
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_save_uppercases_updates_status_and_file(app, settings_path):
     async with app.run_test() as pilot:
         # Typing replaces the call, selected on opening.
@@ -2335,6 +2396,7 @@ async def test_save_uppercases_updates_status_and_file(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_save_button_saves(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2")
@@ -2343,6 +2405,7 @@ async def test_save_button_saves(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_invalid_station_callsign_is_refused(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", *"w1tst/", "enter")
@@ -2362,6 +2425,7 @@ def settings_problem(app) -> str | None:
     return str(shown.render()) if shown.has_class("-shown") else None
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_settings_open_with_no_problem_shown(app):
     async with app.run_test() as pilot:
         await pilot.press("f2")
@@ -2382,6 +2446,7 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_cleared_station_callsign_saves_and_asks_for_one(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2")
@@ -2400,6 +2465,7 @@ async def open_settings_with(app, pilot, call: str) -> None:
     await pilot.press("enter")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_unusual_station_callsign_warns_and_enter_saves(app, settings_path):
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "w111111ab")
@@ -2412,6 +2478,7 @@ async def test_unusual_station_callsign_warns_and_enter_saves(app, settings_path
         assert load_settings(settings_path) == Settings(station_callsign="W111111AB")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_unusual_station_callsign_escape_returns_to_settings(app, settings_path):
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
@@ -2422,6 +2489,7 @@ async def test_unusual_station_callsign_escape_returns_to_settings(app, settings
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_unusual_station_callsign_corrected_in_warning(app, settings_path):
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
@@ -2436,6 +2504,7 @@ async def test_unusual_station_callsign_corrected_in_warning(app, settings_path)
         assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_f2_over_station_callsign_warning_does_not_stack(app):
     async with app.run_test() as pilot:
         await open_settings_with(app, pilot, "W11BC")
@@ -2444,6 +2513,7 @@ async def test_f2_over_station_callsign_warning_does_not_stack(app):
         assert sum(isinstance(s, SettingsScreen) for s in app.screen_stack) == 1
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", "backspace", "escape")
@@ -2452,6 +2522,7 @@ async def test_escape_cancels_without_saving(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_cancel_button_cancels(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", "backspace")
@@ -2460,6 +2531,7 @@ async def test_cancel_button_cancels(app, settings_path):
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
 
+@pytest.mark.usefixtures("settings_after_setup")
 async def test_closing_modal_keeps_entry_in_progress(app):
     async with app.run_test() as pilot:
         await pilot.press(*"14.074", "f2", "escape")

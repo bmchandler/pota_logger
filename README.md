@@ -83,9 +83,11 @@ logged contact, edit that record's COMMENT.
 
 ### Settings and keys
 
-- **F2** opens Settings, which holds your station callsign. No entry can be
-  saved until one is set, and every record stores the station callsign it
-  was logged with.
+- At first start, Settings opens to set your station callsign. No entry
+  can be saved until one is set, and every record stores it. A log holds
+  one call: a row with another call is refused, to fix by hand. When your
+  call changes, start a new log: move the old log files out of `data/`,
+  then set the new call in `data/settings.toml`.
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 

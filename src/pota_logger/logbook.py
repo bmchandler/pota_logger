@@ -110,9 +110,9 @@ class Problem(NamedTuple):
     note: str = ""
 
 
-# Said of a STATION_CALLSIGN that doesn't read, as it has no field in the
-# entry form.
-FIX_BY_HAND = "It can't be fixed in the app: fix it by hand, or delete the record."
+# Said of a STATION_CALLSIGN that doesn't read, or isn't the station
+# callsign, as it has no field in the entry form.
+FIX_BY_HAND = "Manually correct CSV log file."
 
 # How saving fixes a problem in a column with no field in the entry form.
 NO_FIELD_NOTES = {
@@ -259,12 +259,13 @@ class Logbook:
             writes = [(path, bom, lines[:start] + [replacement] + lines[end:])]
         self.write(writes)
 
-    def load(self) -> tuple[list[dict], list[str]]:
+    def load(self, station_callsign: str) -> tuple[list[dict], list[str]]:
         """Every entry in the log files, oldest file first, and a message
         for each row (or file) that couldn't be read, naming the file and
-        row. Rows that can't be read are kept in the app's copy of the
-        file; those that still split into COLUMNS go in `refused`, the
-        rest are skipped. A blank ID (a row added by hand) is filled in
+        row. Every row must hold `station_callsign`, the one call the log
+        is kept under. Rows that can't be read are kept in the app's copy
+        of the file; those that still split into COLUMNS go in `refused`,
+        the rest are skipped. A blank ID (a row added by hand) is filled in
         with a new one and the file rewritten, the one change the app
         makes to a file on its own; a file that can't be written goes in
         `unsaved_ids`.
@@ -299,7 +300,7 @@ class Logbook:
                     lines[last] = with_id(lines[last], row[-1])
                     filled = True
                 try:
-                    values, row_problems = check_row(row, path.stem)
+                    values, row_problems = check_row(row, path.stem, station_callsign)
                 except ValueError as error:
                     problems.append(f"{path} row {reader.line_num}: {error}")
                     continue
@@ -385,10 +386,13 @@ def stored_form_problem(name: str, text: str, stored: str) -> str:
     return f"{name} {text!r} should be {stored!r} in a log file"
 
 
-def check_row(row: list[str], file_date: str) -> tuple[dict, list[Problem]]:
+def check_row(
+    row: list[str], file_date: str, station_callsign: str
+) -> tuple[dict, list[Problem]]:
     """An entry from its CSV row in the file for `file_date` (YYYYMMDD),
     checked against the entry form's rules that refuse a value, and held
-    to exactly what the app writes, with every problem found. Each column
+    to exactly what the app writes, with every problem found. Its
+    STATION_CALLSIGN must be `station_callsign`: a log holds one call. Each column
     is checked on its own; a check that depends on another column (SNT and
     RCD on MODE, the sideband on FREQ and MODE, the file on DATE) is left
     out while that column is at fault. Warnings aren't checked: a saved
@@ -419,6 +423,19 @@ def check_row(row: list[str], file_date: str) -> tuple[dict, list[Problem]]:
                 values[name] = text
         except ValueError as error:
             problems.append(Problem(name, str(error), NO_FIELD_NOTES.get(name, "")))
+    # Another call means a record from another log (multiple calls are out
+    # of scope), so it isn't changed in the app. One only in another case
+    # reads as this call, a stored-form problem below.
+    if values.get("STATION_CALLSIGN", station_callsign) != station_callsign:
+        text = texts["STATION_CALLSIGN"]
+        problems.append(
+            Problem(
+                "STATION_CALLSIGN",
+                f"STATION_CALLSIGN {text!r} doesn't match the station callsign, {station_callsign}",
+                FIX_BY_HAND,
+            )
+        )
+        del values["STATION_CALLSIGN"]
     for name in COLUMNS:
         if name in values:
             stored = stored_text(name, values[name])

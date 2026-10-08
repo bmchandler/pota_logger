@@ -91,6 +91,13 @@ updated in the same change whenever a rule changes.
   entry and the entries logged so far (`EntryForm.logged`). The unusual-CALL
   warning has its own modal (callsign_warning_screen.py) so the call can
   be edited there; the settings modal uses it for the station callsign.
+- One station callsign per log (multiple calls, OPERATOR, and multiple
+  logbooks are out of scope): `Logbook.load(station_callsign)` refuses a
+  row with another call (note `FIX_BY_HAND`, which `f3` checks), so the app's
+  `load_log` waits until a call is set. Settings opens only from the
+  station-callsign block; `SETTINGS_AFTER_SETUP` (False) keeps the
+  button and F2 code for settings to come, and the modal's tests turn it
+  on with the `settings_after_setup` fixture.
 - On Enter, `EntryForm.on_input_submitted` runs, stopping at the first
   problem: no station callsign set (the app's `require_station_callsign`
   block, which leads to Settings), missing fields, `check_ascii` on every
@@ -123,7 +130,7 @@ updated in the same change whenever a rule changes.
   COMMENT; saved definite dupes likewise get `DUPE_MARKER` (`=`), listed
   after any shared IDs in the app's `repeat_lines` (marks: `!`, `U`, `=`,
   `✎`). `show_log` counts the `!`, `U`, and `=` marks into
-  `#mark-counts`, beside the Settings button (`MARK_COUNTS`,
+  `#mark-counts`, beside the Quit button (`MARK_COUNTS`,
   `mark_count_lines`; tests' `mark_counts` reads it), long or short to
   fit its width (also refit in `fit_log`). Test rows need distinct IDs
   (`new_id()`), or the `2` mark shows. The app keeps log files

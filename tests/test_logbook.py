@@ -37,7 +37,7 @@ def log_dir(tmp_path):
 
 def loaded(log_dir) -> Logbook:
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     return book
 
 
@@ -47,7 +47,7 @@ def load_entries(log_dir):
     skipped or kept in `refused` to fix in the app.
     """
     book = Logbook(log_dir)
-    entries, problems = book.load()
+    entries, problems = book.load("W1TST")
     refused = [
         f"{found.path} row {found.line}: {problem.message}"
         for found in book.refused
@@ -190,6 +190,9 @@ def test_blank_lines_are_skipped(log_dir):
         (ROW.replace(",,W1TST", ",Café,W1TST"), "COMMENT 'Café' has non-ASCII characters: 'é'."),
         (ROW.replace(",W1TST", ",W1"), "STATION_CALLSIGN 'W1' doesn't look like a callsign, like W1ABC"),
         (ROW.replace(",W1TST", ","), "Missing: STATION_CALLSIGN"),
+        # One call per log: the station callsign, in any case.
+        (ROW.replace(",W1TST", ",W1XYZ"), "STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign, W1TST"),
+        (ROW.replace(",W1TST", ",w1xyz"), "STATION_CALLSIGN 'w1xyz' doesn't match the station callsign, W1TST"),
         # Held to exactly what the app writes: no spaces around a value.
         (ROW.replace(",W1ABC,", ", W1ABC,"), "CALL ' W1ABC' should have no spaces around it, like W1ABC"),
         (ROW.replace(",,W1TST", ",Nice signal ,W1TST"), "COMMENT 'Nice signal ' should have no spaces around it, like Nice signal"),
@@ -439,7 +442,7 @@ def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
     refused = ROW.replace(",USB,", ",usb,")
     write_log(log_dir, "20260925.csv", HEADER + refused + ROW.replace(",", ";"))
     book = Logbook(log_dir)
-    entries, problems = book.load()
+    entries, problems = book.load("W1TST")
     assert entries == []
     path = log_dir / "20260925.csv"
     assert book.refused == [
@@ -457,7 +460,7 @@ def test_refused_row_that_splits_into_columns_is_kept_as_text(log_dir):
 def test_refused_row_can_be_fixed(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",USB,", ",usb,") + OTHER_ROW)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     row = book.refused[0][0]
     assert book.is_refused(row)
     book.replace(row, SAVED)
@@ -468,7 +471,7 @@ def test_refused_row_in_the_wrong_dates_file_moves_when_fixed(log_dir):
     # DATE 20260924 in 20260925.csv: fixed as is, it goes to its DATE's file.
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace("20260925", "20260924") + OTHER_ROW)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     book.replace(book.refused[0][0], SAVED | {"DATE": date(2026, 9, 24)})
     assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
     assert (log_dir / "20260924.csv").read_text() == (
@@ -479,7 +482,7 @@ def test_refused_row_in_the_wrong_dates_file_moves_when_fixed(log_dir):
 def test_refused_row_can_be_deleted(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",1953,", ",53,") + OTHER_ROW)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     book.delete(book.refused[0][0])
     assert (log_dir / "20260925.csv").read_text() == HEADER + OTHER_ROW
 
@@ -514,7 +517,7 @@ def test_every_problem_in_a_row_is_found(log_dir):
     row = f"7030000,usb,W1ABC,1234,NJ,599,59,lots,20260924,53,,w1tst,{ID}\n"
     write_log(log_dir, "20260925.csv", HEADER + row)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert book.refused[0].problems == [
         # usb reads as USB, so SNT is checked against it.
         Problem("SNT", "SNT '599' needs MODE CW for a 3-digit report"),
@@ -540,12 +543,26 @@ def test_every_problem_in_a_row_is_found(log_dir):
 def test_unreadable_station_callsign_is_to_fix_by_hand(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",W1TST", ",123"))
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert book.refused[0].problems == [
         Problem(
             "STATION_CALLSIGN",
             "STATION_CALLSIGN '123' doesn't look like a callsign, like W1ABC",
-            "It can't be fixed in the app: fix it by hand, or delete the record.",
+            "Manually correct CSV log file.",
+        )
+    ]
+
+
+def test_other_station_callsign_is_to_fix_by_hand(log_dir):
+    # Not also listed as lowercase: it's another call either way.
+    write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",W1TST", ",w1xyz"))
+    book = Logbook(log_dir)
+    book.load("W1TST")
+    assert book.refused[0].problems == [
+        Problem(
+            "STATION_CALLSIGN",
+            "STATION_CALLSIGN 'w1xyz' doesn't match the station callsign, W1TST",
+            "Manually correct CSV log file.",
         )
     ]
 
@@ -553,7 +570,7 @@ def test_unreadable_station_callsign_is_to_fix_by_hand(log_dir):
 def test_reports_arent_checked_against_a_mode_at_fault(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",USB,", ",FT8,"))
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert [problem.field for problem in book.refused[0].problems] == ["MODE"]
 
 
@@ -581,14 +598,14 @@ def test_reports_arent_checked_against_a_mode_at_fault(log_dir):
 def test_problem_the_form_would_take_as_shown_notes_how_saving_fixes_it(log_dir, row, problem):
     write_log(log_dir, "20260925.csv", HEADER + row)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert book.refused[0].problems == [problem]
 
 
 def test_problem_the_form_wouldnt_take_has_no_note(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(",1953,", ",53,"))
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert book.refused[0].problems == [Problem("TIME", "TIME '53' should be HHMM, like 2123")]
 
 
@@ -607,14 +624,14 @@ V1_ID = "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
 def test_bad_id_is_refused_and_saving_gives_a_new_one(log_dir, text, message):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, text))
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     assert book.refused[0].problems == [Problem("UUIDv4", message, "Saving gives it a new one.")]
 
 
 def test_uppercase_id_is_refused_and_saving_keeps_it_lowercase(log_dir):
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, ID.upper()) + OTHER_ROW)
     book = Logbook(log_dir)
-    book.load()
+    book.load("W1TST")
     [refused] = book.refused
     assert refused.problems == [
         Problem("UUIDv4", f"UUIDv4 '{ID.upper()}' should be lowercase", "Saving makes it lowercase.")
@@ -649,7 +666,7 @@ def test_filling_in_an_id_leaves_the_rest_of_the_file_as_it_was(log_dir, monkeyp
     log_dir.mkdir(parents=True)
     (log_dir / "20260925.csv").write_bytes(original.encode())
     book = Logbook(log_dir)
-    entries, _ = book.load()
+    entries, _ = book.load("W1TST")
     assert [entry["CALL"] for entry in entries] == ["N3GHI", "K5MNO"]
     assert [(found.row["CALL"], found.row["UUIDv4"]) for found in book.refused] == [
         ("K2DEF", OTHER_ID),
@@ -674,7 +691,7 @@ def test_filled_id_that_cant_be_written_is_saved_with_the_next_change(log_dir, m
     write_log(log_dir, "20260925.csv", HEADER + ROW.replace(ID, ""))
     fail_to_write(monkeypatch, "20260925.csv")
     book = Logbook(log_dir)
-    entries, problems = book.load()
+    entries, problems = book.load("W1TST")
     assert len(entries) == 1
     assert problems == []
     [(path, error)] = book.unsaved_ids

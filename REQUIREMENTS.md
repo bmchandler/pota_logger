@@ -26,6 +26,12 @@ Out of scope:
 - Activator features.
 - Submitting logs to POTA.
 - Digital modes.
+- More than one call per log (decided 2026-10-06): every record holds
+  the one station callsign; no OPERATOR field, and no multiple logbooks
+  (not even separate logbooks under one call). A call change is rare (a
+  new license class, or a call inherited) and has always meant a new
+  logbook: archive the old log files, then set the new call in
+  `data/settings.toml`. A club's Field Day log belongs in its own setup.
 
 Future (not now):
 
@@ -46,13 +52,14 @@ while it runs, the only source of truth for the log files; deleting an entry (se
 load, in the app (see Storage); a record ID on every log row, with rows
 sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
 marked `=` at start (see Entry behavior); the status bar; the
-settings modal, with the station callsign checked like CALL and
-required before any entry is saved (see Session-level value);
-the counts of rows marked `!`, `U`, and `=` beside the Settings button
+settings modal, opened to set the station callsign at first start,
+checked like CALL and required before any entry is saved, with every
+log row held to it (see Session-level value);
+the counts of rows marked `!`, `U`, and `=` beside the Quit button
 (see Log view); a block at start, with the errors in `file_errors.txt`,
 while log files need fixing by hand (see Storage); notifications stacked
 at the bottom right of the log
-area, a row above the Settings and Quit buttons rather than over them,
+area, a row above the Quit button rather than over it,
 and a row above the log's sideways scrollbar while it shows (Textual's ToastRack raised by
 CSS, a small override of stock looks); a light
 outdoors color theme (leaf and grass greens with orange warnings, in
@@ -113,11 +120,6 @@ Ideas considered and deferred:
   can't change their year. Reassess closer to release, e.g. for importing
   older logs from ADIF: take them gracefully, or still refuse them if
   that's much simpler.
-- Changing an entry's station callsign, e.g. if the operator forgot to
-  change it in Settings before a session. Kept as logged for now;
-  explore before release. For a second operator sharing the station
-  (e.g. Field Day), ADIF has a separate `OPERATOR` field, which may fit
-  better than changing the station callsign.
 - Bulk edits (e.g. PWR across a session) and undo: not planned. Entries
   are copied from paper one at a time, so bulk edits add little and
   raise the risk of mistakes; an entry is fixed by editing or deleting
@@ -148,7 +150,16 @@ Session-level value:
 
 - **Station callsign:** the operator's own call. It's shown in a top status
   area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
-  settings modal.
+  settings modal at first start, and only then: a log holds one call (see
+  Scope), so Settings doesn't open once one is set (no F2 in the footer,
+  no Settings button). A call change means a new log: archive the log
+  files, then edit `data/settings.toml` by hand. The Settings code stays,
+  switched off (`SETTINGS_AFTER_SETUP`), for settings to come.
+- **One call per log** (decided 2026-10-06): every log row's
+  STATION_CALLSIGN must be the station callsign, checked at start; a row
+  with another call is refused (see Storage) and fixed by hand. So the
+  log files are loaded only once a call is set: at first start, the log
+  stays empty behind the station-callsign block until a call is saved.
   Same shape check as CALL (letters, digits, up to two `/`, shaped like a
   call), uppercased; saving anything else is refused and the modal stays
   open, with why below the call in the error color (as the form shows
@@ -166,7 +177,7 @@ Session-level value:
   `data/settings.toml` with none, a bad one, or invalid TOML), and when
   Settings is left with none: saved with the call cleared (the blank is
   saved) or cancelled with none set. From there, Enter opens Settings
-  again; F2 does nothing while it's up. On Enter in the form with none
+  again. On Enter in the form with none
   set, it shows too, and the entry stays in the form (Settings always
   ends with a call set, so this is a safety net). Ctrl+Q quits from
   anywhere (stock Textual, and works in any modal), for an operator not
@@ -175,7 +186,8 @@ Session-level value:
 ## Settings
 
 - A settings modal holds app-wide settings, starting with the station
-  callsign. Future settings go there too.
+  callsign. Future settings go there too. For now it opens only while no
+  call is set (see Session-level value).
 - Settings are saved in `data/settings.toml`.
 - At start, the file is checked like the log files (see Storage).
   Invalid TOML is reported as `Couldn't read <file>:
@@ -203,7 +215,7 @@ Session-level value:
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` and `f4 Delete`
+- The footer shows `^q Quit`, `f3 Edit` and `f4 Delete`
   (see Editing), and `^s Screenshot` (saves an SVG of the screen to the Downloads
   folder).
 - The footer's right end shows the terminal size as columns x rows
@@ -268,7 +280,7 @@ Session-level value:
     voice/CW matching, as POTA counts that contact once), which meant
     little in practice.
   - At start, saved entries that are definite dupes of each other are
-    marked `=` (see Log view), and counted beside the Settings button
+    marked `=` (see Log view), and counted beside the Quit button
     (`3 records are dupes, marked =`, or `= 3 dupes` when narrow; see
     Log view). A selected one lists its
     other copies below COMMENT, in the error color, under `Excluding
@@ -281,10 +293,10 @@ Session-level value:
     deleted automatically; deleting or editing one so it differs clears
     the other's mark. Refused rows aren't compared, as their values are
     text as found.
-  - To circle back to (noted 2026-10-05): STATION_CALLSIGN is one of the
-    columns compared, so an entry the same as a logged one but for the
-    station callsign (e.g. after the call in Settings changes) isn't a
-    dupe, and saves with no warning. Decide whether that's right.
+  - STATION_CALLSIGN is one of the columns compared. An entry the same
+    as a logged one but for the station callsign can't come up: every
+    record holds the one call (multiple calls are out of scope; see
+    Scope).
 - Warnings flag entries that are probably, but not certainly, wrong. The
   first Enter opens a warning modal instead of saving; Enter there
   confirms, and Esc goes back to the form without saving, on the field
@@ -396,14 +408,14 @@ Session-level value:
   until fixed. The column moves with its row when the log is sorted, so the
   marks survive a Sort. Later it may show other states, like an entry
   not yet uploaded to QRZ.
-- Rows marked `!`, `U`, or `=` are counted to the left of the Settings
+- Rows marked `!`, `U`, or `=` are counted to the left of the Quit
   button, in the error color, one line per mark in that order, and only
   while there are any: `1 record refused, marked !`, `4 records share a
   record ID, marked U`, `3 records are dupes, marked =` (`1 record
   shares a record ID, marked U`, `1 record is a dupe, marked =`: a lone
   `U` or `=` is left when its copy has a mark that comes first). Terse,
   as diagnostic status lines: no hint to select a row, no period. When
-  any line doesn't fit (in a window narrower than about 74 columns), all
+  any line doesn't fit (in a window narrower than about 56 columns), all
   three take a short form: `! 1 refused`, `U 4 share an ID`, `= 3
   dupes`. The
   counts follow the log as rows are fixed or deleted, and a line goes
@@ -456,7 +468,7 @@ Session-level value:
     are kept (and marked `U` at the next start), rather than one dropped
     where the log doesn't show it.
   - At start, saved entries sharing an ID are marked `U`, and counted
-    beside the Settings button (`4 records share a record ID, marked U`,
+    beside the Quit button (`4 records share a record ID, marked U`,
     or `U 4 share an ID`; see Log view). A
     selected one lists the other copies
     below COMMENT, in the error color, under `Excluding COMMENT,
@@ -584,7 +596,7 @@ Session-level value:
   refused rows sit at the top of the saved entries, in file order,
   whatever they were refused for (a DATE or TIME that doesn't read has
   no place in the sorted order, and at the top they're seen). Rather
-  than a notification per row, they're counted beside the Settings
+  than a notification per row, they're counted beside the Quit
   button: `2 records refused, marked !` (`! 2 refused` when narrow; see
   Log view).
 - A selected refused row lists its problems below COMMENT, in the error
@@ -606,9 +618,11 @@ Session-level value:
   and its save replaces its lines in its file (or moves it to its DATE's
   file); then it's marked `✎`, its list goes, and it joins the entries
   checked for dupes. Its STATION_CALLSIGN, which has no field in the
-  form, is stored as it reads (`w1tst` as `W1TST`); one that doesn't
-  read at all is listed with `It can't be fixed in the app: fix it by
-  hand, or delete the record.`, and `f3` says so too. It can be deleted
+  form, is saved as the station callsign, which it is, perhaps in
+  another case (`w1tst` as `W1TST`); one that doesn't read at all, or
+  is another call, is listed with `Manually correct CSV log file.`
+  (`- STATION_CALLSIGN 'W1XYZ' doesn't match the station callsign,
+  W1TST. Manually correct CSV log file.`), and `f3` says so too. It can be deleted
   (`f4`) like any entry. A row too broken to split (wrong number of
   values, a stray quote) is skipped, and blocks the app at start until
   fixed by hand (see above). The app never tidies or rewrites a log file on its own, since

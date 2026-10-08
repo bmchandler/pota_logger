@@ -17,8 +17,7 @@ from pota_logger.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
 from pota_logger.entry_form import FIELDS, EntryForm
 from pota_logger.freq import format_freq
-from pota_logger.callsigns import parse_callsign
-from pota_logger.logbook import COLUMNS, Logbook, LogWriteError, refused_texts
+from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
 from pota_logger.power import format_power
 from pota_logger.record_ids import new_id, parse_id
@@ -73,7 +72,7 @@ DUPE_MARKER = "="
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
 EDITED_MARKER = "✎"
 
-# Counts of the saved rows marked for a problem, beside the Settings
+# Counts of the saved rows marked for a problem, beside the Quit
 # button while there are any, one line each: (one, several) wordings,
 # long when every line fits, short otherwise.
 MARK_COUNTS = {
@@ -271,7 +270,7 @@ class PotaLoggerApp(App):
         padding: 0 1;
         color: $error;
     }
-    /* Notifications sit a row above the Settings and Quit buttons (3
+    /* Notifications sit a row above the Quit button (3
        rows) and the footer (1), not over them, and a row above the
        log's sideways scrollbar while it shows. */
     ToastRack {
@@ -300,6 +299,13 @@ class PotaLoggerApp(App):
     # No command palette: "palette" is unfamiliar to most operators, and
     # its Theme command would switch away from the POTA theme.
     ENABLE_COMMAND_PALETTE = False
+
+    # Whether Settings (the button and F2) opens once a station callsign
+    # is set. Its only setting is the call, set once: a log holds one call,
+    # so changing it means a new log (archive the files, edit
+    # settings.toml). Until then Settings opens only from the
+    # station-callsign block; kept for settings to come.
+    SETTINGS_AFTER_SETUP = False
 
     # Redeclares Textual's built-in ctrl+q so it shows in the footer.
     BINDINGS = [
@@ -341,10 +347,9 @@ class PotaLoggerApp(App):
         with Horizontal(id="button-bar"):
             yield Static(id="mark-counts")
             # Mouse only, so tabbing through fields can't land on them.
-            for button in (
-                Button("Settings", id="settings"),
-                Button("Quit", id="quit", variant="warning"),
-            ):
+            settings = Button("Settings", id="settings")
+            settings.display = self.SETTINGS_AFTER_SETUP
+            for button in (settings, Button("Quit", id="quit", variant="warning")):
                 button.can_focus = False
                 yield button
         with Horizontal(id="footer-bar"):
@@ -368,7 +373,28 @@ class PotaLoggerApp(App):
         # long or short form follows their width.
         table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
         self.query_one("#field-freq").focus()
-        entries, problems = self.logbook.load()
+        # Filled by load_log once there's a station callsign to check the
+        # rows against.
+        self.saved_entries: list[dict] = []
+        self.log_loaded = False
+        self.session_entries: list[dict] = []
+        # Saved entries edited this session, marked in the log.
+        self.edited_entries: list[dict] = []
+        # The entry whose log row is selected, shown in the form.
+        self.selected: dict | None = None
+        self.mark_counts_text = ""
+        if self.settings.station_callsign:
+            self.load_log()
+        else:
+            self.show_log()
+            self.require_station_callsign()
+
+    def load_log(self) -> None:
+        """Load the log files, checked against the station callsign, and
+        show them, blocking if any need fixing by hand.
+        """
+        self.log_loaded = True
+        entries, problems = self.logbook.load(self.settings.station_callsign)
         self.query_one(EntryForm).logged.extend(entries)
         # Saved entries newest first, under any refused rows (in file order,
         # to be seen and fixed); entries typed this session go above them in
@@ -376,17 +402,8 @@ class PotaLoggerApp(App):
         self.saved_entries = [found.row for found in self.logbook.refused] + sorted(
             entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
         )
-        self.session_entries: list[dict] = []
-        # Saved entries edited this session, marked in the log.
-        self.edited_entries: list[dict] = []
-        # The entry whose log row is selected, shown in the form.
-        self.selected: dict | None = None
-        self.mark_counts_text = ""
         self.show_log()
-        if self.block_on_file_errors(problems):
-            return
-        if not self.settings.station_callsign:
-            self.require_station_callsign()
+        self.block_on_file_errors(problems)
 
     def block_on_file_errors(self, problems: list[str]) -> bool:
         """Record what in the log files needs fixing by hand (rows or files
@@ -475,6 +492,8 @@ class PotaLoggerApp(App):
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action == "step_back":
             return self.selected is not None
+        if action == "open_settings":
+            return self.SETTINGS_AFTER_SETUP
         return True
 
     def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
@@ -585,18 +604,15 @@ class PotaLoggerApp(App):
         if self.selected is None:
             self.notify(SELECT_FIRST, severity="warning")
             return
-        if self.logbook.is_refused(self.selected):
-            # The form has no field for it, and an edit keeps it.
-            try:
-                self.refused_station_callsign(self.selected)
-            except ValueError as error:
-                self.notify(
-                    f"{error}. That can't be fixed in the app: fix it by hand, "
-                    "or delete the record.",
-                    severity="warning",
-                    timeout=30,
-                )
-                return
+        refusal = self.logbook.refusal(self.selected)
+        # A STATION_CALLSIGN that doesn't read or isn't the station
+        # callsign: the form has no field for it.
+        by_hand = [
+            problem for problem in (refusal.problems if refusal else []) if problem.note == FIX_BY_HAND
+        ]
+        if by_hand:
+            self.notify(f"{by_hand[0].message}. {FIX_BY_HAND}", severity="warning", timeout=30)
+            return
         # While editing, the form keeps focus; the log still scrolls.
         self.query_one("#log-table", DataTable).can_focus = False
         form.edit()
@@ -669,18 +685,8 @@ class PotaLoggerApp(App):
         table.remove_class("-selected")
         self.query_one(EntryForm).hide()
 
-    def refused_station_callsign(self, row: dict) -> str:
-        """A refused row's STATION_CALLSIGN as stored, if it reads (e.g.
-        `w1tst` as W1TST); raises ValueError if not.
-        """
-        text = row["STATION_CALLSIGN"]
-        if not text.isascii() or text != text.strip() or not text:
-            raise ValueError(f"STATION_CALLSIGN {text!r} isn't a callsign")
-        return parse_callsign(text, "STATION_CALLSIGN")
-
     def on_entry_form_edited(self, event: EntryForm.Edited) -> None:
         if self.logbook.is_refused(event.old):
-            event.new["STATION_CALLSIGN"] = self.refused_station_callsign(event.old)
             # Stored lowercase; an ID that doesn't read can't be kept.
             try:
                 event.new["UUIDv4"] = parse_id(event.new["UUIDv4"])
@@ -872,6 +878,8 @@ class PotaLoggerApp(App):
             self.query_one(StatusBar).set_station_callsign(settings.station_callsign)
         if not self.settings.station_callsign:
             self.require_station_callsign()
+        elif not self.log_loaded:
+            self.load_log()
 
 
 def main() -> None:
