@@ -709,13 +709,11 @@ async def test_state_is_optional(app):
         assert not app._notifications
 
 
-async def test_state_uppercased_and_na_allowed(app):
+async def test_state_uppercased(app):
     async with app.run_test() as pilot:
-        fill(app, ENTRY | {"CALL": "W1AAA", "ST": "nj"})
+        fill(app, ENTRY | {"ST": "nj"})
         await pilot.press("enter")
-        fill(app, ENTRY | {"CALL": "W1AAB", "ST": "na"})
-        await pilot.press("enter")
-        assert [row[4] for row in table_rows(app)] == ["NJ", "NA"]
+        assert [row[4] for row in table_rows(app)] == ["NJ"]
 
 
 async def test_invalid_state_blocks_entry(app):

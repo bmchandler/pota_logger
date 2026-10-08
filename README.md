@@ -146,7 +146,7 @@ value is written (spaces, case, a number's form) is fixed for you.
   | MODE | `SSB`, `USB`, `LSB`, or `CW` | `FT8` |
   | CALL, STATION_CALLSIGN | Uppercase: `W1ABC` | |
   | PARK | Full reference: `US-0464` | `464`, `US464` |
-  | ST | A state code, `NA`, or empty | `XX` |
+  | ST | A state code, or empty | `XX`, `NA` |
   | SNT, RCD | 2 digits (3 on CW): `59`, `599` | |
   | PWR | Watts: `60`, `0.5` | `60W` |
   | DATE | `YYYYMMDD`: `20261001` | `2026-10-01`, `10/01/2026` |

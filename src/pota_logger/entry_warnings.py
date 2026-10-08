@@ -42,7 +42,7 @@ def voice_outside_range(values: dict, logged: list[dict]) -> str | None:
 
 
 def state_on_non_us_park(values: dict, logged: list[dict]) -> str | None:
-    """Warn when a non-US park has a US state in ST (blank or NA is fine)."""
+    """Warn when a non-US park has a US state in ST (blank is fine)."""
     park = values["PARK"]
     if park.startswith("US-") or values["ST"] not in US_STATES:
         return None

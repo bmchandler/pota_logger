@@ -73,7 +73,7 @@ def test_voice_outside_range_message():
 
 @pytest.mark.parametrize(
     "park, state",
-    [("US-1234", "NJ"), ("US-4566@US-WY", "WY"), ("JP-1234", ""), ("JP-1234", "NA")],
+    [("US-1234", "NJ"), ("US-4566@US-WY", "WY"), ("JP-1234", "")],
 )
 def test_state_on_park_without_warning(park, state):
     assert state_on_non_us_park({"PARK": park, "ST": state}, []) is None
