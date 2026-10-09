@@ -1,5 +1,12 @@
+from datetime import date, datetime
+from importlib.metadata import version
+
 from pota_logger.freq import band_name
 from pota_logger.logbook import stored_text
+
+# The ADIF version the export follows, and the app as ADIF names it.
+ADIF_VERSION = "3.1.6"
+PROGRAM_ID = "pota-logger"
 
 # MODE values that ADIF lists as submodes of SSB.
 SSB_SUBMODES = {"USB", "LSB"}
@@ -51,3 +58,31 @@ def adif_record(entry: dict) -> str:
     """
     fields = " ".join(adif_field(name, value) for name, value in adif_fields(entry))
     return f"{fields} <EOR>"
+
+
+def adif_header(created: datetime) -> str:
+    """The ADIF file header, ending `<EOH>`. Its first line is plain text
+    (ADIF takes any that doesn't start with `<`). `created` is UTC.
+    """
+    fields = [
+        ("ADIF_VER", ADIF_VERSION),
+        ("PROGRAMID", PROGRAM_ID),
+        ("PROGRAMVERSION", version(PROGRAM_ID)),
+        ("CREATED_TIMESTAMP", f"{created:%Y%m%d %H%M%S}"),
+    ]
+    lines = ["POTA Logger ADIF export"] + [adif_field(name, value) for name, value in fields]
+    return "\n".join(lines) + "\n<EOH>"
+
+
+def adif_file(entries: list[dict], created: datetime) -> str:
+    """An ADIF file's text: the header, then each entry's record on its
+    own line, in the order given.
+    """
+    return "\n".join([adif_header(created)] + [adif_record(entry) for entry in entries]) + "\n"
+
+
+def export_file_name(start: date, end: date, created: datetime) -> str:
+    """`pota_<from>_<to>_<HHMMSS>.adi`: the range's UTC dates and the
+    export's UTC time, so an export never overwrites another.
+    """
+    return f"pota_{start:%Y%m%d}_{end:%Y%m%d}_{created:%H%M%S}.adi"

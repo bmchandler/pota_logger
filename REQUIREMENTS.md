@@ -839,6 +839,19 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     it needs `~` expanded and a missing folder created. With none set,
     ADIF export is refused until one is set in Settings. The modal
     shows the folder but doesn't change it; that's done in Settings.
+    In Settings it's a labeled field, `ADIF export folder`, below the
+    two checkboxes, shown always (not only at setup).
+  - The Export modal (decided 2026-10-09): `ADIF file, UTC dates
+    (YYMMDD)`, then From and To fields typed like DATE (same rules),
+    prefilled with the default range, then the folder (`Folder:`), and
+    Cancel and Export buttons. Enter exports, Esc cancels. When export
+    can't go ahead (no folder set, the log not clean, nothing in the
+    range, a bad date), the modal stays open with the reason below in
+    the error color, as Settings shows a refused call, gone once a date
+    is edited.
+  - The file: a header (a text line, `ADIF_VER` 3.1.6, `PROGRAMID`
+    `pota-logger`, `PROGRAMVERSION`, `CREATED_TIMESTAMP` in UTC), then
+    one record per line.
   - The file is named `pota_<from>_<to>_<HHMMSS>.adi`: the range's UTC
     dates (YYYYMMDD) and the export's UTC time, e.g.
     `pota_20261009_20261009_195312.adi`, so an export never overwrites

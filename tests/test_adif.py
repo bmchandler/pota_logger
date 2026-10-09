@@ -1,9 +1,18 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 
 import pytest
 
-from pota_logger.adif import adif_field, adif_fields, adif_freq, adif_record
+from pota_logger.adif import (
+    ADIF_VERSION,
+    adif_field,
+    adif_fields,
+    adif_file,
+    adif_freq,
+    adif_header,
+    adif_record,
+    export_file_name,
+)
 
 # An entry as the log holds it, parsed.
 ENTRY = {
@@ -109,3 +118,39 @@ def test_time_keeps_leading_zeros():
 
 def test_record_id_isnt_exported():
     assert ENTRY["UUIDv4"] not in adif_record(ENTRY)
+
+
+CREATED = datetime(2026, 10, 9, 19, 53, 12)
+
+
+def test_header():
+    header = adif_header(CREATED)
+    lines = header.split("\n")
+    # The first line is text, so it mustn't start with <.
+    assert lines[0] == "POTA Logger ADIF export"
+    assert lines[1] == f"<ADIF_VER:5>{ADIF_VERSION}"
+    assert lines[2] == "<PROGRAMID:11>pota-logger"
+    assert lines[3].startswith("<PROGRAMVERSION:")
+    assert lines[4] == "<CREATED_TIMESTAMP:15>20261009 195312"
+    assert lines[5] == "<EOH>"
+
+
+def test_file_has_a_record_per_entry_in_order():
+    second = ENTRY | {"CALL": "W1XYZ", "TIME": time(20, 1)}
+    text = adif_file([ENTRY, second], CREATED)
+    assert text == adif_header(CREATED) + "\n" + adif_record(ENTRY) + "\n" + adif_record(second) + "\n"
+
+
+def test_file_is_plain_ascii():
+    adif_file([ENTRY], CREATED).encode("ascii")
+
+
+@pytest.mark.parametrize(
+    "start, end, name",
+    [
+        (date(2026, 10, 9), date(2026, 10, 9), "pota_20261009_20261009_195312.adi"),
+        (date(2026, 9, 28), date(2026, 10, 2), "pota_20260928_20261002_195312.adi"),
+    ],
+)
+def test_export_file_name(start, end, name):
+    assert export_file_name(start, end, CREATED) == name
