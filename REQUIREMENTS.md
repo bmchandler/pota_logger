@@ -35,7 +35,8 @@ Out of scope:
 
 Future (not now):
 
-- QRZ.com API integration.
+- QRZ.com API integration: likely the next stage after ADIF export, if
+  pursued (see Status and plan).
 
 ## Status and plan
 
@@ -77,8 +78,12 @@ fields); Tab between a modal's two buttons (see Entry behavior); an
 unchanged edit saving nothing and left unmarked (see Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-To do: nothing beyond ADIF export (see below). Known issues
-that won't be fixed are listed in README.md's Noted issues.
+To do, in this order (decided 2026-10-09): an ADIF record module
+(each entry as an ADIF record, needed by both of the next two); ADIF
+file export (see Export); possibly QRZ.com API integration (see Export,
+QRZ.com API); then support for POTA's parks list (see Export, POTA's
+parks list). Known issues that won't be fixed are listed in README.md's
+Noted issues.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -133,6 +138,14 @@ Ideas considered and deferred:
 - A limit on digits in a callsign. ADIF sets none, and special-event
   calls use years and anniversaries (`W100AW`); the unusual-callsign
   warning covers typos like `W111111AB`.
+- PARK as a comma list of parks (`1234,2345,3456`), mirroring ADIF's
+  `POTA_REF`, for a 2-fer or more in one entry (see Entry behavior,
+  multi-park activations). The better path if multi-park entries become
+  worth it: the input already scrolls, so the form wouldn't change, but
+  the log column, the load checks, the dupe check, sorting, COMMENT's
+  POTA info, and ST (parks in different states) all would. A separate
+  field for extra parks was set aside: it needs room in the form, and a
+  fixed number of fields would cap the parks.
 
 ## Entry fields
 
@@ -151,7 +164,7 @@ them. COMMENT stays below the row. All times and dates are UTC.
 | MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | `SSB` at app start, then carried forward (decided 2026-10-08: a session switched to CW is likely CW throughout). Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. Last in the top row of the form. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
 | PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, `US-4566@US-WY`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012`, `US-4566@US-WY` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER, optionally @LOCATION. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. LOCATION is a 4 to 6 character ISO 3166-2 code (`US-WY`), only for parks spanning more than one, like trails. Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference (17 characters); the log column is 17 wide. |
-| ST | `NJ`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC). Blank, not `NA`, for a park outside the US (decided 2026-10-08): QRZ.com and similar logbooks leave the state blank there, and have no field for a POTA location like `BB-PH` (which can go in COMMENT). Not checked against the park; no park database is kept. |
+| ST | `NJ`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC). Blank, not `NA`, for a park outside the US (decided 2026-10-08): QRZ.com and similar logbooks leave the state blank there, and have no field for a POTA location like `BB-PH` (which can go in COMMENT). Not checked against the park; no park database is kept until POTA's parks list is supported (see Export, POTA's parks list). |
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. The placeholder follows MODE as a hint: `599` while MODE is `CW` (any case), `59` for any other MODE typed. It updates when leaving MODE (Tab, Shift+Tab, or a click), not on each keystroke, and stays as it was after a save, since MODE carries forward. With MODE last in the form, a new session's first CW entry shows `59` while the reports are typed; the digit check on Enter catches a missing third digit. Only the placeholder changes, which shows only while the field is empty: a value already typed is never cleared or changed. The non-ASCII message's example (`59, or 599 on CW`) stays as is. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
@@ -305,7 +318,14 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   ST and COMMENT are the only optional fields.
 - Only DATE, PWR, and MODE carry forward to the next entry (MODE starts
   as `SSB` at app start). Everything else is entered fresh each time.
-- Multi-park activations: each park is a separate entry.
+- Multi-park activations (decided 2026-10-09): one entry per contact,
+  under the park the activator is spotted at (as the POTA site lists
+  it), with the other parks in COMMENT (`POTA US-1234 NC, US-2345,
+  US-3456`; typed after the app's POTA info, so it keeps updating). One
+  entry per park isn't an option: QRZ.com takes entries with the same
+  CALL, BAND, MODE, DATE, and TIME as dupes and keeps only one. Hunters
+  get park credit from the activator's log, not their own. PARK as a
+  list is a deferred idea (see Status and plan).
 - Entries may be typed in any time order, with no warning. The paper log
   isn't always in time order (an entry is sometimes finished after later
   ones), and typing it 1:1 keeps it easy to double-check.
@@ -772,18 +792,18 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 
 ## Export
 
-- ADIF, aimed at QRZ.com import. Field details (e.g. `SIG`/`SIG_INFO` vs
-  `POTA_REF`, and station and operator fields) are worked out when export is
-  built. Settled or known so far:
+- ADIF, aimed at QRZ.com import (and other logging programs, like
+  KLog). Settled or known so far:
   - COMMENT exports as ADIF `COMMENT`, not `NOTES` (what QRZ shows as
     Comments).
-  - PARK is already a full ADIF POTA reference, for `POTA_REF`.
-    `POTA_REF` is a recent ADIF addition, so before deciding, a test
-    record is imported into QRZ.com by hand, then exported back from
-    QRZ, to see what it keeps (decided 2026-10-08). Likely `POTA_REF`
-    plus `SIG` (POTA) and `SIG_INFO` (the reference) together, as an
-    easy cover for other programs if they don't conflict; not a scope
-    change.
+  - PARK is already a full ADIF POTA reference. It exports as
+    `POTA_REF` and as `SIG` (`POTA`) with `SIG_INFO` (the reference),
+    all three (decided 2026-10-09): QRZ.com's ADIF export says ADIF
+    3.1.1, from before `POTA_REF` (3.1.4), and records in the
+    operator's QRZ log from other programs carry `SIG`/`SIG_INFO`;
+    `POTA_REF` is for programs on the current standard. ADIF's
+    `POTA_REF` takes a comma list of parks; `SIG_INFO` is a plain
+    string, by convention one park.
   - Exports a date range (decided 2026-10-08), not the whole log. It
     defaults to the dates of this session's entries (from the earliest
     to the latest, if they span several), or, with none this session,
@@ -795,9 +815,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     once in QRZ.com or another log it has to be fixed there too, and
     the two logs kept in agreement.
   - Tracking which records were exported isn't planned for ADIF; it
-    makes more sense with QRZ.com API integration (see Scope, Future),
-    which may come back on the table (the operator will share QRZ's API
-    docs if so).
+    belongs with QRZ.com API integration (see QRZ.com API below).
   - Open (operator mulling it over): `f6` likely opens an export modal
     (range, then export), and the Export button may replace the big
     Settings button beside Quit, since Settings is rarely changed after
@@ -806,12 +824,81 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
     lists them as submodes of SSB); `SSB` and `CW` are modes.
   - A blank ST means no state: `STATE` is left out.
+  - ST exports as `STATE` when filled (decided 2026-10-09): the park's
+    state, as the POTA site lists it with the spot (and later the parks
+    list), which is ADIF's meaning (the contacted station's location).
+    Several of the operator's QRZ records show the activator's home
+    state, from a callsign lookup (by the logging program that uploaded
+    them, or QRZ's own; not recorded), where the park is in another.
+    Whether QRZ fills a blank `STATE`, or county (`CNTY`), grid, and QTH
+    beside a sent one, on ADIF import or by API is unknown: a US POTA
+    record uploaded with no state (2024) has none on QRZ, nor
+    a name, QTH, or county; editing and saving a record on QRZ's site
+    may fill them. Telling a POTA contact from the activator's home
+    address is left to QRZ.
   - PWR is the operator's power: `TX_PWR` in watts.
   - The station callsign is `STATION_CALLSIGN`.
-  - Check how QRZ.com (ADIF import, or its API) handles two contacts a
-    minute apart, otherwise the same: the log keeps them (see Entry
-    behavior, definite dupes), and if QRZ merges or refuses one, that
-    needs a decision.
+  - Two contacts a minute apart, otherwise the same, stay separate on
+    QRZ.com: its import report defines a dupe as the same CALL, BAND,
+    MODE, and DATE with TIME_ON the same to the minute. Its docs page
+    says within 30 minutes instead, unconfirmed: the operator's QRZ log
+    holds same-call, band, and mode FT8 contacts 2 to 11 minutes apart
+    (uploaded by API or ADIF file, which isn't recorded). An incoming
+    dupe replaces an unconfirmed record and is ignored for a confirmed
+    one.
+  - So re-exporting an edited entry replaces its QRZ.com record only
+    if CALL, BAND, MODE, DATE, and TIME are unchanged and the record
+    isn't confirmed; otherwise QRZ keeps the old record (beside a new
+    one, if those changed). A candidate for README.md's Noted issues,
+    and a reason for tracking with the API (see QRZ.com API).
+  - QRZ.com refuses a record whose CALL it can't place in a DXCC entity
+    (tried 2026-10-09 with `Q1TST`: "DXCC could not be determined"), so
+    test records need real-looking calls. It stores every field it's
+    sent, even ones it doesn't use ("Lossless ADIF"), and gives them back
+    on export. Records must fall inside the QRZ logbook's date range,
+    and `STATION_CALLSIGN` must match the logbook's call.
   - The record ID (`UUIDv4`) isn't exported. If ADIF import ever needs
     to match records already logged, it would go in an
     `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own data.
+    QRZ.com would keep it (Lossless ADIF).
+- QRZ.com API (notes for the possible stage after ADIF export, from
+  QRZ's Logbook API page, 2026-10-09): INSERT takes one QSO as an ADIF
+  record, so the ADIF record module serves both. INSERT fails on a dupe
+  unless `OPTION=REPLACE`, which overwrites even a confirmed QSO. It
+  returns QRZ's `LOGID`, and DELETE takes LOGIDs, so keeping each
+  record's LOGID would let edits and deletes reach QRZ (the tracking
+  left out of ADIF export). FETCH filters by date range, call, and
+  changed-since. Needs the operator's subscription (the operator has
+  one), the logbook's API key (a secret: kept in settings, never shown
+  or logged), and a user agent like `AppName/version`; QRZ publishes no
+  rate limits. No sandbox was found: QRZ's API Checker page
+  (logbook.qrz.com/apicheck) works on a real logbook, so testing by hand
+  would use a separate logbook under the operator's call with a suffix
+  never used on air (a suffix makes a new call, with its own logbook,
+  key, and date range; a same-call logbook can't overlap dates), kept
+  out of awards. App tests fake QRZ's responses.
+- POTA's parks list (decided 2026-10-09, after ADIF export and possibly
+  the API): `all_parks_ext.csv` from pota.app (about 96,000 parks, 9
+  MB; columns reference, name, active, entityId (DXCC), locationDesc,
+  latitude, longitude, grid), kept in `data/pota/`. Optional: offered
+  as a download at first-time setup, with a way to download a fresh
+  copy later; the app works fully without it and only does more with
+  it: fill ST for a park in one state, warn when ST isn't one of the
+  park's (`locationDesc` can list several: `US-DC,US-MD,US-WV`), show
+  the park's name, warn on a park not in the list (it may be new, so
+  never a block), and give the export a DXCC number. It would be the
+  app's only network use, made only when the operator chooses.
+  - It's served from Amazon S3 through CloudFront and seems rebuilt
+    nightly (no schedule is published). A download is the whole list as
+    it stands. Save the server's `ETag` and `Last-Modified` with the
+    copy, and refresh with a conditional request (`If-None-Match`), so
+    an unchanged list comes back as a small "not modified" reply, which
+    keeps load and bandwidth down for POTA's volunteers; show the
+    copy's date beside the refresh. The `ETag` is the file's MD5 (it
+    matched a download on 2026-10-09), so it changes only with the
+    content, and checking the copy's MD5 against it catches a damaged
+    or hand-edited copy (then download afresh). Deleting the copy drops
+    the saved `ETag` too. A forced full download costs POTA well under a
+    cent, so it's fine to offer.
+  - POTA's per-park API (`api.pota.app/park/US-1048`, JSON with the same
+    fields) is unofficial and undocumented, so the list is preferred.
