@@ -78,9 +78,11 @@ fields); Tab between a modal's two buttons (see Entry behavior); an
 unchanged edit saving nothing and left unmarked (see Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-To do, in this order (decided 2026-10-09): an ADIF record module
-(each entry as an ADIF record, needed by both of the next two); ADIF
-file export (see Export); possibly QRZ.com API integration (see Export,
+The ADIF record module is built (2026-10-09): each entry as one ADIF
+record, the fields as in Export, for both the file export and the API.
+
+To do, in this order (decided 2026-10-09): ADIF file export (see
+Export); possibly QRZ.com API integration (see Export,
 QRZ.com API); then support for POTA's parks list (see Export, POTA's
 parks list). Known issues that won't be fixed are listed in README.md's
 Noted issues.

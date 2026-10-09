@@ -81,6 +81,11 @@ updated in the same change whenever a rule changes.
   differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
   states.py, reports.py, power.py, dates.py. sidebands.py holds the
   MODE-and-FREQ sideband rules.
+- adif.py turns an entry into one ADIF record (`adif_record`, ending
+  `<EOR>`; `adif_fields` gives the (name, value) pairs, blanks left
+  out): what the file export writes per entry and QRZ.com's API takes
+  per QSO. It takes clean entries only: export is refused while any
+  row is marked `!`, `U`, or `=` (see REQUIREMENTS.md Export).
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is
