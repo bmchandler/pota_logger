@@ -26,6 +26,10 @@ class Settings:
     # entered: in a new entry, and in an edited one.
     new_comment_pota_info: bool = False
     edit_comment_pota_info: bool = False
+    # Where ADIF export writes its files, as typed (`~` is expanded and a
+    # missing folder made when exporting). "" means none is set, and
+    # ADIF export is refused until one is.
+    adif_export_folder: str = ""
     # Whether loading fixed how the file wrote a value, so it's to be
     # saved again. Not a setting, so settings compare without it.
     fixed: bool = field(default=False, compare=False)
@@ -52,7 +56,8 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
     modal only, as a call from the file is taken as meant.
 
     An on/off setting that isn't `true` or `false` is off, with a
-    message in `problems`.
+    message in `problems`; so is an ADIF export folder that isn't plain
+    ASCII text (spaces around it are fixed, like the call's).
 
     Raises tomllib.TOMLDecodeError if the file has been hand-edited into
     invalid TOML, or StationCallsignError (with a message for the
@@ -80,9 +85,31 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
             switches[key] = value
         else:
             problems.append(f"{key} {value!r} must be true or false")
+    folder, folder_fixed = load_folder(data.get("adif_export_folder", ""), problems)
     return Settings(
-        station_callsign=callsign, **switches, fixed=callsign != text, problems=problems
+        station_callsign=callsign,
+        **switches,
+        adif_export_folder=folder,
+        fixed=callsign != text or folder_fixed,
+        problems=problems,
     )
+
+
+def load_folder(value, problems: list[str]) -> tuple[str, bool]:
+    """The ADIF export folder from the file, and whether spaces around it
+    were dropped; "" (none set) with a message in `problems` if it isn't
+    plain ASCII text.
+    """
+    if not isinstance(value, str):
+        problems.append(f"adif_export_folder {value!r} must be a folder, in quotes")
+        return "", False
+    try:
+        check_ascii("adif_export_folder", value)
+    except ValueError as error:
+        problems.append(str(error))
+        return "", False
+    folder = value.strip(" ")
+    return folder, folder != value
 
 
 def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:
@@ -90,4 +117,5 @@ def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:
     # JSON string escaping is valid for TOML basic strings.
     lines = [f"station_callsign = {json.dumps(settings.station_callsign, ensure_ascii=False)}"]
     lines += [f"{key} = {json.dumps(getattr(settings, key))}" for key in SWITCHES]
+    lines.append(f"adif_export_folder = {json.dumps(settings.adif_export_folder)}")
     path.write_text("".join(f"{line}\n" for line in lines))

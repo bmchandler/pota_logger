@@ -15,6 +15,7 @@ def test_save_creates_data_dir(settings_path):
         'station_callsign = "W1TST"\n'
         "new_comment_pota_info = false\n"
         "edit_comment_pota_info = false\n"
+        'adif_export_folder = ""\n'
     )
 
 
@@ -142,3 +143,53 @@ def test_how_the_station_callsign_is_written_is_fixed(settings_path, value, call
 def test_station_callsign_as_saved_isnt_fixed(settings_path):
     write_settings(settings_path, 'station_callsign = "W1TST"\n')
     assert not load_settings(settings_path).fixed
+
+
+def test_folder_round_trip(settings_path):
+    settings = Settings("W1TST", adif_export_folder="~/Downloads/pota")
+    save_settings(settings, settings_path)
+    assert 'adif_export_folder = "~/Downloads/pota"\n' in settings_path.read_text()
+    assert load_settings(settings_path) == settings
+
+
+def test_folder_with_quotes_and_backslashes_round_trips(settings_path):
+    settings = Settings("W1TST", adif_export_folder='C:\\Logs\\"ADIF"')
+    save_settings(settings, settings_path)
+    assert load_settings(settings_path) == settings
+
+
+def test_missing_folder_is_none_set(settings_path):
+    # A file from before the folder setting.
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\n')
+    settings = load_settings(settings_path)
+    assert settings.adif_export_folder == ""
+    assert settings.problems == []
+
+
+def test_folder_spaces_are_fixed(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\nadif_export_folder = " ~/adif "\n')
+    settings = load_settings(settings_path)
+    assert settings.adif_export_folder == "~/adif"
+    assert settings.fixed
+    assert settings.problems == []
+
+
+@pytest.mark.parametrize(
+    "value, problem",
+    [
+        ("1", "adif_export_folder 1 must be a folder, in quotes"),
+        ("true", "adif_export_folder True must be a folder, in quotes"),
+        (
+            '"~/T\u00e9l\u00e9chargements"',
+            "adif_export_folder '~/T\u00e9l\u00e9chargements' has non-ASCII characters: '\u00e9'.",
+        ),
+    ],
+)
+def test_bad_folder_is_none_set_with_a_problem(settings_path, value, problem):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(f'station_callsign = "W1TST"\nadif_export_folder = {value}\n')
+    settings = load_settings(settings_path)
+    assert settings.adif_export_folder == ""
+    assert settings.problems == [problem]

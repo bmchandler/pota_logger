@@ -26,6 +26,10 @@ Out of scope:
 - Activator features.
 - Submitting logs to POTA.
 - Digital modes.
+- International support (decided 2026-10-09): other languages,
+  keyboards, and systems, including non-ASCII folder names like a
+  localized Downloads folder. Every text input takes plain ASCII only.
+  Anyone wanting more is welcome to fork the project.
 - More than one call per log (decided 2026-10-06): every record holds
   the one station callsign; no OPERATOR field, and no multiple logbooks
   (not even separate logbooks under one call). A call change is rare (a
@@ -224,13 +228,26 @@ Session-level value:
   `New: Pre-populate COMMENT with POTA info.` and
   `Edit: Update COMMENT with POTA info.` (see COMMENT's POTA info). It
   opens at first start, from the station-callsign block, and after that
-  with F2 or the Settings button, showing only the checkboxes. Save (or
-  Enter in the call) saves them all; Esc or Cancel changes nothing.
+  with F2 or the Settings button, without the call. Below the
+  checkboxes, always, is the `ADIF export folder` field (built
+  2026-10-09; see Export). Save (or Enter in the call or the folder)
+  saves them all; Esc or Cancel changes nothing.
+- The ADIF export folder is saved as typed, spaces around it dropped
+  (`~` is expanded and a missing folder made when exporting), and blank
+  means none is set. Like every text input it takes only plain ASCII:
+  anything else is refused below the field, in the error color, as a
+  refused call is (`ADIF export folder '~/é' has non-ASCII characters:
+  'é'.` / `Use plain ASCII, like ~/Downloads.`), gone once it's
+  edited; a bad call is shown first.
 - In `data/settings.toml` they're `new_comment_pota_info` and
   `edit_comment_pota_info`, `true` or `false`; a missing one is off (a
   file from before them). Anything else (`"yes"`) is off and blocks at
   start like a log file needing fixing by hand (see Storage):
-  `<file>: new_comment_pota_info 'yes' must be true or false`. Fixing the
+  `<file>: new_comment_pota_info 'yes' must be true or false`. The
+  folder is `adif_export_folder`, a quoted string; a missing one is none
+  set, spaces around it are fixed on load (and saved, like the call's),
+  and one that isn't plain ASCII text is none set and blocks the same
+  way (`adif_export_folder 1 must be a folder, in quotes`). Fixing the
   call's spaces or case isn't saved then, as saving would hide the
   problem.
 - Settings are saved in `data/settings.toml`.

@@ -105,8 +105,10 @@ updated in the same change whenever a rule changes.
   row with another call (note `FIX_BY_HAND`, which `f3` checks), so the app's
   `load_log` waits until a call is set. Settings shows the call only
   while none is set (`SettingsScreen(with_callsign)`); after that, F2
-  opens it with just the on/off settings (`SWITCHES` in settings.py, as
-  `SettingCheckbox`, which draws its X only when checked). Tests of the
+  opens it with the on/off settings (`SWITCHES` in settings.py, as
+  `SettingCheckbox`, which draws its X only when checked) and the ADIF
+  export folder (`adif_export_folder`, always shown; each text field's
+  problem shows below it, `PROBLEM_IDS`). Tests of the
   call in the modal use the `no_call_app` fixture, opening Settings with
   Enter from the block.
 - COMMENT's POTA info: `EntryForm.pota_comment` is the info (`pota_info`)

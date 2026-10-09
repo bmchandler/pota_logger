@@ -14,6 +14,12 @@ from pota_logger.settings import (
     Settings,
 )
 
+# The ADIF export folder's label, as chosen (2026-10-09).
+ADIF_EXPORT_FOLDER = "ADIF export folder"
+
+# Where each text field's problem shows, below it.
+PROBLEM_IDS = {"station-callsign-input": "settings-problem", "folder-input": "folder-problem"}
+
 # Each on/off setting's label, by its key.
 SWITCH_LABELS = {
     "new_comment_pota_info": NEW_COMMENT_POTA_INFO,
@@ -35,7 +41,7 @@ class SettingsScreen(ModalScreen[Settings | None]):
     """Edit app settings. Dismisses with new Settings, or None if cancelled.
     The station callsign shows only while none is set (`with_callsign`):
     a log holds one call, so changing it means a new log (archive the
-    files, edit settings.toml).
+    files, edit settings.toml). The ADIF export folder shows always.
     """
 
     DEFAULT_CSS = """
@@ -53,16 +59,19 @@ class SettingsScreen(ModalScreen[Settings | None]):
         text-style: bold;
         padding-bottom: 1;
     }
-    /* Why the call wasn't saved, below it, only after a Save that
-       couldn't; gone once it's edited. */
-    SettingsScreen #settings-problem {
+    /* Why the call or the folder wasn't saved, below it, only after a
+       Save that couldn't; gone once it's edited. */
+    SettingsScreen .settings-problem {
         display: none;
         height: auto;
         color: $error;
         padding: 0 1;
     }
-    SettingsScreen #settings-problem.-shown {
+    SettingsScreen .settings-problem.-shown {
         display: block;
+    }
+    SettingsScreen #folder-label {
+        padding-top: 1;
     }
     SettingsScreen #settings-buttons {
         height: auto;
@@ -87,9 +96,12 @@ class SettingsScreen(ModalScreen[Settings | None]):
             if self.with_callsign:
                 yield Label("Station callsign")
                 yield Input(value=self.settings.station_callsign, id="station-callsign-input")
-                yield Static(id="settings-problem")
+                yield Static(id="settings-problem", classes="settings-problem")
             for key in SWITCHES:
                 yield SettingCheckbox(SWITCH_LABELS[key], getattr(self.settings, key), id=key)
+            yield Label(ADIF_EXPORT_FOLDER, id="folder-label")
+            yield Input(value=self.settings.adif_export_folder, id="folder-input")
+            yield Static(id="folder-problem", classes="settings-problem")
             with Horizontal(id="settings-buttons"):
                 yield Button("Cancel", id="cancel")
                 yield Button("Save", id="save", variant="primary")
@@ -98,10 +110,10 @@ class SettingsScreen(ModalScreen[Settings | None]):
         self.action_save()
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        self.show_problem("")
+        self.show_problem(PROBLEM_IDS[event.input.id], "")
 
-    def show_problem(self, problem: str) -> None:
-        shown = self.query_one("#settings-problem", Static)
+    def show_problem(self, problem_id: str, problem: str) -> None:
+        shown = self.query_one(f"#{problem_id}", Static)
         shown.update(Text(problem))
         shown.set_class(bool(problem), "-shown")
 
@@ -113,11 +125,26 @@ class SettingsScreen(ModalScreen[Settings | None]):
 
     def saved(self, callsign: str) -> Settings:
         switches = {key: self.query_one(f"#{key}", SettingCheckbox).value for key in SWITCHES}
-        return Settings(station_callsign=callsign, **switches)
+        folder = self.query_one("#folder-input", Input).value.strip()
+        return Settings(station_callsign=callsign, **switches, adif_export_folder=folder)
+
+    def folder_refused(self) -> bool:
+        """Refuse an ADIF export folder that isn't plain ASCII, showing
+        why below it.
+        """
+        field = self.query_one("#folder-input", Input)
+        try:
+            check_ascii(ADIF_EXPORT_FOLDER, field.value.strip(), "~/Downloads")
+        except ValueError as error:
+            self.show_problem("folder-problem", str(error))
+            field.focus()
+            return True
+        return False
 
     def action_save(self) -> None:
         if not self.with_callsign:
-            self.dismiss(self.saved(self.settings.station_callsign))
+            if not self.folder_refused():
+                self.dismiss(self.saved(self.settings.station_callsign))
             return
         field = self.query_one("#station-callsign-input", Input)
         # Blank is saved as is; the app then asks for a call again.
@@ -128,14 +155,16 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 check_ascii("Station callsign", text, "W1ABC")
                 callsign = parse_callsign(text, "Station callsign")
             except ValueError as error:
-                self.show_problem(str(error))
+                self.show_problem("settings-problem", str(error))
                 field.focus()
                 return
-            if not is_usual_callsign(callsign):
-                self.app.push_screen(
-                    CallsignWarningScreen(callsign, "Station callsign"), self.confirm_unusual_call
-                )
-                return
+        if self.folder_refused():
+            return
+        if callsign and not is_usual_callsign(callsign):
+            self.app.push_screen(
+                CallsignWarningScreen(callsign, "Station callsign"), self.confirm_unusual_call
+            )
+            return
         self.dismiss(self.saved(callsign))
 
     def confirm_unusual_call(self, call: str | None) -> None:

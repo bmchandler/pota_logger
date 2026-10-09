@@ -101,13 +101,15 @@ logged contact, edit that record's COMMENT.
   call changes, start a new log: move the old log files out of `data/`,
   then set the new call in `data/settings.toml`.
 - **F2** (or the Settings button) opens Settings, with two checkboxes, both
-  off at first:
+  off at first, and a folder:
   - `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
     starts as `POTA `, and becomes `POTA US-1234 NJ` (or `POTA US-1234`
     with no state) as you leave PARK and ST. Anything you type after that
     is kept when PARK or ST change.
   - `Edit: Update COMMENT with POTA info.`: editing a record updates the
     same info, if its COMMENT starts with it.
+  - `ADIF export folder`: where ADIF exports go, like `~/Downloads`
+    (a missing folder is created).
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 

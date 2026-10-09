@@ -3,7 +3,7 @@ from datetime import date, time
 
 import pytest
 from textual.command import CommandPalette
-from textual.widgets import Button, Checkbox, DataTable, Input, Static
+from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
 
 from pota_logger import PotaLoggerApp, dates, header_cell, mark_count_lines, sort_key
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
@@ -2944,6 +2944,92 @@ async def test_settings_saved_at_first_start_with_the_call(no_call_app, settings
         assert load_settings(settings_path) == Settings("W1TST", new_comment_pota_info=True)
 
 
+def folder_problem(app) -> str:
+    shown = app.screen.query_one("#folder-problem", Static)
+    return str(shown.render()) if shown.has_class("-shown") else ""
+
+
+async def test_settings_after_setup_save_the_export_folder(app, settings_path):
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert str(app.screen.query_one("#folder-label", Label).render()) == "ADIF export folder"
+        app.screen.query_one("#folder-input", Input).value = " ~/Downloads/pota "
+        await pilot.click("#save")
+        assert not isinstance(app.screen, SettingsScreen)
+        expected = Settings("W1TST", adif_export_folder="~/Downloads/pota")
+        assert app.settings == expected
+        assert load_settings(settings_path) == expected
+
+
+async def test_enter_in_the_export_folder_saves(app, settings_path):
+    async with app.run_test() as pilot:
+        await pilot.press("f2", "tab", "tab", *"~/adif", "enter")
+        assert not isinstance(app.screen, SettingsScreen)
+        assert load_settings(settings_path).adif_export_folder == "~/adif"
+
+
+async def test_settings_open_with_the_export_folder(settings_path):
+    save_settings(Settings("W1TST", adif_export_folder="~/adif"), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert app.screen.query_one("#folder-input", Input).value == "~/adif"
+
+
+async def test_non_ascii_export_folder_is_refused_below_it(app, settings_path):
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#folder-input", Input).value = "~/T\u00e9l\u00e9chargements"
+        await pilot.click("#save")
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "folder-input"
+        assert folder_problem(app) == (
+            "ADIF export folder '~/T\u00e9l\u00e9chargements' has non-ASCII characters: '\u00e9'.\n"
+            "Use plain ASCII, like ~/Downloads."
+        )
+        assert load_settings(settings_path).adif_export_folder == ""
+        await pilot.press("backspace")
+        assert folder_problem(app) == ""
+
+
+async def test_settings_at_first_start_save_the_call_and_the_folder(no_call_app, settings_path):
+    app = no_call_app
+    async with app.run_test() as pilot:
+        await pilot.press("enter", *"w1tst", "tab", "tab", "tab", *"~/adif")
+        await pilot.click("#save")
+        assert load_settings(settings_path) == Settings("W1TST", adif_export_folder="~/adif")
+
+
+async def test_first_start_refuses_a_bad_folder_after_a_good_call(no_call_app, settings_path):
+    app = no_call_app
+    async with app.run_test() as pilot:
+        await pilot.press("enter", *"w1tst")
+        app.screen.query_one("#folder-input", Input).value = "~/\u00e9"
+        await pilot.click("#save")
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "folder-input"
+        assert folder_problem(app).startswith("ADIF export folder '~/\u00e9' has non-ASCII")
+        assert not app.screen.query_one("#settings-problem", Static).has_class("-shown")
+        assert not settings_path.exists()
+
+
+async def test_spaces_around_the_export_folder_in_file_are_fixed(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\nadif_export_folder = " ~/adif "\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert len(app.screen_stack) == 1
+    assert 'adif_export_folder = "~/adif"\n' in settings_path.read_text()
+
+
+async def test_bad_export_folder_in_file_blocks_for_fixing_by_hand(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\nadif_export_folder = 1\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.screen.id == "file-errors"
+
+
 async def test_settings_open_as_saved(settings_path):
     save_settings(Settings("W1TST", edit_comment_pota_info=True), settings_path)
     app = PotaLoggerApp(settings_path=settings_path)
@@ -3195,4 +3281,5 @@ async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_pat
         'station_callsign = "W1TST"\n'
         "new_comment_pota_info = false\n"
         "edit_comment_pota_info = false\n"
+        'adif_export_folder = ""\n'
     )
