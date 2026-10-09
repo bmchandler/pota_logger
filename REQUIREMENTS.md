@@ -138,6 +138,9 @@ Ideas considered and deferred:
 - A limit on digits in a callsign. ADIF sets none, and special-event
   calls use years and anniversaries (`W100AW`); the unusual-callsign
   warning covers typos like `W111111AB`.
+- A full ADIF export (every entry) in the Export modal, as a backup
+  or for another logging program. Meanwhile a date range from the
+  oldest DATE does the same.
 - PARK as a comma list of parks (`1234,2345,3456`), mirroring ADIF's
   `POTA_REF`, for a 2-fer or more in one entry (see Entry behavior,
   multi-park activations). The better path if multi-park entries become
@@ -808,7 +811,11 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     defaults to the dates of this session's entries (from the earliest
     to the latest, if they span several), or, with none this session,
     the most recent DATE logged (from and to the same date). The
-    operator can change the range.
+    operator can change the range in the Export modal; a single day is
+    from and to the same date. The dates are UTC, like DATE (the modal
+    says so). Getting entries into QRZ.com is the main use; a full
+    export (a backup, or for another logging program) is a deferred
+    idea, and meanwhile a range from the oldest DATE covers it.
   - Export is refused while the log isn't clean (decided 2026-10-08):
     any row marked `!`, `U`, or `=` must be resolved first, even when
     it falls outside the range. A problem is easy to fix locally, but
@@ -816,11 +823,24 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     the two logs kept in agreement.
   - Tracking which records were exported isn't planned for ADIF; it
     belongs with QRZ.com API integration (see QRZ.com API below).
-  - Open (operator mulling it over): `f6` likely opens an export modal
-    (range, then export), and the Export button may replace the big
-    Settings button beside Quit, since Settings is rarely changed after
-    setup and stays on `f2`. Where the file goes and its name are also
-    still open.
+  - Keys and buttons (decided 2026-10-09): `f6` (footer `Export`)
+    opens the Export modal: the date range and the ADIF file, plus the
+    QRZ.com push once the API is built and its key set. Import isn't in
+    scope, so the footer says `Export`, not `Import/Export`. The bottom
+    buttons, stock size, become `ADIF`, `QRZ` (only while an API key is
+    set, so an operator without a subscription never sees it), then
+    `Quit`: mouse shortcuts to the same exports. The Settings button
+    goes; `f2` stays, and the footer's keys are clickable, so Settings
+    is still a click away.
+  - A setting for the default ADIF export folder (decided 2026-10-09),
+    in Settings. Like the screenshot-folder idea (see Status and plan),
+    it needs `~` expanded and a missing folder created. With none set,
+    ADIF export is refused until one is set in Settings. The modal
+    shows the folder but doesn't change it; that's done in Settings.
+  - The file is named `pota_<from>_<to>_<HHMMSS>.adi`: the range's UTC
+    dates (YYYYMMDD) and the export's UTC time, e.g.
+    `pota_20261009_20261009_195312.adi`, so an export never overwrites
+    another.
   - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
     lists them as submodes of SSB); `SSB` and `CW` are modes.
   - A blank ST means no state: `STATE` is left out.
