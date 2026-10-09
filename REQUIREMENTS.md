@@ -778,6 +778,31 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   - COMMENT exports as ADIF `COMMENT`, not `NOTES` (what QRZ shows as
     Comments).
   - PARK is already a full ADIF POTA reference, for `POTA_REF`.
+    `POTA_REF` is a recent ADIF addition, so before deciding, a test
+    record is imported into QRZ.com by hand, then exported back from
+    QRZ, to see what it keeps (decided 2026-10-08). Likely `POTA_REF`
+    plus `SIG` (POTA) and `SIG_INFO` (the reference) together, as an
+    easy cover for other programs if they don't conflict; not a scope
+    change.
+  - Exports a date range (decided 2026-10-08), not the whole log. It
+    defaults to the dates of this session's entries (from the earliest
+    to the latest, if they span several), or, with none this session,
+    the most recent DATE logged (from and to the same date). The
+    operator can change the range.
+  - Export is refused while the log isn't clean (decided 2026-10-08):
+    any row marked `!`, `U`, or `=` must be resolved first, even when
+    it falls outside the range. A problem is easy to fix locally, but
+    once in QRZ.com or another log it has to be fixed there too, and
+    the two logs kept in agreement.
+  - Tracking which records were exported isn't planned for ADIF; it
+    makes more sense with QRZ.com API integration (see Scope, Future),
+    which may come back on the table (the operator will share QRZ's API
+    docs if so).
+  - Open (operator mulling it over): `f6` likely opens an export modal
+    (range, then export), and the Export button may replace the big
+    Settings button beside Quit, since Settings is rarely changed after
+    setup and stays on `f2`. Where the file goes and its name are also
+    still open.
   - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
     lists them as submodes of SSB); `SSB` and `CW` are modes.
   - A blank ST means no state: `STATE` is left out.
