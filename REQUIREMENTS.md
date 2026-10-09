@@ -82,11 +82,13 @@ fields); Tab between a modal's two buttons (see Entry behavior); an
 unchanged edit saving nothing and left unmarked (see Editing). The visual layout is settled; wording tweaks
 can still come up as they're noticed.
 
-The ADIF record module is built (2026-10-09): each entry as one ADIF
-record, the fields as in Export, for both the file export and the API.
+ADIF file export is built (2026-10-09; see Export): the ADIF record
+module (each entry as one ADIF record, for both the file export and
+the API), the export folder setting, and the Export modal (`f6`, or
+the ADIF button, which replaced the Settings button).
 
-To do, in this order (decided 2026-10-09): ADIF file export (see
-Export); possibly QRZ.com API integration (see Export,
+To do, in this order (decided 2026-10-09): possibly QRZ.com API
+integration (see Export,
 QRZ.com API); then support for POTA's parks list (see Export, POTA's
 parks list). Known issues that won't be fixed are listed in README.md's
 Noted issues.
@@ -186,7 +188,7 @@ Session-level value:
 - **Station callsign:** the operator's own call. It's shown in a top status
   area and recorded on each entry (ADIF `STATION_CALLSIGN`). It's set in the
   settings modal at first start, and only then: a log holds one call (see
-  Scope), so once one is set, Settings (F2, or the Settings button)
+  Scope), so once one is set, Settings (F2)
   opens without it (decided 2026-10-08). A call change means a new log:
   archive the log files, then edit `data/settings.toml` by hand.
 - **One call per log** (decided 2026-10-06): every log row's
@@ -228,17 +230,25 @@ Session-level value:
   `New: Pre-populate COMMENT with POTA info.` and
   `Edit: Update COMMENT with POTA info.` (see COMMENT's POTA info). It
   opens at first start, from the station-callsign block, and after that
-  with F2 or the Settings button, without the call. Below the
+  with F2 (the footer's f2 is clickable), without the call. Below the
   checkboxes, always, is the `ADIF export folder` field (built
   2026-10-09; see Export). Save (or Enter in the call or the folder)
   saves them all; Esc or Cancel changes nothing.
 - The ADIF export folder is saved as typed, spaces around it dropped
-  (`~` is expanded and a missing folder made when exporting), and blank
-  means none is set. Like every text input it takes only plain ASCII:
-  anything else is refused below the field, in the error color, as a
-  refused call is (`ADIF export folder '~/é' has non-ASCII characters:
-  'é'.` / `Use plain ASCII, like ~/Downloads.`), gone once it's
-  edited; a bad call is shown first.
+  (`~` is expanded), and blank means none is set. Like every text
+  input it takes only plain ASCII: anything else is refused below the
+  field, in the error color, as a refused call is (`ADIF export folder
+  '~/é' has non-ASCII characters: 'é'.` / `Use plain ASCII, like
+  ~/Downloads.`), gone once it's edited; a bad call is shown first.
+- The folder must already exist when Settings saves it (decided
+  2026-10-09): no folder is ever made, by Settings or export, since a
+  typo (`~/deve` for `~/devel`) would quietly send files somewhere
+  unexpected. Otherwise it's refused the same way: `ADIF export folder
+  '~/deve/adif' doesn't exist.`, or for a file, `... isn't a folder.`
+  A folder in `settings.toml` isn't checked at start (it may be on a
+  drive not plugged in yet); export says so if it's gone. A folder
+  picker isn't planned: Textual has none built in (a `DirectoryTree`
+  widget to build one from, or the third-party `textual-fspicker`).
 - In `data/settings.toml` they're `new_comment_pota_info` and
   `edit_comment_pota_info`, `true` or `false`; a missing one is off (a
   file from before them). Anything else (`"yes"`) is off and blocks at
@@ -853,26 +863,51 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     is still a click away.
   - A setting for the default ADIF export folder (decided 2026-10-09),
     in Settings. Like the screenshot-folder idea (see Status and plan),
-    it needs `~` expanded and a missing folder created. With none set,
-    ADIF export is refused until one is set in Settings. The modal
-    shows the folder but doesn't change it; that's done in Settings.
+    it needs `~` expanded; it must exist (none is made). With none set,
+    ADIF export is refused until one is set in Settings. The Export
+    modal doesn't show the folder (decided 2026-10-09: a path can be
+    long, and it can't be changed there); it's seen and set in
+    Settings.
     In Settings it's a labeled field, `ADIF export folder`, below the
     two checkboxes, shown always (not only at setup).
-  - The Export modal (decided 2026-10-09): `ADIF file, UTC dates
-    (YYMMDD)`, then From and To fields typed like DATE (same rules),
-    prefilled with the default range, then the folder (`Folder:`), and
-    Cancel and Export buttons. Enter exports, Esc cancels. When export
-    can't go ahead (no folder set, the log not clean, nothing in the
-    range, a bad date), the modal stays open with the reason below in
-    the error color, as Settings shows a refused call, gone once a date
-    is edited.
+  - The Export modal (decided 2026-10-09, built the same day): `ADIF
+    file, UTC dates (YYMMDD)`, then From and To fields typed like DATE
+    (same rules), prefilled with the default range (with nothing
+    logged, today's local date, as DATE's default), a blank row between
+    that line and the fields, and Cancel and Export buttons. Enter
+    exports, Esc cancels, and F2 opens Settings over it (the app's keys
+    don't reach a modal, so it passes F2 on); a folder saved there is
+    used on Export. It doesn't open over
+    another modal. When export can't go ahead, the modal stays open
+    with the reason below in the error color, as Settings shows a
+    refused call, gone once a date is edited. Checked in this order,
+    with these messages (as dictated):
+    - No folder: `Export error: No ADIF export folder set.` / `Set one
+      in Settings (F2).`
+    - Not clean: `Export error: Rows are marked !, U, or =.` /
+      `Resolve and try again.`
+    - A bad date, From first, its field focused, in DATE's words with
+      the field's name: `From '2610' should be YYMMDD, like 260923`,
+      `To '261332' isn't a real date`, the non-ASCII message with
+      `260923` as the example; then `From 260926 is after To 260925`
+      (From focused).
+    - Nothing in the range: `Export error: No logs in date range.`
+    - The file can't be written (the folder gone since it was set, no
+      permission, a full disk): `Export error: Couldn't write the
+      file.`, then the system's error, which names the path.
+    On success the modal closes with the notification `ADIF export
+    complete.` The records are in time order (DATE, then TIME). The
+    file is created, never written over another (two exports in one
+    second would fail, not overwrite).
   - The file: a header (a text line, `ADIF_VER` 3.1.6, `PROGRAMID`
     `pota-logger`, `PROGRAMVERSION`, `CREATED_TIMESTAMP` in UTC), then
     one record per line.
-  - The file is named `pota_<from>_<to>_<HHMMSS>.adi`: the range's UTC
-    dates (YYYYMMDD) and the export's UTC time, e.g.
-    `pota_20261009_20261009_195312.adi`, so an export never overwrites
-    another.
+  - The file is named `pota_<created>_<from>_<to>.adi` (decided
+    2026-10-09): the export's UTC date and time to the second
+    (YYYYMMDDHHMMSS, as in `CREATED_TIMESTAMP`), then the range's UTC
+    dates (YYYYMMDD), e.g. `pota_20261009195312_20261009_20261009.adi`.
+    Leading with when it was made sorts the files by it, across days,
+    and keeps exports of the same range apart.
   - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
     lists them as submodes of SSB); `SSB` and `CW` are modes.
   - A blank ST means no state: `STATE` is left out.

@@ -1,18 +1,19 @@
 from datetime import date, time
 
 
-def parse_date(text: str) -> date:
+def parse_date(text: str, name: str = "DATE") -> date:
     """Parse a UTC date entered as YYMMDD, in 2000-2099: 260923 -> 2026-09-23.
+    `name` is the field named in a message (the Export modal's From and To).
 
     Raises ValueError with a message suitable for showing the operator.
     """
     text = text.strip()
     if len(text) != 6 or not text.isdigit():
-        raise ValueError(f"DATE {text!r} should be YYMMDD, like 260923")
+        raise ValueError(f"{name} {text!r} should be YYMMDD, like 260923")
     try:
         return date(2000 + int(text[:2]), int(text[2:4]), int(text[4:]))
     except ValueError:
-        raise ValueError(f"DATE {text!r} isn't a real date") from None
+        raise ValueError(f"{name} {text!r} isn't a real date") from None
 
 
 def format_date(value: date) -> str:

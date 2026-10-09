@@ -12,6 +12,7 @@ from pota_logger.settings import (
     NEW_COMMENT_POTA_INFO,
     SWITCHES,
     Settings,
+    folder_path,
 )
 
 # The ADIF export folder's label, as chosen (2026-10-09).
@@ -129,12 +130,16 @@ class SettingsScreen(ModalScreen[Settings | None]):
         return Settings(station_callsign=callsign, **switches, adif_export_folder=folder)
 
     def folder_refused(self) -> bool:
-        """Refuse an ADIF export folder that isn't plain ASCII, showing
-        why below it.
+        """Refuse an ADIF export folder that isn't plain ASCII, or that
+        isn't an existing folder (none is made), showing why below it.
         """
         field = self.query_one("#folder-input", Input)
+        text = field.value.strip()
         try:
-            check_ascii(ADIF_EXPORT_FOLDER, field.value.strip(), "~/Downloads")
+            check_ascii(ADIF_EXPORT_FOLDER, text, "~/Downloads")
+            if text and not folder_path(text).is_dir():
+                missing = "isn't a folder" if folder_path(text).exists() else "doesn't exist"
+                raise ValueError(f"{ADIF_EXPORT_FOLDER} {text!r} {missing}.")
         except ValueError as error:
             self.show_problem("folder-problem", str(error))
             field.focus()

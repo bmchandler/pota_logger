@@ -1,13 +1,16 @@
+import re
 from collections import Counter
 from datetime import date, time
 
 import pytest
 from textual.command import CommandPalette
+from textual.containers import Vertical
 from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
 
 from pota_logger import PotaLoggerApp, dates, header_cell, mark_count_lines, sort_key
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.delete_screen import DeleteScreen
+from pota_logger.export_screen import ExportScreen
 from pota_logger.entry_form import (
     COMMENT_LENGTH,
     FIELDS,
@@ -43,9 +46,9 @@ def footer_keys(app) -> list[str]:
     return [key for key, active in app.screen.active_bindings.items() if active.binding.show]
 
 
-async def test_footer_shows_quit_settings_edit_delete_sort_and_screenshot(app):
+async def test_footer_shows_quit_settings_edit_delete_sort_export_and_screenshot(app):
     async with app.run_test():
-        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "f5", "ctrl+s"]
+        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "f5", "f6", "ctrl+s"]
 
 
 async def test_footer_shows_terminal_size_and_follows_resize(app):
@@ -2793,7 +2796,7 @@ async def test_quit_button_quits(app):
 async def test_buttons_not_focusable(app):
     async with app.run_test():
         assert not app.query_one("#quit").can_focus
-        assert not app.query_one("#settings").can_focus
+        assert not app.query_one("#adif").can_focus
 
 
 # Settings
@@ -2874,10 +2877,11 @@ async def test_loads_saved_callsign(app):
         assert station_callsign(app) == "W1TST"
 
 
-async def test_settings_button_opens_modal(app):
+async def test_settings_is_f2_with_no_button(app):
+    # The footer's f2 is a click away; the buttons are ADIF and Quit.
     async with app.run_test() as pilot:
-        assert app.query_one("#settings").display
-        await pilot.click("#settings")
+        assert [str(button.label) for button in app.query("#button-bar Button")] == ["ADIF", "Quit"]
+        await pilot.press("f2")
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "new_comment_pota_info"
 
@@ -2944,28 +2948,71 @@ async def test_settings_saved_at_first_start_with_the_call(no_call_app, settings
         assert load_settings(settings_path) == Settings("W1TST", new_comment_pota_info=True)
 
 
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    """A home folder in the temp dir, with ~/adif in it, for folders typed
+    with ~ (which Settings saves only if they exist).
+    """
+    home = tmp_path / "home"
+    (home / "adif").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
 def folder_problem(app) -> str:
     shown = app.screen.query_one("#folder-problem", Static)
     return str(shown.render()) if shown.has_class("-shown") else ""
 
 
-async def test_settings_after_setup_save_the_export_folder(app, settings_path):
+async def test_settings_after_setup_save_the_export_folder(app, settings_path, home):
     async with app.run_test() as pilot:
         await pilot.press("f2")
         assert str(app.screen.query_one("#folder-label", Label).render()) == "ADIF export folder"
-        app.screen.query_one("#folder-input", Input).value = " ~/Downloads/pota "
+        app.screen.query_one("#folder-input", Input).value = " ~/adif "
         await pilot.click("#save")
         assert not isinstance(app.screen, SettingsScreen)
-        expected = Settings("W1TST", adif_export_folder="~/Downloads/pota")
+        expected = Settings("W1TST", adif_export_folder="~/adif")
         assert app.settings == expected
         assert load_settings(settings_path) == expected
 
 
-async def test_enter_in_the_export_folder_saves(app, settings_path):
+async def test_enter_in_the_export_folder_saves(app, settings_path, home):
     async with app.run_test() as pilot:
         await pilot.press("f2", "tab", "tab", *"~/adif", "enter")
         assert not isinstance(app.screen, SettingsScreen)
         assert load_settings(settings_path).adif_export_folder == "~/adif"
+
+
+@pytest.mark.parametrize(
+    "folder, problem",
+    [
+        ("~/deve/adif", "ADIF export folder '~/deve/adif' doesn't exist."),
+        ("~/adif/notes.txt", "ADIF export folder '~/adif/notes.txt' isn't a folder."),
+    ],
+)
+async def test_export_folder_must_exist(app, settings_path, home, folder, problem):
+    # None is made: a typo would send files somewhere unexpected.
+    (home / "adif" / "notes.txt").write_text("")
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#folder-input", Input).value = folder
+        await pilot.click("#save")
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.focused.id == "folder-input"
+        assert folder_problem(app) == problem
+        assert load_settings(settings_path).adif_export_folder == ""
+    assert not (home / "deve").exists()
+
+
+async def test_blank_export_folder_saves_as_none_set(settings_path):
+    save_settings(Settings("W1TST", adif_export_folder="~/gone"), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#folder-input", Input).value = ""
+        await pilot.click("#save")
+        assert not isinstance(app.screen, SettingsScreen)
+    assert load_settings(settings_path).adif_export_folder == ""
 
 
 async def test_settings_open_with_the_export_folder(settings_path):
@@ -2992,7 +3039,9 @@ async def test_non_ascii_export_folder_is_refused_below_it(app, settings_path):
         assert folder_problem(app) == ""
 
 
-async def test_settings_at_first_start_save_the_call_and_the_folder(no_call_app, settings_path):
+async def test_settings_at_first_start_save_the_call_and_the_folder(
+    no_call_app, settings_path, home
+):
     app = no_call_app
     async with app.run_test() as pilot:
         await pilot.press("enter", *"w1tst", "tab", "tab", "tab", *"~/adif")
@@ -3283,3 +3332,242 @@ async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_pat
         "edit_comment_pota_info = false\n"
         'adif_export_folder = ""\n'
     )
+
+
+# Export
+
+
+@pytest.fixture
+def export_folder(settings_path):
+    """An existing folder for exports, beside data/ in the temp dir."""
+    folder = settings_path.parent.parent / "adif"
+    folder.mkdir(parents=True)
+    return folder
+
+
+@pytest.fixture
+def export_app(settings_path, export_folder):
+    """The app with W1TST and an ADIF export folder set."""
+    save_settings(Settings("W1TST", adif_export_folder=str(export_folder)), settings_path)
+    return PotaLoggerApp(settings_path=settings_path)
+
+
+def export_range(app) -> tuple[str, str]:
+    return (
+        app.screen.query_one("#export-from", Input).value,
+        app.screen.query_one("#export-to", Input).value,
+    )
+
+
+def export_problem(app) -> str:
+    shown = app.screen.query_one("#export-problem", Static)
+    return str(shown.render()) if shown.has_class("-shown") else ""
+
+
+def exported_files(folder) -> list:
+    return sorted(folder.glob("*.adi")) if folder.exists() else []
+
+
+THREE_DAYS = {
+    "20260924": [("K1AAA", "20260924", "2300")],
+    "20260925": [("W1CCC", "20260925", "1900"), ("K1BBB", "20260925", "0100")],
+    "20260926": [("N1DDD", "20260926", "0005")],
+}
+
+
+async def test_f6_opens_export_on_the_latest_date_logged(export_app, settings_path, export_folder):
+    # The folder isn't shown: it's set and seen in Settings.
+    write_saved_log(settings_path, THREE_DAYS)
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        assert isinstance(app_screen := export_app.screen, ExportScreen)
+        assert export_range(export_app) == ("260926", "260926")
+        assert str(export_folder) not in str(export_app.screen.query_one(Vertical).render())
+        assert export_app.focused.id == "export-from"
+        assert app_screen.query_one("#export-problem", Static).has_class("-shown") is False
+
+
+async def test_adif_button_opens_export(export_app):
+    async with export_app.run_test() as pilot:
+        await pilot.click("#adif")
+        assert isinstance(export_app.screen, ExportScreen)
+
+
+async def test_export_range_defaults_to_this_sessions_dates(export_app, settings_path):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with export_app.run_test() as pilot:
+        fill(export_app, ENTRY | {"DATE": "260927"})
+        await pilot.press("enter")
+        fill(export_app, ENTRY | {"CALL": "W1XYZ", "DATE": "260920"})
+        await pilot.press("enter")
+        await pilot.press("f6")
+        assert export_range(export_app) == ("260920", "260927")
+
+
+async def test_export_range_with_nothing_logged_is_todays_local_date(export_app):
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        assert export_range(export_app) == (dates.default_date(), dates.default_date())
+
+
+async def test_esc_closes_export(export_app, export_folder):
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6", "escape")
+        assert not isinstance(export_app.screen, ExportScreen)
+    assert not exported_files(export_folder)
+
+
+async def test_export_writes_the_range_in_time_order(export_app, settings_path, export_folder):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        export_app.screen.query_one("#export-from", Input).value = "260925"
+        await pilot.press("enter")
+        assert not isinstance(export_app.screen, ExportScreen)
+        assert [n.message for n in export_app._notifications] == ["ADIF export complete."]
+    [exported] = exported_files(export_folder)
+    assert re.fullmatch(r"pota_\d{14}_20260925_20260926\.adi", exported.name)
+    lines = exported.read_text().splitlines()
+    assert lines[0] == "POTA Logger ADIF export"
+    assert lines[5] == "<EOH>"
+    records = lines[6:]
+    assert [record.split("<CALL:")[1].split(">")[1].split(" ")[0] for record in records] == [
+        "K1BBB",
+        "W1CCC",
+        "N1DDD",
+    ]
+    assert records[0].startswith("<QSO_DATE:8>20260925 <TIME_ON:4>0100 <CALL:5>K1BBB <BAND:3>20m")
+    assert all(record.endswith("<EOR>") for record in records)
+
+
+async def test_export_expands_home(settings_path, home):
+    save_settings(Settings("W1TST", adif_export_folder="~/adif"), settings_path)
+    write_saved_log(settings_path, THREE_DAYS)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f6", "enter")
+    assert len(exported_files(home / "adif")) == 1
+
+
+async def test_export_into_a_folder_gone_since_says_why(settings_path, tmp_path):
+    # Saved while it existed, then removed: export doesn't make it again.
+    gone = tmp_path / "gone"
+    save_settings(Settings("W1TST", adif_export_folder=str(gone)), settings_path)
+    write_saved_log(settings_path, THREE_DAYS)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f6", "enter")
+        assert isinstance(app.screen, ExportScreen)
+        first, error = export_problem(app).split("\n", 1)
+        assert first == "Export error: Couldn't write the file."
+        assert str(gone) in error
+    assert not gone.exists()
+
+
+async def test_export_without_a_folder_says_to_set_one(app, settings_path):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with app.run_test() as pilot:
+        await pilot.press("f6")
+        await pilot.press("enter")
+        assert isinstance(app.screen, ExportScreen)
+        assert export_problem(app) == (
+            "Export error: No ADIF export folder set.\nSet one in Settings (F2)."
+        )
+
+
+async def test_folder_set_from_export_with_f2_is_used(app, settings_path, export_folder):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with app.run_test() as pilot:
+        await pilot.press("f6", "f2")
+        assert isinstance(app.screen, SettingsScreen)
+        app.screen.query_one("#folder-input", Input).value = str(export_folder)
+        await pilot.click("#save")
+        assert isinstance(app.screen, ExportScreen)
+        await pilot.press("enter")
+        assert not isinstance(app.screen, ExportScreen)
+    assert len(exported_files(export_folder)) == 1
+
+
+async def test_export_waits_for_a_clean_log(export_app, settings_path, export_folder):
+    # Two rows sharing a record ID are marked U.
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    (settings_path.parent / "20260925.csv").write_text(
+        LOG_HEADER + K1AAA_ROW + K1AAA_ROW.replace("K1AAA", "K1BBB")
+    )
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6", "enter")
+        assert isinstance(export_app.screen, ExportScreen)
+        assert export_problem(export_app) == (
+            "Export error: Rows are marked !, U, or =.\nResolve and try again."
+        )
+    assert not exported_files(export_folder)
+
+
+async def test_export_waits_for_a_clean_log_outside_the_range(export_app, settings_path):
+    write_refused(settings_path)
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        assert export_range(export_app) == ("260926", "260926")
+        await pilot.press("enter")
+        assert export_problem(export_app).startswith("Export error: Rows are marked")
+
+
+@pytest.mark.parametrize(
+    "start, end, problem, focused",
+    [
+        ("2610", "260925", "From '2610' should be YYMMDD, like 260923", "export-from"),
+        ("260925", "261332", "To '261332' isn't a real date", "export-to"),
+        ("260926", "260925", "From 260926 is after To 260925", "export-from"),
+        (
+            "\uff12\uff16\uff10\uff19\uff12\uff15",
+            "260925",
+            "From '\uff12\uff16\uff10\uff19\uff12\uff15' has non-ASCII characters: "
+            "'\uff12', '\uff16', '\uff10', '\uff19', '\uff15'.\nUse plain ASCII, like 260923.",
+            "export-from",
+        ),
+    ],
+)
+async def test_bad_export_dates_are_refused(export_app, settings_path, start, end, problem, focused):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        export_app.screen.query_one("#export-from", Input).value = start
+        export_app.screen.query_one("#export-to", Input).value = end
+        await pilot.click("#export")
+        assert export_problem(export_app) == problem
+        assert export_app.focused.id == focused
+        await pilot.press("backspace")
+        assert export_problem(export_app) == ""
+
+
+async def test_export_of_an_empty_range_is_refused(export_app, settings_path, export_folder):
+    write_saved_log(settings_path, THREE_DAYS)
+    async with export_app.run_test() as pilot:
+        await pilot.press("f6")
+        export_app.screen.query_one("#export-from", Input).value = "261001"
+        export_app.screen.query_one("#export-to", Input).value = "261009"
+        await pilot.press("enter")
+        assert export_problem(export_app) == "Export error: No logs in date range."
+    assert not exported_files(export_folder)
+
+
+async def test_export_that_cant_be_written_says_why(settings_path, tmp_path):
+    # The folder's path is now a file.
+    export_folder = tmp_path / "adif"
+    export_folder.write_text("not a folder")
+    save_settings(Settings("W1TST", adif_export_folder=str(export_folder)), settings_path)
+    write_saved_log(settings_path, THREE_DAYS)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await pilot.press("f6", "enter")
+        assert isinstance(app.screen, ExportScreen)
+        first, error = export_problem(app).split("\n", 1)
+        assert first == "Export error: Couldn't write the file."
+        assert str(export_folder) in error
+
+
+async def test_f6_doesnt_open_export_over_another_modal(export_app):
+    async with export_app.run_test() as pilot:
+        await pilot.press("f2", "f6")
+        assert isinstance(export_app.screen, SettingsScreen)
+        assert len(export_app.screen_stack) == 2

@@ -148,8 +148,8 @@ def test_file_is_plain_ascii():
 @pytest.mark.parametrize(
     "start, end, name",
     [
-        (date(2026, 10, 9), date(2026, 10, 9), "pota_20261009_20261009_195312.adi"),
-        (date(2026, 9, 28), date(2026, 10, 2), "pota_20260928_20261002_195312.adi"),
+        (date(2026, 10, 9), date(2026, 10, 9), "pota_20261009195312_20261009_20261009.adi"),
+        (date(2026, 9, 28), date(2026, 10, 2), "pota_20261009195312_20260928_20261002.adi"),
     ],
 )
 def test_export_file_name(start, end, name):

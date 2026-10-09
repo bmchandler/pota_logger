@@ -82,7 +82,9 @@ def adif_file(entries: list[dict], created: datetime) -> str:
 
 
 def export_file_name(start: date, end: date, created: datetime) -> str:
-    """`pota_<from>_<to>_<HHMMSS>.adi`: the range's UTC dates and the
-    export's UTC time, so an export never overwrites another.
+    """`pota_<created>_<from>_<to>.adi`: the export's UTC date and time
+    to the second (the same as CREATED_TIMESTAMP), then the range's UTC
+    dates. Leading with when it was made sorts the files by it, and keeps
+    exports of the same range apart.
     """
-    return f"pota_{start:%Y%m%d}_{end:%Y%m%d}_{created:%H%M%S}.adi"
+    return f"pota_{created:%Y%m%d%H%M%S}_{start:%Y%m%d}_{end:%Y%m%d}.adi"

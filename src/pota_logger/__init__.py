@@ -1,7 +1,7 @@
 import tomllib
 from collections import Counter
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from rich.text import Text
@@ -13,10 +13,11 @@ from textual.content import Content
 from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger import file_errors
-from pota_logger.dates import format_date, format_time
+from pota_logger.dates import default_date, format_date, format_time, parse_date
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
 from pota_logger.entry_form import LOG_FIELDS, EntryForm
+from pota_logger.export_screen import ExportScreen
 from pota_logger.freq import format_freq
 from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
@@ -68,6 +69,10 @@ SHARED_MARKER = "U"
 # Marks saved entries that are definite dupes of another (see dupes.py),
 # unless they share an ID too.
 DUPE_MARKER = "="
+
+# Export waits while any row has one of these marks: a problem fixed
+# locally is easy, but once in QRZ.com it has to be fixed there too.
+CLEAN_LOG_MARKERS = (REFUSED_MARKER, SHARED_MARKER, DUPE_MARKER)
 
 # Marks saved entries (from the log files at start) edited this session.
 # Like SESSION_MARKER, it isn't saved; this session's entries keep theirs.
@@ -333,6 +338,7 @@ class PotaLoggerApp(App):
         Binding("f3", "edit_entry", "Edit"),
         Binding("f4", "delete_entry", "Delete"),
         Binding("f5", "sort", "Sort"),
+        Binding("f6", "export", "Export"),
         Binding("ctrl+s", "screenshot", "Screenshot"),
         # Shown in the form's border title while editing, not the footer.
         Binding("escape", "step_back", "Back", show=False),
@@ -375,8 +381,9 @@ class PotaLoggerApp(App):
         with Horizontal(id="button-bar"):
             yield Static(id="mark-counts")
             # Mouse only, so tabbing through fields can't land on them.
+            # Settings is F2, a click away in the footer.
             for button in (
-                Button("Settings", id="settings"),
+                Button("ADIF", id="adif"),
                 Button("Quit", id="quit", variant="warning"),
             ):
                 button.can_focus = False
@@ -906,8 +913,8 @@ class PotaLoggerApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "quit":
             self.exit()
-        elif event.button.id == "settings":
-            self.action_open_settings()
+        elif event.button.id == "adif":
+            self.action_export()
 
     def action_screenshot(self) -> None:
         # Textual's own screenshot: an SVG saved to the Downloads folder,
@@ -935,6 +942,26 @@ class PotaLoggerApp(App):
             station_callsign=self.settings.station_callsign or self.station_callsign_to_fix,
         )
         self.push_screen(SettingsScreen(shown, with_callsign), self.apply_settings)
+
+    def action_export(self) -> None:
+        # Not over another modal (or before the log is loaded, when the
+        # station-callsign block is up).
+        if len(self.screen_stack) > 1:
+            return
+        entries = [entry for entry in self.log_entries() if not self.logbook.is_refused(entry)]
+        log_clean = not any(self.mark_counts[marker] for marker in CLEAN_LOG_MARKERS)
+        self.push_screen(ExportScreen(entries, log_clean, *self.export_range(entries)))
+
+    def export_range(self, entries: list[dict]) -> tuple[date, date]:
+        """The Export modal's default range: the dates of this session's
+        entries, or with none, the latest DATE logged (or today's local
+        date, as DATE's default, with nothing logged).
+        """
+        dates = [entry["DATE"] for entry in self.session_entries]
+        if dates:
+            return min(dates), max(dates)
+        latest = max((entry["DATE"] for entry in entries), default=parse_date(default_date()))
+        return latest, latest
 
     def require_station_callsign(self) -> None:
         """Block until a station callsign is set: Enter opens Settings, and

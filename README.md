@@ -5,7 +5,6 @@ contacts. It's built for copying a paper log into the computer quickly and
 accurately: type each line as it's written, and the app checks it as you go.
 
 The intended workflow is paper log → POTA Logger → ADIF export → QRZ.com import.
-ADIF export isn't built yet.
 
 It runs in a terminal (built with [Textual](https://textual.textualize.io/)),
 stores everything in plain CSV files you can open in a text editor or
@@ -68,6 +67,21 @@ logged contact, edit that record's COMMENT.
   the usual newest-first order; TIME sorts by time of day alone. Entries typed
   after a sort go on top, as typed. Refused (`!`) rows stay at the top.
   The next start shows the usual order.
+
+### Export
+
+- **F6** (or the ADIF button) opens Export, to write an ADIF file for
+  QRZ.com's ADIF import. Set the folder first, in Settings (**F2**, which
+  also works from Export). From and To are UTC dates, typed like DATE
+  (YYMMDD); they start as this session's dates, or the latest date
+  logged. Enter (or the Export button) writes
+  `pota_<created>_<from>_<to>.adi` (UTC, e.g.
+  `pota_20261009195312_20261009_20261009.adi`) there, the records in time
+  order; Esc cancels.
+- Export waits until no row is marked `!`, `U`, or `=`, anywhere in the
+  log: fix or delete those first, so a mistake doesn't reach QRZ.com.
+- Each record carries the park as `POTA_REF` and as `SIG`/`SIG_INFO`,
+  and ST as `STATE` (left out when blank). The record ID isn't exported.
 - The first column marks each row's status:
 
   | Mark | Meaning |
@@ -100,7 +114,7 @@ logged contact, edit that record's COMMENT.
   one call: a row with another call is refused, to fix by hand. When your
   call changes, start a new log: move the old log files out of `data/`,
   then set the new call in `data/settings.toml`.
-- **F2** (or the Settings button) opens Settings, with two checkboxes, both
+- **F2** opens Settings, with two checkboxes, both
   off at first, and a folder:
   - `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
     starts as `POTA `, and becomes `POTA US-1234 NJ` (or `POTA US-1234`
@@ -108,8 +122,8 @@ logged contact, edit that record's COMMENT.
     is kept when PARK or ST change.
   - `Edit: Update COMMENT with POTA info.`: editing a record updates the
     same info, if its COMMENT starts with it.
-  - `ADIF export folder`: where ADIF exports go, like `~/Downloads`
-    (a missing folder is created).
+  - `ADIF export folder`: where ADIF exports go, like `~/Downloads`. It
+    must already exist: none is created, so a typo is caught.
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 
@@ -194,8 +208,8 @@ Built: everything above.
 
 Not built yet:
 
-- ADIF export (for QRZ.com import)
-- Sorting the log by any column
+- QRZ.com API upload (maybe)
+- POTA's parks list (filling ST, park names)
 
 Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md).
 

@@ -85,8 +85,18 @@ updated in the same change whenever a rule changes.
   `<EOR>`; `adif_fields` gives the (name, value) pairs, blanks left
   out): what the file export writes per entry and QRZ.com's API takes
   per QSO. `adif_file` adds the header (`adif_header`), one record per
-  line; `export_file_name` names the file. It takes clean entries only: export is refused while any
-  row is marked `!`, `U`, or `=` (see REQUIREMENTS.md Export).
+  line; `export_file_name` names the file. It takes clean entries only:
+  export is refused while any row is marked `!`, `U`, or `=` (see
+  REQUIREMENTS.md Export).
+- export_screen.py holds `ExportScreen` (`f6`, or the ADIF button; the
+  app's `action_export` gives it the log's entries, refused rows left
+  out, whether the log is clean of `CLEAN_LOG_MARKERS`, and
+  `export_range`'s default dates). It doesn't show the folder; it reads
+  it from `app.settings` on Export, since F2 opens Settings over it (its
+  own binding: the app's keys don't reach a modal). No folder is ever
+  made (`folder_path` in settings.py expands `~`; Settings saves only
+  an existing folder). Tests use the `export_folder` and `export_app`
+  fixtures (an existing folder in the temp dir), or `home` for `~`.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is

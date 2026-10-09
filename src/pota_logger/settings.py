@@ -26,9 +26,10 @@ class Settings:
     # entered: in a new entry, and in an edited one.
     new_comment_pota_info: bool = False
     edit_comment_pota_info: bool = False
-    # Where ADIF export writes its files, as typed (`~` is expanded and a
-    # missing folder made when exporting). "" means none is set, and
-    # ADIF export is refused until one is.
+    # Where ADIF export writes its files, as typed (`~` is expanded, see
+    # folder_path). "" means none is set, and ADIF export is refused
+    # until one is. Settings saves only a folder that exists; none is
+    # ever made, so a typo can't send files somewhere unexpected.
     adif_export_folder: str = ""
     # Whether loading fixed how the file wrote a value, so it's to be
     # saved again. Not a setting, so settings compare without it.
@@ -110,6 +111,11 @@ def load_folder(value, problems: list[str]) -> tuple[str, bool]:
         return "", False
     folder = value.strip(" ")
     return folder, folder != value
+
+
+def folder_path(folder: str) -> Path:
+    """The ADIF export folder as set, `~` expanded."""
+    return Path(folder).expanduser()
 
 
 def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:
