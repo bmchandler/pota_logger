@@ -1,11 +1,12 @@
 import os
 from datetime import date, time
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 
 from pota_logger.logbook import Logbook, LogWriteError, Problem, Refused, refused_texts
+
+from tests.helpers import fail_to_write
 
 HEADER = "FREQ,MODE,CALL,PARK,ST,SNT,RCD,PWR,DATE,TIME,COMMENT,STATION_CALLSIGN,UUIDv4\n"
 
@@ -397,17 +398,6 @@ def test_non_utf8_file_isnt_saved_to(log_dir):
         append_entry(log_dir, ENTRY, "W1TST")
     assert (log_dir / "20260925.csv").read_bytes() == original
 
-
-def fail_to_write(monkeypatch, name):
-    """Make writing the file called `name` fail, as if it were locked."""
-    real_replace = os.replace
-
-    def replace(source, target):
-        if Path(target).name == name:
-            raise PermissionError(13, "Permission denied")
-        real_replace(source, target)
-
-    monkeypatch.setattr("pota_logger.logbook.os.replace", replace)
 
 
 def test_failed_write_changes_nothing_and_can_be_tried_again(log_dir, monkeypatch):

@@ -2,7 +2,7 @@ import json
 from datetime import date
 
 import pytest
-from conftest import LAST_MODIFIED, LIST, NEWER_LIST
+from tests.conftest import LAST_MODIFIED, LIST, NEWER_LIST
 
 from pota_logger.fields.parks import Park
 from pota_logger.parks_list import (

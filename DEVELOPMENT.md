@@ -43,14 +43,23 @@ uv run python -m pota_logger.callsign_guard install
 uv run pytest
 ```
 
-Tests run in parallel (pytest-xdist, with `--dist worksteal`), about 75
+Tests run in parallel (pytest-xdist, with `--dist worksteal`), about 55
 seconds in all. For a few tests, add `-n0`, as starting the workers
 takes about 2 seconds:
 
 ```bash
-uv run pytest -n0 tests/test_freq.py
+uv run pytest -n0 tests/fields/test_freq.py
 ```
 
+- `tests/` mirrors `src/pota_logger/`: `tests/fields/`, `tests/screens/`,
+  and a test file beside them per top-level module (`test_logbook.py`).
+  The app's tests (`app.py`) are in `tests/app/`, a file per area
+  (`test_entry.py`, `test_editing.py`, `test_export.py`...), sharing
+  `tests/app/helpers.py` (`ENTRY`, `fill`, `table_rows`...) and the
+  fixtures in `tests/app/conftest.py` (`export_app`, `no_call_app`,
+  `parks_app`...). What tests in more than one folder share is in
+  `tests/helpers.py` (`fail_to_write`). Each test folder is a package
+  (`__init__.py`), so files in different folders can share a name.
 - Most of the time is app tests: about 0.6 second per `run_test` (mostly
   Textual's own styling and layout), plus about 0.1 second per
   `pilot.press`. Set field values with `fill()` unless typing key by key
@@ -64,8 +73,8 @@ uv run pytest -n0 tests/test_freq.py
   keeps to its own temp dir, as tests run in parallel.
 - Tests never reach pota.app: the `pota` fixture is a local server
   standing in for it.
-- `tests/test_app.py` builds on `ENTRY` (USB on a 20m voice frequency)
-  and `CW_ENTRY`. A test that saves several entries needs a different
+- App tests build on `ENTRY` (USB on a 20m voice frequency) and
+  `CW_ENTRY`. A test that saves several entries needs a different
   CALL on each, or the dupe block stops it. Use past dates, or `991231`
   for a future one.
 - REQUIREMENTS.md's "Status and plan" has the test-speed history and

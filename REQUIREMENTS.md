@@ -133,7 +133,9 @@ the rise is growth: app tests went from 172 to 278 and run somewhat
 longer each. The rest was workers left idle at the end: xdist's default
 `load` scheduling hands out tests in advance, so slow ones bunch up on a
 few workers. `--dist worksteal` (idle workers take tests from busy ones)
-brought it to about 72 seconds; left at that.
+brought it to about 72 seconds. Splitting `tests/test_app.py` into
+`tests/app/`, a file per area (2026-10-10, for readability), brought it
+to about 55, likely as smaller files spread more evenly across the workers.
 
 The editing plan (decided 2026-10-04) is built: the log is where records
 are checked and fixed, with no need to open a CSV. Its status column shows
