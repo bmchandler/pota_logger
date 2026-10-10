@@ -7,7 +7,7 @@ updated in the same change whenever a rule changes.
 ## Commands
 
 - Run the app: `uv run pota-logger`
-- Run tests: `uv run pytest` (in parallel by default, about 40 seconds;
+- Run tests: `uv run pytest` (in parallel by default, about 75 seconds;
   add `-n0` when running just a few, as starting the workers takes
   about 2 seconds)
 - Install the callsign guard git hooks (once per clone):

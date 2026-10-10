@@ -122,6 +122,15 @@ field is wired into the form's checks (`PARSERS`, `REPORTS`, focus), which
 a unit test can't. Full coverage is preferred over speed; with tests in
 parallel they cost about 1 to 2 seconds.
 
+Checked again 2026-10-10: 935 tests took about 100 seconds. The
+2026-10-05 suite (699 tests) still runs in about 46 seconds on the same
+machine, and the cost of a key press or an app start hasn't changed, so
+the rise is growth: app tests went from 172 to 278 and run somewhat
+longer each. The rest was workers left idle at the end: xdist's default
+`load` scheduling hands out tests in advance, so slow ones bunch up on a
+few workers. `--dist worksteal` (idle workers take tests from busy ones)
+brought it to about 72 seconds; left at that.
+
 The editing plan (decided 2026-10-04) is built: the log is where records
 are checked and fixed, with no need to open a CSV. Its status column shows
 each row's state, the form makes every change, and only the operator
