@@ -695,6 +695,28 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   full timestamp is its DATE plus its TIME, and it's stored in the file named
   for its DATE.
 - Files should stay readable and editable by hand.
+- The header row is the file format's "version" (decided 2026-10-10):
+  load takes a file only when its header matches the columns exactly, so
+  any change to the columns, their order, or their names shows. The
+  rule: a change to what a stored value means also renames its column
+  (FREQ in MHz instead of Hz would become `FREQ_MHZ`), so every format
+  change shows in the header, and an older file is told apart by its
+  header rather than misread. Otherwise most old values would only be
+  refused, and one valid either way could be misread without a word. A
+  change of format adds a list of the older headers and converts each
+  on load, rather than skipping the file. None is planned.
+  - CSV (RFC 4180) has no place for a version: just rows, fields, and an
+    optional header row, with no comments or other metadata. So any
+    marker is a convention of the app's own, read as data by everything
+    else. Considered instead: a comment line (`# format 1`), which isn't
+    CSV, shows as a row in Calc, and is read as a row by Python's `csv`;
+    a version column on every row, which is noise in each row and needs
+    a rule for a row that differs; the version in the file name
+    (`20260924.v2.csv`), which changes the name pattern and renames
+    every file at each change; and a separate file (`data/format.toml`),
+    which can disagree with the logs, e.g. a log file copied in from
+    elsewhere. The header alone keeps the files plain CSV, as readable
+    and editable by hand as before.
 - Each entry is added to its date's file when saved (Enter), and every
   log file is loaded at start. A new file starts with the header row.
 - While it runs, the app is the only source of truth for the log files.
@@ -1088,8 +1110,8 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   on for a second or third release the same day (`2026.10.10.1`). The
   app isn't a library: no code depends on it, so semantic versioning's
   "is this change breaking?" has no one to answer to, and the date
-  needs no judgment call. The log file's compatibility, if its format
-  ever changes, is a separate matter from the app's version.
+  needs no judgment call. The log file's format has its own "version",
+  apart from the app's: its header row (see Storage).
 - No leading zeros (`2026.1.5`, not `2026.01.05`): Python's version
   rules (PEP 440) drop them, so `uv version 2026.01.05` writes
   `2026.1.5`, and the tag must read the same as `pyproject.toml`.
