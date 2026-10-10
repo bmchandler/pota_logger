@@ -9,7 +9,7 @@ from pota_logger.entry_warnings import (
     state_on_non_us_park,
     voice_outside_range,
 )
-from pota_logger.parks import Park
+from pota_logger.fields.parks import Park
 
 
 def when(moment: datetime) -> dict:

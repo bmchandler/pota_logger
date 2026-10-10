@@ -81,18 +81,19 @@ uv run pytest -n0 tests/test_freq.py
   this project (Claude Code), with detailed notes on how the code fits
   together. Worth a read for the same reason.
 - `src/pota_logger/`:
-  - `__init__.py`: the app (`PotaLoggerApp`) and the log table.
+  - `app.py`: the app (`PotaLoggerApp`, and `main`, which the
+    `pota-logger` command runs) and the log table.
   - `entry_form.py`: the entry form, its fields, and the checks run on
     Enter.
-  - One module per entry field with rules: `freq.py`, `modes.py`,
-    `callsigns.py`, `parks.py`, `states.py`, `reports.py`, `power.py`,
-    `dates.py`. Each has `parse_*`, which raises `ValueError` with the
-    message shown to the operator, and `format_*` where the value shows
-    differently from how it's stored. `sidebands.py` holds the rules
-    that tie MODE and FREQ together.
+  - `fields/`: one module per entry field with rules: `freq.py`,
+    `modes.py`, `callsigns.py`, `parks.py`, `states.py`, `reports.py`,
+    `power.py`, `dates.py`. Each has `parse_*`, which raises
+    `ValueError` with the message shown to the operator, and `format_*`
+    where the value shows differently from how it's stored. Also
+    `sidebands.py`, the rules that tie MODE and FREQ together, and
+    `ascii_text.py`, the ASCII check on every text input.
   - `entry_warnings.py`: warnings (probably wrong, but saveable).
-    `dupes.py`: the definite dupe check. `ascii_text.py`: the ASCII
-    check on every text input.
+    `dupes.py`: the definite dupe check.
   - `logbook.py`: the CSV storage, loading and checking the files.
     `record_ids.py`: each row's record ID. `file_errors.py`: the
     errors file for rows too broken to load.
@@ -102,8 +103,9 @@ uv run pytest -n0 tests/test_freq.py
   - `settings.py`: the settings file. `data_folder.py`: where the app
     keeps its files, and the installed `README.txt` (`README_TEXT`), a
     summary of README.md's "Your data": change them together.
-  - `*_screen.py`: the modals. `status_bar.py`, `theme.py`: the status
-    bar and the color theme.
+  - `screens/`: the modals (`*_screen.py`) and the status bar
+    (`status_bar.py`).
+  - `theme.py`: the color theme.
   - `callsign_guard.py`: the git hooks (see Privacy).
 - `tag_new_version.py`: makes a release (see RELEASING.md).
 

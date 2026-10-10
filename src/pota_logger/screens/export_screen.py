@@ -7,8 +7,8 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
 from pota_logger.adif import adif_file, export_file_name
-from pota_logger.ascii_text import check_ascii
-from pota_logger.dates import parse_date
+from pota_logger.fields.ascii_text import check_ascii
+from pota_logger.fields.dates import parse_date
 from pota_logger.settings import folder_path
 
 # The modal's wording, as dictated (2026-10-09).

@@ -2,11 +2,11 @@ import textwrap
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from pota_logger.dates import format_date, format_time
-from pota_logger.freq import band_name, format_freq, voice_range
-from pota_logger.parks import Park
-from pota_logger.sidebands import signal_edges
-from pota_logger.states import US_STATES
+from pota_logger.fields.dates import format_date, format_time
+from pota_logger.fields.freq import band_name, format_freq, voice_range
+from pota_logger.fields.parks import Park
+from pota_logger.fields.sidebands import signal_edges
+from pota_logger.fields.states import US_STATES
 
 CONFIRM_HINT = "Esc to correct, or confirm with Enter."
 

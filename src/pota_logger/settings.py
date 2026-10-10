@@ -3,8 +3,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pota_logger.ascii_text import check_ascii
-from pota_logger.callsigns import parse_callsign
+from pota_logger.fields.ascii_text import check_ascii
+from pota_logger.fields.callsigns import parse_callsign
 from pota_logger.data_folder import data_dir
 
 DATA_DIR = data_dir()

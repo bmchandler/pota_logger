@@ -62,9 +62,13 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 
 - Each entry field with rules has a small module with `parse_*` (raises
   ValueError with a message shown to the operator) and, if displayed
-  differently, `format_*`: freq.py, modes.py, callsigns.py, parks.py,
-  states.py, reports.py, power.py, dates.py. sidebands.py holds the
+  differently, `format_*`, in `fields/`: freq.py, modes.py, callsigns.py,
+  parks.py, states.py, reports.py, power.py, dates.py. sidebands.py
+  (also in `fields/`, with ascii_text.py) holds the
   MODE-and-FREQ sideband rules.
+- The app (`PotaLoggerApp`, `main`) is app.py; the modals
+  (`*_screen.py`) and status_bar.py are in `screens/`. `__init__.py`
+  files hold only a docstring.
 - adif.py turns an entry into one ADIF record (`adif_record`, ending
   `<EOR>`; `adif_fields` gives the (name, value) pairs, blanks left
   out): what the file export writes per entry and QRZ.com's API takes
@@ -110,7 +114,7 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   paper-log order, for the log table's columns and the CSV's: use it,
   not `FIELDS`, wherever column order matters. Also
   `PARSERS`, `REPORTS` (parsed after, since they depend on MODE),
-  `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `__init__.py`
+  `OPTIONAL`, `DEFAULTS`, `CARRY_FORWARD`, and `WARNINGS`. `app.py`
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.
 - Warnings (probably wrong, but saveable) are checks in entry_warnings.py
   listed in `WARNINGS`, shown in warning_screen.py. Each check takes the
@@ -227,7 +231,7 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 - An App subclass's `on_mount` doesn't need `super().on_mount()`:
   Textual calls each class's handler, so that runs the app's twice (in a
   scratch script, use `on_ready` for setup after mount).
-- Textual CSS quirks met so far (see entry_form.py and __init__.py):
+- Textual CSS quirks met so far (see entry_form.py and app.py):
   a single edge like `margin-bottom` in a more specific rule resets the
   other three sides, so set all four; `height: auto` doesn't count a
   horizontal scrollbar, so keep outer spacing in margins, not padding.

@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.ascii_text import check_ascii, check_trimmed
+from pota_logger.fields.ascii_text import check_ascii, check_trimmed
 
 
 @pytest.mark.parametrize(

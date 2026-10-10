@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.modes import parse_mode
+from pota_logger.fields.modes import parse_mode
 
 
 @pytest.mark.parametrize(

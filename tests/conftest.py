@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from pota_logger import PotaLoggerApp
+from pota_logger.app import PotaLoggerApp
 from pota_logger.parks_list import md5_etag
 from pota_logger.settings import Settings, save_settings
 

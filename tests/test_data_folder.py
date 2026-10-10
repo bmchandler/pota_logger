@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import pota_logger
+from pota_logger import app
 from pota_logger.data_folder import (
     PROJECT_ROOT,
     README_TEXT,
@@ -74,16 +74,16 @@ class FakeApp:
 
 
 def test_installed_app_writes_the_readme_beside_data(tmp_path, monkeypatch):
-    monkeypatch.setattr(pota_logger, "from_source", lambda: False)
-    monkeypatch.setattr(pota_logger, "DATA_DIR", tmp_path / "pota-logger" / "data")
-    monkeypatch.setattr(pota_logger, "PotaLoggerApp", FakeApp)
-    pota_logger.main()
+    monkeypatch.setattr(app, "from_source", lambda: False)
+    monkeypatch.setattr(app, "DATA_DIR", tmp_path / "pota-logger" / "data")
+    monkeypatch.setattr(app, "PotaLoggerApp", FakeApp)
+    app.main()
     assert FakeApp.ran
     assert (tmp_path / "pota-logger" / "README.txt").read_text() == README_TEXT
 
 
 def test_app_from_a_clone_writes_no_readme(tmp_path, monkeypatch):
-    monkeypatch.setattr(pota_logger, "DATA_DIR", tmp_path / "data")
-    monkeypatch.setattr(pota_logger, "PotaLoggerApp", FakeApp)
-    pota_logger.main()
+    monkeypatch.setattr(app, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(app, "PotaLoggerApp", FakeApp)
+    app.main()
     assert not (tmp_path / "README.txt").exists()

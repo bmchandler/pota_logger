@@ -1,6 +1,6 @@
 from textual.widgets import Label
 
-from pota_logger.warning_screen import WarningScreen
+from pota_logger.screens.warning_screen import WarningScreen
 
 # The last line of the delete modal, before and after the first Enter.
 ENTER_TWICE = "Enter twice to delete, or Esc to keep it."

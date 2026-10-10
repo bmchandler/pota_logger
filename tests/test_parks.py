@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.parks import parse_park
+from pota_logger.fields.parks import parse_park
 
 
 @pytest.mark.parametrize(

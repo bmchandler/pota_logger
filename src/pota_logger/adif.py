@@ -2,9 +2,9 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from importlib.metadata import version
 
-from pota_logger.freq import band_name
+from pota_logger.fields.freq import band_name
 from pota_logger.logbook import stored_text
-from pota_logger.parks import Park
+from pota_logger.fields.parks import Park
 
 # The ADIF version the export follows, and the app as ADIF names it.
 ADIF_VERSION = "3.1.6"

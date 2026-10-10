@@ -12,8 +12,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 from pota_logger.adif import PROGRAM_ID
-from pota_logger.parks import Park
-from pota_logger.states import US_STATES
+from pota_logger.fields.parks import Park
+from pota_logger.fields.states import US_STATES
 
 # POTA's list of every park, rebuilt by POTA about nightly.
 PARKS_URL = "https://pota.app/all_parks_ext.csv"

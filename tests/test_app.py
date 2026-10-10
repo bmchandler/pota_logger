@@ -8,10 +8,11 @@ from textual.command import CommandPalette
 from textual.containers import Vertical
 from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
 
-from pota_logger import PotaLoggerApp, dates, header_cell, mark_count_lines, sort_key
-from pota_logger.callsign_warning_screen import CallsignWarningScreen
-from pota_logger.delete_screen import DeleteScreen
-from pota_logger.export_screen import ExportScreen
+from pota_logger.app import PotaLoggerApp, header_cell, mark_count_lines, sort_key
+from pota_logger.fields import dates
+from pota_logger.screens.callsign_warning_screen import CallsignWarningScreen
+from pota_logger.screens.delete_screen import DeleteScreen
+from pota_logger.screens.export_screen import ExportScreen
 from pota_logger.entry_form import (
     COMMENT_LENGTH,
     FIELDS,
@@ -21,11 +22,11 @@ from pota_logger.entry_form import (
     pota_info,
 )
 from pota_logger.parks_list import download_parks, md5_etag, parks_folder
-from pota_logger.parks_offer_screen import ParksOfferScreen
+from pota_logger.screens.parks_offer_screen import ParksOfferScreen
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import Settings, load_settings, save_settings
-from pota_logger.settings_screen import SettingsScreen
-from pota_logger.warning_screen import WarningScreen
+from pota_logger.screens.settings_screen import SettingsScreen
+from pota_logger.screens.warning_screen import WarningScreen
 
 
 def station_callsign(app) -> str:

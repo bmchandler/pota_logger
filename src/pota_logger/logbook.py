@@ -7,18 +7,18 @@ from decimal import Decimal
 from pathlib import Path
 from typing import NamedTuple
 
-from pota_logger.ascii_text import check_ascii, check_trimmed
-from pota_logger.callsigns import parse_callsign
-from pota_logger.dates import parse_time
+from pota_logger.fields.ascii_text import check_ascii, check_trimmed
+from pota_logger.fields.callsigns import parse_callsign
+from pota_logger.fields.dates import parse_time
 from pota_logger.entry_form import ENTRY_FORMATTERS, FIELDS, LOG_FIELDS, OPTIONAL, PARSERS, REPORTS
-from pota_logger.freq import in_us_band
-from pota_logger.modes import parse_mode
-from pota_logger.parks import parse_park
-from pota_logger.power import parse_power
+from pota_logger.fields.freq import in_us_band
+from pota_logger.fields.modes import parse_mode
+from pota_logger.fields.parks import parse_park
+from pota_logger.fields.power import parse_power
 from pota_logger.record_ids import new_id, parse_id
-from pota_logger.reports import parse_report
-from pota_logger.sidebands import check_sideband
-from pota_logger.states import parse_state
+from pota_logger.fields.reports import parse_report
+from pota_logger.fields.sidebands import check_sideband
+from pota_logger.fields.states import parse_state
 
 # CSV columns: the entry fields in entry order, the station callsign, then
 # the record ID. The ID is last, so a blank one can be filled in at the end

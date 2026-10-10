@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from conftest import LAST_MODIFIED, LIST, NEWER_LIST
 
-from pota_logger.parks import Park
+from pota_logger.fields.parks import Park
 from pota_logger.parks_list import (
     PARKS_FILE,
     PARKS_INFO_FILE,

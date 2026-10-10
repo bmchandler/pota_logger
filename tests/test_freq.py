@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.freq import (
+from pota_logger.fields.freq import (
     US_BANDS,
     _bare_candidates,
     band_name,

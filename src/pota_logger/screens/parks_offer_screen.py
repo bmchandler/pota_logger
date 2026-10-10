@@ -1,4 +1,4 @@
-from pota_logger.warning_screen import WarningScreen
+from pota_logger.screens.warning_screen import WarningScreen
 
 # As dictated.
 PARKS_OFFER = (

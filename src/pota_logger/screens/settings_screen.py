@@ -4,10 +4,10 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label, Static
 
-from pota_logger.ascii_text import check_ascii
-from pota_logger.callsign_warning_screen import CallsignWarningScreen
-from pota_logger.callsigns import is_usual_callsign, parse_callsign
-from pota_logger.dates import format_date
+from pota_logger.fields.ascii_text import check_ascii
+from pota_logger.screens.callsign_warning_screen import CallsignWarningScreen
+from pota_logger.fields.callsigns import is_usual_callsign, parse_callsign
+from pota_logger.fields.dates import format_date
 from pota_logger.parks_list import ParksCopy, copy_date
 from pota_logger.settings import (
     EDIT_COMMENT_POTA_INFO,

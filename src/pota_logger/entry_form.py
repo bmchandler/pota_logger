@@ -9,10 +9,10 @@ from textual.message import Message
 from rich.text import Text
 from textual.widgets import Input, Label, Static
 
-from pota_logger.ascii_text import check_ascii
-from pota_logger.callsign_warning_screen import CallsignWarningScreen
-from pota_logger.callsigns import is_usual_callsign, parse_callsign
-from pota_logger.dates import default_date, parse_date, parse_time
+from pota_logger.fields.ascii_text import check_ascii
+from pota_logger.screens.callsign_warning_screen import CallsignWarningScreen
+from pota_logger.fields.callsigns import is_usual_callsign, parse_callsign
+from pota_logger.fields.dates import default_date, parse_date, parse_time
 from pota_logger.dupes import DUPE_BUTTON, EDIT_DUPE_MESSAGE, NEW_DUPE_MESSAGE, is_dupe
 from pota_logger.entry_warnings import (
     future_time,
@@ -21,16 +21,16 @@ from pota_logger.entry_warnings import (
     state_on_non_us_park,
     voice_outside_range,
 )
-from pota_logger.freq import format_freq, parse_freq
-from pota_logger.modes import parse_mode
-from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
-from pota_logger.parks import parse_park
-from pota_logger.power import parse_power
+from pota_logger.fields.freq import format_freq, parse_freq
+from pota_logger.fields.modes import parse_mode
+from pota_logger.fields.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger.fields.parks import parse_park
+from pota_logger.fields.power import parse_power
 from pota_logger.record_ids import new_id
-from pota_logger.reports import THREE_DIGIT_MODE, parse_report
-from pota_logger.sidebands import check_sideband
-from pota_logger.states import parse_state
-from pota_logger.warning_screen import WarningScreen
+from pota_logger.fields.reports import THREE_DIGIT_MODE, parse_report
+from pota_logger.fields.sidebands import check_sideband
+from pota_logger.fields.states import parse_state
+from pota_logger.screens.warning_screen import WarningScreen
 
 # (name, placeholder, longest expected value) for the fields above COMMENT,
 # in paper-log order: the log table's columns and the CSV files'.

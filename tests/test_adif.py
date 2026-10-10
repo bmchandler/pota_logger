@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from pota_logger.parks import Park
+from pota_logger.fields.parks import Park
 
 from pota_logger.adif import (
     ADIF_VERSION,

@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.sidebands import check_sideband, signal_edges
+from pota_logger.fields.sidebands import check_sideband, signal_edges
 
 
 def test_signal_edges():
