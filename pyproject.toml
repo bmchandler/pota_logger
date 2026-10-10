@@ -1,7 +1,7 @@
 [project]
 name = "pota-logger"
 version = "0.1.0"
-description = "Add your description here"
+description = "A streamlined paper to digital POTA logger with ADIF export support."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.md"]

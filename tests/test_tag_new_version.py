@@ -56,6 +56,30 @@ def test_given_version_already_tagged_or_older_is_refused():
         tnv.check_version("2026.10.11", tags)
 
 
+CHANGELOG = """# Changelog
+
+## Unreleased
+
+- Something new.
+
+## MVP
+
+- The first version.
+"""
+
+
+def test_unreleased_changes_stop_at_the_next_heading():
+    assert tnv.unreleased_changes(CHANGELOG) == ["- Something new."]
+    assert tnv.unreleased_changes(CHANGELOG.replace("- Something new.\n", "")) == []
+    assert tnv.unreleased_changes("# Changelog\n\n## MVP\n\n- The first version.\n") == []
+
+
+def test_released_changelog_names_the_version():
+    assert tnv.released_changelog(CHANGELOG, "2026.10.10") == CHANGELOG.replace(
+        "## Unreleased", "## 2026.10.10"
+    )
+
+
 def git(repo, *args):
     return subprocess.run(
         ["git", *args], cwd=repo, check=True, capture_output=True, text=True
@@ -73,6 +97,7 @@ def repo(tmp_path):
         'requires-python = ">=3.13"\ndependencies = []\n'
     )
     (tmp_path / ".gitignore").write_text(".venv/\n")
+    (tmp_path / "CHANGELOG.md").write_text(CHANGELOG)
     subprocess.run(["uv", "lock", "-q"], cwd=tmp_path, check=True)
     git(tmp_path, "add", ".")
     git(tmp_path, "commit", "-q", "-m", "Initial Commit")
@@ -83,6 +108,17 @@ def repo(tmp_path):
 def test_clean_main_has_no_problems(repo):
     assert tnv.repo_problems(repo) == []
     assert tnv.version_tags(repo) == []
+
+
+def test_nothing_unreleased_refused(repo):
+    (repo / "CHANGELOG.md").write_text(CHANGELOG.replace("- Something new.\n", ""))
+    git(repo, "commit", "-q", "-am", "Empty Unreleased")
+    assert tnv.repo_problems(repo) == [
+        "Nothing under ## Unreleased in CHANGELOG.md; note the release's changes there first."
+    ]
+    (repo / "CHANGELOG.md").unlink()
+    git(repo, "commit", "-q", "-am", "No changelog")
+    assert len(tnv.repo_problems(repo)) == 1
 
 
 def test_changes_or_another_branch_refused(repo):
@@ -101,9 +137,12 @@ def test_release_commits_the_version_and_tags_that_commit(repo):
     assert 'version = "2026.10.10"' in (repo / "uv.lock").read_text()
     assert git(repo, "log", "-1", "--format=%s") == "Version 2026.10.10"
     assert git(repo, "show", "--name-only", "--format=", "HEAD").split() == [
+        "CHANGELOG.md",
         "pyproject.toml",
         "uv.lock",
     ]
+    assert (repo / "CHANGELOG.md").read_text() == CHANGELOG.replace("## Unreleased", "## 2026.10.10")
     assert git(repo, "rev-parse", "2026.10.10") == git(repo, "rev-parse", "HEAD")
-    assert tnv.repo_problems(repo) == []
+    # Clean, but with nothing unreleased until the next change is noted.
+    assert len(tnv.repo_problems(repo)) == 1
     assert tnv.version_tags(repo) == ["2026.10.10"]

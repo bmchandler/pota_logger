@@ -159,9 +159,8 @@ Ideas considered and deferred:
   it would take non-stock input borders; the stock look was kept.
 - Dates before 2000 (or after 2099). The entry form's YYMMDD covers
   2000 to 2099, and log rows outside it are refused on load, so an edit
-  can't change their year. Reassess closer to release, e.g. for importing
-  older logs from ADIF: take them gracefully, or still refuse them if
-  that's much simpler.
+  can't change their year. Decided 2026-10-10 to leave it so: importing
+  older logs isn't planned, and nothing before 2000 needs logging.
 - Bulk edits (e.g. PWR across a session) and undo: not planned. Entries
   are copied from paper one at a time, so bulk edits add little and
   raise the risk of mistakes; an entry is fixed by editing or deleting
@@ -1146,13 +1145,15 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   bump. It takes today's date, with `.1`, `.2` when that's tagged, or a
   version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
   it's malformed, already tagged, or older than the newest tag. It
-  refuses a tree with changes or a branch other than `main`, and asks
+  refuses a tree with changes, a branch other than `main`, or nothing
+  under `## Unreleased` in CHANGELOG.md, and asks
   `Tag <version>? [y/N]` before changing anything; on `y` it runs the
   tests (asked first, as they take a while, so a run by mistake or a
   mistyped version stops at once). Then it takes these steps, always together and in this order:
   1. `uv version <date>`, which sets the version in `pyproject.toml`
      and `uv.lock` (checked to read exactly `<date>`).
-  2. Commit both files, as `Version <date>`.
+  2. Rename CHANGELOG.md's `## Unreleased` heading to `## <date>`, and
+     commit the three files, as `Version <date>`.
   3. Tag that commit with the same `<date>` (no `v` before it; a plain
      tag, like `MVP`).
 

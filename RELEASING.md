@@ -6,7 +6,8 @@ third `.2` (`2026.10.10.1`).
 
 ## Make a release
 
-1. Commit everything for the release, on `main`.
+1. Note the release's changes in [CHANGELOG.md](CHANGELOG.md), under
+   `## Unreleased`, and commit everything for the release, on `main`.
 2. Run:
 
    ```bash
@@ -27,7 +28,8 @@ don't tag by hand.
 
 ## What the script does
 
-- Refuses a tree with changes, or a branch other than `main`.
+- Refuses a tree with changes, a branch other than `main`, or nothing
+  under `## Unreleased` in CHANGELOG.md.
 - Takes today's date (local), with `.1`, `.2` if that's tagged already;
   a version you give is refused if it's malformed, already tagged, or
   older than the newest tag.
@@ -38,7 +40,9 @@ don't tag by hand.
 - Runs `uv version <version>`, which sets the version in
   `pyproject.toml` and `uv.lock`, and checks `pyproject.toml` reads
   exactly that.
-- Commits those two files as `Version <version>`.
+- Renames CHANGELOG.md's `## Unreleased` heading to `## <version>`.
+- Commits `pyproject.toml`, `uv.lock`, and `CHANGELOG.md` as
+  `Version <version>`.
 - Tags that commit `<version>` (a plain tag, no `v`).
 - Never pushes.
 
@@ -70,14 +74,15 @@ tag is pushed, leave it; make a new release instead.
 ## If the script can't run
 
 Do the same steps by hand, in this order, on a clean `main` with the
-tests passing:
+tests passing, after renaming CHANGELOG.md's `## Unreleased` heading
+to `## <version>`:
 
 ```bash
 uv version <version>
 ```
 
 ```bash
-git add pyproject.toml uv.lock
+git add pyproject.toml uv.lock CHANGELOG.md
 ```
 
 ```bash

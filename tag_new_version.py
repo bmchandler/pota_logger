@@ -14,9 +14,12 @@ The order matters. What the app reports as its version (the ADIF
 export's PROGRAMVERSION, the user agent) comes from pyproject.toml, never
 from the tag, so the tag must point at the commit that sets the version.
 Done apart, an export could carry a version no tag leads to. See
-REQUIREMENTS.md, Versioning.
+REQUIREMENTS.md, Versioning. The same commit turns CHANGELOG.md's
+`## Unreleased` heading into the version's, so the release notes name
+the version they shipped in.
 
-It refuses a tree with changes or a branch other than main, asks
+It refuses a tree with changes, a branch other than main, or a
+CHANGELOG.md with nothing under `## Unreleased`, asks
 before changing anything, then runs the tests. It never pushes; it
 prints the push command. RELEASING.md has the steps, how to undo a
 release before it's pushed, and how to do it by hand.
@@ -31,6 +34,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BRANCH = "main"
+CHANGELOG = "CHANGELOG.md"
+UNRELEASED = "## Unreleased"
 VERSION = re.compile(r"(\d{4})\.([1-9]\d?)\.([1-9]\d?)(?:\.([1-9]\d*))?")
 
 
@@ -76,6 +81,25 @@ def check_version(text: str, tags: list[str]) -> None:
         raise ValueError(f"{text} is older than the newest tag, {newest}")
 
 
+def unreleased_changes(text: str) -> list[str]:
+    """The non-blank lines under the changelog's `## Unreleased`."""
+    lines = text.splitlines()
+    if UNRELEASED not in lines:
+        return []
+    changes = []
+    for line in lines[lines.index(UNRELEASED) + 1 :]:
+        if line.startswith("## "):
+            break
+        if line.strip():
+            changes.append(line)
+    return changes
+
+
+def released_changelog(text: str, version: str) -> str:
+    """The changelog with `## Unreleased` as the version's heading."""
+    return text.replace(f"\n{UNRELEASED}\n", f"\n## {version}\n", 1)
+
+
 def repo_problems(cwd: Path) -> list[str]:
     problems = []
     branch = run("git", "branch", "--show-current", cwd=cwd)
@@ -83,17 +107,22 @@ def repo_problems(cwd: Path) -> list[str]:
         problems.append(f"On branch {branch or '(none)'}, not {BRANCH}.")
     if run("git", "status", "--porcelain", cwd=cwd):
         problems.append("The tree has changes; commit or stash them first.")
+    changelog = cwd / CHANGELOG
+    if not (changelog.is_file() and unreleased_changes(changelog.read_text())):
+        problems.append(f"Nothing under {UNRELEASED} in {CHANGELOG}; note the release's changes there first.")
     return problems
 
 
 def release(version: str, cwd: Path) -> None:
-    """Set the version, commit pyproject.toml and uv.lock, and tag that commit."""
+    """Set the version and the changelog's heading, commit them, and tag that commit."""
     run("uv", "version", version, cwd=cwd)
     with open(cwd / "pyproject.toml", "rb") as file:
         written = tomllib.load(file)["project"]["version"]
     if written != version:
         raise SystemExit(f"pyproject.toml reads {written}, not {version}; nothing committed.")
-    run("git", "add", "pyproject.toml", "uv.lock", cwd=cwd)
+    changelog = cwd / CHANGELOG
+    changelog.write_text(released_changelog(changelog.read_text(), version))
+    run("git", "add", "pyproject.toml", "uv.lock", CHANGELOG, cwd=cwd)
     run("git", "commit", "-m", f"Version {version}", cwd=cwd)
     run("git", "tag", version, cwd=cwd)
 

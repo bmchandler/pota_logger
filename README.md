@@ -277,7 +277,8 @@ Not built yet:
   real use)
 
 Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md);
-how to make a release, in [RELEASING.md](RELEASING.md); running it from
+what changed in each release, in [CHANGELOG.md](CHANGELOG.md); how to make
+a release, in [RELEASING.md](RELEASING.md); running it from
 source, the tests, and the code's layout, in [DEVELOPMENT.md](DEVELOPMENT.md).
 It's shared as is: pull requests aren't taken (see DEVELOPMENT.md).
 Licensed under the MIT License ([LICENSE.md](LICENSE.md)).

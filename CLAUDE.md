@@ -25,6 +25,9 @@ developer are in DEVELOPMENT.md, imported here:
   that commit, always all together (see REQUIREMENTS.md Versioning for
   why). It asks before changing anything: get the user's go-ahead first,
   as for any commit.
+- Note each change a user would notice in CHANGELOG.md, under
+  `## Unreleased` (add the heading if a release removed it), in the same
+  commit: terse, for users, not a commit log.
 - Don't `git push` after a commit unasked. The user pushes by hand,
   or asks for a push, usually at the end of a session or after a few
   commits.
