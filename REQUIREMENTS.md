@@ -998,6 +998,15 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     `ETag` and downloads only a changed list; an unchanged one reports
     `Parks file is already current.` There's no deleting the copy in
     the app.
+  - The park's name (decided 2026-10-09, not built): on the COMMENT
+    label row, to the right of `COMMENT` (an empty row, so nothing
+    moves), the name alone (PARK, just above, shows the reference),
+    updated on leaving PARK and shown for a selected row too. A
+    name too long for the row is cut off with `…` (99% of names are 87
+    characters or less). The park's states (`locationDesc`) aren't
+    shown. US states never show with POTA's `US-` (`NC`, not `US-NC`),
+    here or in a warning; a location under another prefix would show
+    it, if that ever comes up.
   - The offer and Settings row built (2026-10-09). The offer, as
     dictated: `Download POTA's parks list (about 9 MB)?` / `It lets the
     app fill in ST, show park names,` / `and warn on a park not in the
