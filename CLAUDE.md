@@ -23,8 +23,8 @@ updated in the same change whenever a rule changes.
   the diff/stage/message and app behavior and gives a clear go-ahead to
   commit, in whatever natural phrasing ("Proceed", "Proceed with commit",
   "Looks good, proceed", "Go ahead and commit", etc.).
-- Releases (only when the user asks): `uv run tag_new_version.py`, the
-  only way to bump the version. It sets a calendar version (`uv
+- Releases (only when the user asks; steps in RELEASING.md):
+  `uv run tag_new_version.py`, the only way to bump the version. It sets a calendar version (`uv
   version <YYYY.M.D>`), commits `pyproject.toml` and `uv.lock`, and tags
   that commit, always all together (see REQUIREMENTS.md Versioning for
   why). It asks before changing anything: get the user's go-ahead first,

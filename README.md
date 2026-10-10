@@ -241,7 +241,8 @@ Not built yet:
 - QRZ.com API upload (maybe; on hold until the ADIF export has seen some
   real use)
 
-Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md).
+Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md);
+how to make a release, in [RELEASING.md](RELEASING.md).
 
 ## Noted issues
 

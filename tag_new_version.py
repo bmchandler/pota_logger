@@ -18,7 +18,8 @@ REQUIREMENTS.md, Versioning.
 
 It refuses a tree with changes or a branch other than main, asks
 before changing anything, then runs the tests. It never pushes; it
-prints the push command.
+prints the push command. RELEASING.md has the steps, how to undo a
+release before it's pushed, and how to do it by hand.
 """
 
 import re

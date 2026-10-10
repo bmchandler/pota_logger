@@ -1128,7 +1128,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   (e1ad0e4), stays as it is; the version stays `0.1.0` until the first
   dated release.
 - A release is made with `uv run tag_new_version.py` (built
-  2026-10-10), whether an agent or a person makes it, for every version
+  2026-10-10; the steps for a person are in RELEASING.md), whether an agent or a person makes it, for every version
   bump. It takes today's date, with `.1`, `.2` when that's tagged, or a
   version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
   it's malformed, already tagged, or older than the newest tag. It
