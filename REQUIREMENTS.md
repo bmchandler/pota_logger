@@ -102,8 +102,8 @@ VM, importing the files into QRZ.com. Known issues that won't be fixed
 are listed in README.md's Noted issues.
 
 Versioning is decided (2026-10-10; see Versioning): calendar versions,
-set with `uv version` and tagged together, when the operator asks for a
-release.
+set with `uv version` and tagged together by `tag_new_version.py`
+(built 2026-10-10), when the operator asks for a release.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -1127,12 +1127,24 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 - Releases are made only when the operator asks. The first tag, `MVP`
   (e1ad0e4), stays as it is; the version stays `0.1.0` until the first
   dated release.
-- A release takes these steps, always together and in this order,
-  whether an agent or a person makes it:
+- A release is made with `uv run tag_new_version.py` (built
+  2026-10-10), whether an agent or a person makes it, for every version
+  bump. It takes today's date, with `.1`, `.2` when that's tagged, or a
+  version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
+  it's malformed, already tagged, or older than the newest tag. It
+  refuses a tree with changes or a branch other than `main`, and asks
+  `Tag <version>? [y/N]` before changing anything; on `y` it runs the
+  tests (asked first, as they take a while, so a run by mistake or a
+  mistyped version stops at once). Then it takes these steps, always together and in this order:
   1. `uv version <date>`, which sets the version in `pyproject.toml`
-     and `uv.lock`.
-  2. Commit both files.
-  3. Tag that commit with the same `<date>` (no `v` before it).
+     and `uv.lock` (checked to read exactly `<date>`).
+  2. Commit both files, as `Version <date>`.
+  3. Tag that commit with the same `<date>` (no `v` before it; a plain
+     tag, like `MVP`).
+
+  It never pushes; it prints `git push origin main <date>`. An agent
+  making a release still pauses for the operator's go-ahead before
+  running it, as before any commit.
 - Why together: what the app reports as its version comes from
   `pyproject.toml` (through the installed package's metadata), never
   from the tag. It's the ADIF export's `PROGRAMVERSION` and the

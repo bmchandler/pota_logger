@@ -23,10 +23,12 @@ updated in the same change whenever a rule changes.
   the diff/stage/message and app behavior and gives a clear go-ahead to
   commit, in whatever natural phrasing ("Proceed", "Proceed with commit",
   "Looks good, proceed", "Go ahead and commit", etc.).
-- Releases (only when the user asks): calendar versions, `uv version
-  <YYYY.M.D>`, commit `pyproject.toml` and `uv.lock`, then tag that
-  commit with the same version, always all together (see
-  REQUIREMENTS.md Versioning for why).
+- Releases (only when the user asks): `uv run tag_new_version.py`, the
+  only way to bump the version. It sets a calendar version (`uv
+  version <YYYY.M.D>`), commits `pyproject.toml` and `uv.lock`, and tags
+  that commit, always all together (see REQUIREMENTS.md Versioning for
+  why). It asks before changing anything: get the user's go-ahead first,
+  as for any commit.
 - Don't `git push` after a commit unasked. The user pushes by hand,
   or asks for a push, usually at the end of a session or after a few
   commits.
