@@ -4,6 +4,8 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import date
+from email.utils import parsedate_to_datetime
 from importlib.metadata import version
 from pathlib import Path
 
@@ -35,6 +37,16 @@ class ParksCopy:
 
     etag: str
     last_modified: str
+
+
+def copy_date(copy: ParksCopy) -> date | None:
+    """POTA's date for the copy (UTC, from `Last-Modified`), or None if
+    the server gave none that reads.
+    """
+    try:
+        return parsedate_to_datetime(copy.last_modified).date()
+    except (TypeError, ValueError):
+        return None
 
 
 def parks_folder(data_dir: Path) -> Path:
@@ -75,20 +87,18 @@ def write_file(path: Path, content: bytes) -> None:
         raise
 
 
-def download_parks(
-    folder: Path, url: str = PARKS_URL, force: bool = False
-) -> ParksCopy | None:
+def download_parks(folder: Path, url: str = PARKS_URL) -> ParksCopy | None:
     """Download POTA's parks list into `folder` (made if missing), and
     return the new copy's info, or None if the saved copy is still
-    current. Unless `force`, a sound saved copy is checked with
-    `If-None-Match`, so an unchanged list costs POTA only a small "not
-    modified" reply. A download whose content doesn't match its `ETag` is
-    refused, keeping the saved copy.
+    current. A sound saved copy is checked with `If-None-Match`, so an
+    unchanged list costs POTA only a small "not modified" reply. A
+    download whose content doesn't match its `ETag` is refused, keeping
+    the saved copy.
 
     Raises ParksDownloadError, with a message for the operator.
     """
     headers = {"User-Agent": f"{PROGRAM_ID}/{version(PROGRAM_ID)}"}
-    copy = None if force else saved_copy(folder)
+    copy = saved_copy(folder)
     if copy:
         headers["If-None-Match"] = copy.etag
     request = urllib.request.Request(url, headers=headers)

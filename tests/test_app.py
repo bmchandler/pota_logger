@@ -3,6 +3,7 @@ from collections import Counter
 from datetime import date, time
 
 import pytest
+from conftest import LIST
 from textual.command import CommandPalette
 from textual.containers import Vertical
 from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
@@ -19,6 +20,8 @@ from pota_logger.entry_form import (
     EntryForm,
     pota_info,
 )
+from pota_logger.parks_list import download_parks, md5_etag, parks_folder
+from pota_logger.parks_offer_screen import ParksOfferScreen
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import Settings, load_settings, save_settings
 from pota_logger.settings_screen import SettingsScreen
@@ -2458,6 +2461,9 @@ async def test_log_loads_once_a_station_callsign_is_set(settings_path):
         await pilot.press("enter")
         app.screen.query_one("#station-callsign-input", Input).value = "W1TST"
         await pilot.press("enter")
+        # Then the parks list is offered (skipped here).
+        assert isinstance(app.screen, ParksOfferScreen)
+        await pilot.press("escape")
         assert len(app.screen_stack) == 1
         # Checked against the call just set.
         assert table_calls(app) == ["K1BBB", "K1AAA"]
@@ -2831,6 +2837,9 @@ async def test_no_station_callsign_opens_on_required_block(settings_path):
         assert isinstance(app.screen, SettingsScreen)
         app.screen.query_one("#station-callsign-input", Input).value = "w1tst"
         await pilot.press("enter")
+        # Then the parks list is offered (skipped here).
+        assert isinstance(app.screen, ParksOfferScreen)
+        await pilot.press("escape")
         assert len(app.screen_stack) == 1
         assert app.focused.id == "field-freq"
         assert station_callsign(app) == "W1TST"
@@ -3314,6 +3323,9 @@ async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(setting
         await pilot.press("enter")
         assert app.focused.value == "W1"
         await pilot.press("end", *"TST", "enter")
+        # Then the parks list is offered (skipped here).
+        assert isinstance(app.screen, ParksOfferScreen)
+        await pilot.press("escape")
         assert len(app.screen_stack) == 1
         assert load_settings(settings_path) == Settings(station_callsign="W1TST")
 
@@ -3571,3 +3583,145 @@ async def test_f6_doesnt_open_export_over_another_modal(export_app):
         await pilot.press("f2", "f6")
         assert isinstance(export_app.screen, SettingsScreen)
         assert len(export_app.screen_stack) == 2
+
+
+# POTA's parks list: offered at first start, and checked from Settings.
+
+
+async def first_start(app, pilot) -> None:
+    """Set the station callsign at first start."""
+    await pilot.press("enter")
+    app.screen.query_one("#station-callsign-input", Input).value = "W1TST"
+    await pilot.press("enter")
+
+
+async def parks_list_done(app, pilot) -> None:
+    """Wait for the parks list's download thread and what follows it."""
+    await app.workers.wait_for_complete()
+    await pilot.pause()
+
+
+def parks_list_row(app) -> str:
+    return str(app.screen.query_one("#parks-list", Label).render())
+
+
+def last_notification(app) -> str:
+    return list(app._notifications)[-1].message
+
+
+async def test_first_start_offers_parks_list_and_downloads_with_enter(settings_path, pota):
+    app = PotaLoggerApp(settings_path=settings_path)
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await first_start(app, pilot)
+        assert isinstance(app.screen, ParksOfferScreen)
+        assert required_message(app) == (
+            "Download POTA's parks list (about 9 MB)?\n"
+            "It lets the app fill in ST, show park names,\n"
+            "and warn on a park not in the list.\n"
+            "You can download it later in Settings (f2).\n"
+            "Esc to skip, or download with Enter."
+        )
+        assert [b.label.plain for b in app.screen.query(Button)] == ["Skip", "Download"]
+        await pilot.press("enter")
+        assert len(app.screen_stack) == 1
+        await parks_list_done(app, pilot)
+        assert [n.message for n in app._notifications] == [
+            "Downloading POTA's parks list...",
+            "Parks list downloaded.",
+        ]
+    assert (settings_path.parent / "pota" / "all_parks_ext.csv").read_bytes() == LIST
+
+
+async def test_parks_offer_skipped_with_esc(settings_path, pota):
+    app = PotaLoggerApp(settings_path=settings_path)
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await first_start(app, pilot)
+        await pilot.press("escape")
+        assert len(app.screen_stack) == 1
+        assert app.focused.id == "field-freq"
+        assert not app._notifications
+    assert pota.requests == []
+
+
+async def test_no_parks_offer_with_a_copy_saved(settings_path, pota):
+    download_parks(parks_folder(settings_path.parent), pota.url)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await first_start(app, pilot)
+        assert len(app.screen_stack) == 1
+
+
+async def test_no_parks_offer_over_file_errors_block(settings_path):
+    (settings_path.parent).mkdir(parents=True)
+    (settings_path.parent / "20260925.csv").write_text(LOG_HEADER + BROKEN_ROW)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await first_start(app, pilot)
+        assert app.screen.id == "file-errors"
+        assert len(app.screen_stack) == 2
+
+
+async def test_no_parks_offer_once_a_call_is_set(app):
+    async with app.run_test():
+        assert len(app.screen_stack) == 1
+
+
+async def test_first_time_settings_have_no_parks_list(no_call_app):
+    async with no_call_app.run_test() as pilot:
+        await pilot.press("enter")
+        assert isinstance(no_call_app.screen, SettingsScreen)
+        assert not no_call_app.screen.query("#parks-row")
+
+
+async def test_settings_check_for_updated_downloads_parks_list(app, pota):
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        assert parks_list_row(app) == "POTA parks list: none"
+        button = app.screen.query_one("#check-parks", Button)
+        assert button.label.plain == "Check for Updated"
+        button.focus()
+        await pilot.press("enter")
+        await parks_list_done(app, pilot)
+        assert last_notification(app) == "Parks list downloaded."
+        assert parks_list_row(app) == "POTA parks list: 2026.10.09"
+        # Settings stays open, and the date is there when next opened.
+        await pilot.press("escape", "f2")
+        assert parks_list_row(app) == "POTA parks list: 2026.10.09"
+
+
+async def test_settings_check_for_updated_with_current_copy(app, settings_path, pota):
+    download_parks(parks_folder(settings_path.parent), pota.url)
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#check-parks", Button).press()
+        await parks_list_done(app, pilot)
+        assert last_notification(app) == "Parks file is already current."
+        assert pota.requests[-1]["If-None-Match"] == md5_etag(LIST)
+
+
+async def test_settings_check_for_updated_failure_is_notified(app, settings_path, pota):
+    download_parks(parks_folder(settings_path.parent), pota.url)
+    pota.status = 503
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await pilot.press("f2")
+        app.screen.query_one("#check-parks", Button).press()
+        await parks_list_done(app, pilot)
+        assert last_notification(app) == (
+            "Parks list download failed: the server replied 503."
+        )
+        assert list(app._notifications)[-1].severity == "error"
+        assert parks_list_row(app) == "POTA parks list: 2026.10.09"
+
+
+async def test_parks_list_check_not_doubled(app, pota):
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        app.check_parks_list()
+        app.check_parks_list()
+        await parks_list_done(app, pilot)
+        assert len(pota.requests) == 1

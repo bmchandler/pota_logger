@@ -12,7 +12,8 @@ class WarningScreen(ModalScreen[bool]):
     With `can_go_back` False, it's a block instead: no Back button and no
     Esc, so Enter (on `confirm_label`'s button) is the only way on. With
     `back_button` False, there's no Back button, but Esc still goes back:
-    a notice with one button, where either key closes it.
+    a notice with one button, where either key closes it. `back_label`
+    names the Back button.
 
     With two buttons, Tab moves between them (Back first); none has focus
     at first, so Enter confirms until Tab picks one, and then presses it.
@@ -55,10 +56,12 @@ class WarningScreen(ModalScreen[bool]):
         can_go_back: bool = True,
         back_button: bool = True,
         id: str | None = None,
+        back_label: str = "Back",
     ) -> None:
         super().__init__(id=id)
         self.message = message
         self.confirm_label = confirm_label
+        self.back_label = back_label
         self.can_go_back = can_go_back
         self.back_button = back_button
 
@@ -68,7 +71,7 @@ class WarningScreen(ModalScreen[bool]):
             with Horizontal(id="warning-buttons"):
                 buttons = [Button(self.confirm_label, id="confirm", variant="warning")]
                 if self.can_go_back and self.back_button:
-                    buttons.insert(0, Button("Back", id="back"))
+                    buttons.insert(0, Button(self.back_label, id="back"))
                 for button in buttons:
                     # A lone button is mouse only: Enter and Esc do it all.
                     button.can_focus = len(buttons) > 1

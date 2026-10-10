@@ -21,6 +21,15 @@ from pota_logger.export_screen import ExportScreen
 from pota_logger.freq import format_freq
 from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger.parks_list import (
+    PARKS_URL,
+    ParksCopy,
+    ParksDownloadError,
+    download_parks,
+    parks_folder,
+    saved_copy,
+)
+from pota_logger.parks_offer_screen import ParksOfferScreen
 from pota_logger.power import format_power
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import (
@@ -231,6 +240,11 @@ WRITE_FAILED = (
 STATION_CALLSIGN_REQUIRED = "A valid callsign for transmitting\nstation is required."
 GO_TO_SETTINGS = "Press Enter to go to Settings."
 
+# The parks list's download, as notified.
+DOWNLOADING_PARKS = "Downloading POTA's parks list..."
+PARKS_DOWNLOADED = "Parks list downloaded."
+PARKS_CURRENT = "Parks file is already current."
+
 
 def log_cell(value: str, width: int, style: str = "") -> Text:
     """A log cell, padded one space each side. The cells carry their own
@@ -351,6 +365,11 @@ class PotaLoggerApp(App):
         self.settings_path = settings_path
         # Log files sit beside the settings, in data/.
         self.logbook = Logbook(settings_path.parent)
+        # POTA's parks list, in data/pota/; tests point the URL at a local
+        # server. Whether a download is under way, so it isn't doubled.
+        self.parks_folder = parks_folder(settings_path.parent)
+        self.parks_url = PARKS_URL
+        self.parks_downloading = False
         self.settings_error: str | None = None
         # A refused station callsign from the file, shown in Settings to
         # correct (most likely a slip) until a call is saved.
@@ -431,9 +450,9 @@ class PotaLoggerApp(App):
             self.show_log()
             self.require_station_callsign()
 
-    def load_log(self) -> None:
+    def load_log(self) -> bool:
         """Load the log files, checked against the station callsign, and
-        show them, blocking if any need fixing by hand.
+        show them, blocking if any need fixing by hand; True if so.
         """
         self.log_loaded = True
         entries, problems = self.logbook.load(self.settings.station_callsign)
@@ -446,7 +465,7 @@ class PotaLoggerApp(App):
             entries, key=lambda entry: (entry["DATE"], entry["TIME"]), reverse=True
         )
         self.show_log()
-        self.block_on_file_errors(problems)
+        return self.block_on_file_errors(problems)
 
     def block_on_file_errors(self, problems: list[str]) -> bool:
         """Record what in the log files needs fixing by hand (rows or files
@@ -941,7 +960,8 @@ class PotaLoggerApp(App):
             self.settings,
             station_callsign=self.settings.station_callsign or self.station_callsign_to_fix,
         )
-        self.push_screen(SettingsScreen(shown, with_callsign), self.apply_settings)
+        parks_copy = None if with_callsign else saved_copy(self.parks_folder)
+        self.push_screen(SettingsScreen(shown, with_callsign, parks_copy), self.apply_settings)
 
     def action_export(self) -> None:
         # Not over another modal (or before the log is loaded, when the
@@ -997,7 +1017,46 @@ class PotaLoggerApp(App):
         if not self.settings.station_callsign:
             self.require_station_callsign()
         elif not self.log_loaded:
-            self.load_log()
+            # First start: the parks list is offered once the call is
+            # saved (not over the file errors block, nor with a copy).
+            if not self.load_log() and saved_copy(self.parks_folder) is None:
+                self.push_screen(ParksOfferScreen(), self.parks_offer_answered)
+
+    def parks_offer_answered(self, download: bool | None) -> None:
+        if download:
+            self.check_parks_list()
+
+    def check_parks_list(self) -> None:
+        """Download POTA's parks list, or only check it's current if a
+        copy is saved, in a thread so the app carries on meanwhile.
+        """
+        if self.parks_downloading:
+            return
+        self.parks_downloading = True
+        self.notify(DOWNLOADING_PARKS)
+        self.run_worker(self.fetch_parks_list, thread=True)
+
+    def fetch_parks_list(self) -> None:
+        try:
+            copy = download_parks(self.parks_folder, self.parks_url)
+        except ParksDownloadError as error:
+            self.call_from_thread(self.parks_list_failed, str(error))
+            return
+        self.call_from_thread(self.parks_list_checked, copy)
+
+    def parks_list_failed(self, message: str) -> None:
+        self.parks_downloading = False
+        self.notify(message, severity="error", timeout=30)
+
+    def parks_list_checked(self, copy: ParksCopy | None) -> None:
+        self.parks_downloading = False
+        if copy is None:
+            self.notify(PARKS_CURRENT)
+            return
+        self.notify(PARKS_DOWNLOADED)
+        for screen in self.screen_stack:
+            if isinstance(screen, SettingsScreen) and not screen.with_callsign:
+                screen.show_parks_copy(copy)
 
 
 def main() -> None:

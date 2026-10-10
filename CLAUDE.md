@@ -100,9 +100,14 @@ updated in the same change whenever a rule changes.
 - parks_list.py downloads POTA's parks list (`download_parks`, the
   app's only network use; raises `ParksDownloadError` with a message for
   the operator) into `parks_folder(data_dir)`; `saved_copy` gives a
-  sound copy's `ParksCopy` (`ETag`, `Last-Modified`), or None. Tests use
-  the `pota` fixture (tests/test_parks_list.py), a local server: never
-  reach pota.app from a test.
+  sound copy's `ParksCopy` (`ETag`, `Last-Modified`), or None. The app's
+  `apply_settings` offers it at first start (`ParksOfferScreen`, once
+  `load_log` hasn't blocked); Settings after setup shows the copy's date
+  with `Check for Updated`. Both run the app's `check_parks_list`, a
+  thread worker (`fetch_parks_list`) whose result comes back by
+  `call_from_thread`. Tests use the `pota` fixture (tests/conftest.py), a
+  local server, setting `app.parks_url` to its `url`, then
+  `parks_list_done` to wait: never reach pota.app from a test.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is

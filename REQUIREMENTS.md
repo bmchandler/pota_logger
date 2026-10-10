@@ -89,8 +89,9 @@ the ADIF button, which replaced the Settings button).
 
 Support for POTA's parks list is in progress (see Export, POTA's
 parks list), taken before the QRZ.com API (decided 2026-10-09, as the
-more straightforward): the download module (parks_list.py) is built,
-with no UI yet. Then, possibly, QRZ.com API integration (see Export,
+more straightforward): the download is built, offered at first start
+and checked for updates from Settings; nothing uses the list yet. Then,
+possibly, QRZ.com API integration (see Export,
 QRZ.com API). Known issues that won't be fixed are listed in
 README.md's Noted issues.
 
@@ -985,9 +986,35 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     copy's date beside the refresh. The `ETag` is the file's MD5 (it
     matched a download on 2026-10-09), so it changes only with the
     content, and checking the copy's MD5 against it catches a damaged
-    or hand-edited copy (then download afresh). Deleting the copy drops
-    the saved `ETag` too. A forced full download costs POTA well under a
-    cent, so it's fine to offer.
+    or hand-edited copy (then download afresh). A copy deleted by hand
+    is downloaded afresh, its saved `ETag` ignored. No forced full
+    download is offered (decided 2026-10-09): an unsound copy is
+    downloaded whole anyway, and a sound one is current or not by its
+    MD5.
+  - Where it's offered (decided 2026-10-09): at first start, a modal of
+    its own after the station callsign is saved, offering the download
+    or a skip. Later, in Settings (`f2`): `Check for Updated` (the
+    refresh), with the copy's date beside it, which sends the copy's
+    `ETag` and downloads only a changed list; an unchanged one reports
+    `Parks file is already current.` There's no deleting the copy in
+    the app.
+  - The offer and Settings row built (2026-10-09). The offer, as
+    dictated: `Download POTA's parks list (about 9 MB)?` / `It lets the
+    app fill in ST, show park names,` / `and warn on a park not in the
+    list.` / `You can download it later in Settings (f2).` / `Esc to
+    skip, or download with Enter.` (`It's the app's only use of the
+    internet.` was dropped after review), with `Skip` and `Download` buttons (a warning modal's
+    keys: Enter downloads, Esc skips, Tab picks a button). It shows once,
+    after the station callsign is first saved, unless a sound copy is
+    already saved or the file errors block is up. Settings after setup
+    shows `POTA parks list: 2026.10.09` (POTA's date for the copy, UTC),
+    or `none`, beside `Check for Updated`, below the ADIF export folder
+    with no blank row between, so Settings fits a 24-row terminal; the
+    first-time Settings doesn't (the offer follows it). The download
+    runs in a thread, so the app carries on: `Downloading POTA's parks
+    list...`, then `Parks list downloaded.` (the date in Settings
+    updates, if open), `Parks file is already current.`, or the error
+    (kept 30 seconds). A check while one is under way is ignored.
   - Download built (2026-10-09, parks_list.py): the copy and its info
     (`all_parks_ext.json`: `ETag`, `Last-Modified`) go in `data/pota/`,
     each through a temporary file. A download whose MD5 doesn't match

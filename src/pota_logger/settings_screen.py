@@ -7,6 +7,8 @@ from textual.widgets import Button, Checkbox, Input, Label, Static
 from pota_logger.ascii_text import check_ascii
 from pota_logger.callsign_warning_screen import CallsignWarningScreen
 from pota_logger.callsigns import is_usual_callsign, parse_callsign
+from pota_logger.dates import format_date
+from pota_logger.parks_list import ParksCopy, copy_date
 from pota_logger.settings import (
     EDIT_COMMENT_POTA_INFO,
     NEW_COMMENT_POTA_INFO,
@@ -17,6 +19,22 @@ from pota_logger.settings import (
 
 # The ADIF export folder's label, as chosen (2026-10-09).
 ADIF_EXPORT_FOLDER = "ADIF export folder"
+
+# The parks list's refresh, as dictated (2026-10-09), and its copy's date
+# beside it.
+CHECK_FOR_UPDATED = "Check for Updated"
+PARKS_LIST = "POTA parks list: {date}"
+
+
+def parks_list_text(copy: ParksCopy | None) -> str:
+    """The parks list's row: the copy's date, or `none` without a sound
+    copy (or `date unknown`, if the server gave none).
+    """
+    if copy is None:
+        return PARKS_LIST.format(date="none")
+    day = copy_date(copy)
+    return PARKS_LIST.format(date=format_date(day) if day else "date unknown")
+
 
 # Where each text field's problem shows, below it.
 PROBLEM_IDS = {"station-callsign-input": "settings-problem", "folder-input": "folder-problem"}
@@ -42,7 +60,9 @@ class SettingsScreen(ModalScreen[Settings | None]):
     """Edit app settings. Dismisses with new Settings, or None if cancelled.
     The station callsign shows only while none is set (`with_callsign`):
     a log holds one call, so changing it means a new log (archive the
-    files, edit settings.toml). The ADIF export folder shows always.
+    files, edit settings.toml). The ADIF export folder shows always. The
+    parks list's row (`parks_copy`, the saved copy) shows after setup,
+    as first start offers the download on its own once the call is saved.
     """
 
     DEFAULT_CSS = """
@@ -74,6 +94,14 @@ class SettingsScreen(ModalScreen[Settings | None]):
     SettingsScreen #folder-label {
         padding-top: 1;
     }
+    /* No blank row above it, so Settings fits a 24-row terminal. */
+    SettingsScreen #parks-row {
+        height: auto;
+    }
+    SettingsScreen #parks-list {
+        width: 1fr;
+        padding-top: 1;
+    }
     SettingsScreen #settings-buttons {
         height: auto;
         align-horizontal: right;
@@ -86,10 +114,16 @@ class SettingsScreen(ModalScreen[Settings | None]):
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
-    def __init__(self, settings: Settings, with_callsign: bool = True) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        with_callsign: bool = True,
+        parks_copy: ParksCopy | None = None,
+    ) -> None:
         super().__init__()
         self.settings = settings
         self.with_callsign = with_callsign
+        self.parks_copy = parks_copy
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -103,6 +137,10 @@ class SettingsScreen(ModalScreen[Settings | None]):
             yield Label(ADIF_EXPORT_FOLDER, id="folder-label")
             yield Input(value=self.settings.adif_export_folder, id="folder-input")
             yield Static(id="folder-problem", classes="settings-problem")
+            if not self.with_callsign:
+                with Horizontal(id="parks-row"):
+                    yield Label(parks_list_text(self.parks_copy), id="parks-list")
+                    yield Button(CHECK_FOR_UPDATED, id="check-parks")
             with Horizontal(id="settings-buttons"):
                 yield Button("Cancel", id="cancel")
                 yield Button("Save", id="save", variant="primary")
@@ -121,8 +159,15 @@ class SettingsScreen(ModalScreen[Settings | None]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save":
             self.action_save()
+        elif event.button.id == "check-parks":
+            # The app's, as it carries on if Settings closes meanwhile.
+            self.app.check_parks_list()
         else:
             self.action_cancel()
+
+    def show_parks_copy(self, copy: ParksCopy) -> None:
+        """Show a copy just downloaded."""
+        self.query_one("#parks-list", Label).update(parks_list_text(copy))
 
     def saved(self, callsign: str) -> Settings:
         switches = {key: self.query_one(f"#{key}", SettingCheckbox).value for key in SWITCHES}

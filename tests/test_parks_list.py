@@ -1,79 +1,20 @@
 import json
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from datetime import date
 
 import pytest
+from conftest import LAST_MODIFIED, LIST, NEWER_LIST
 
 from pota_logger.parks_list import (
     PARKS_FILE,
     PARKS_INFO_FILE,
     ParksCopy,
     ParksDownloadError,
+    copy_date,
     download_parks,
     md5_etag,
     parks_folder,
     saved_copy,
 )
-
-LIST = (
-    b'"reference","name","active","entityId","locationDesc","latitude",'
-    b'"longitude","grid"\n'
-    b'"US-0001","Acadia National Park","1","291","US-ME","44.31",'
-    b'"-68.2034","FN54vh"\n'
-)
-NEWER_LIST = LIST + (
-    b'"US-0002","Alagnak Wild River National Park","1","6","US-AK",'
-    b'"59.0908","-156.463","BO19sc"\n'
-)
-LAST_MODIFIED = "Fri, 09 Oct 2026 07:15:20 GMT"
-
-
-class FakePota:
-    """What the fake server serves, and the requests it got."""
-
-    def __init__(self) -> None:
-        self.content = LIST
-        self.etag = md5_etag(LIST)
-        self.status = 200
-        self.requests: list[dict[str, str]] = []
-
-
-@pytest.fixture
-def pota():
-    """A local server standing in for pota.app, so tests never reach it."""
-    fake = FakePota()
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            fake.requests.append(dict(self.headers))
-            if fake.status != 200:
-                self.send_response(fake.status)
-                self.end_headers()
-            elif self.headers.get("If-None-Match") == fake.etag:
-                self.send_response(304)
-                self.end_headers()
-            else:
-                self.send_response(200)
-                self.send_header("ETag", fake.etag)
-                self.send_header("Last-Modified", LAST_MODIFIED)
-                self.send_header("Content-Length", str(len(fake.content)))
-                self.end_headers()
-                self.wfile.write(fake.content)
-
-        def log_message(self, *args):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    # A short poll, as shutdown waits for it (0.5 second by default).
-    thread = threading.Thread(
-        target=server.serve_forever, args=(0.01,), daemon=True
-    )
-    thread.start()
-    fake.url = f"http://127.0.0.1:{server.server_port}/all_parks_ext.csv"
-    yield fake
-    server.shutdown()
-    server.server_close()
-
 
 @pytest.fixture
 def folder(tmp_path):
@@ -82,6 +23,15 @@ def folder(tmp_path):
 
 def test_parks_folder_is_beside_the_logs(tmp_path):
     assert parks_folder(tmp_path) == tmp_path / "pota"
+
+
+def test_copy_date_is_potas_date():
+    assert copy_date(ParksCopy('"x"', LAST_MODIFIED)) == date(2026, 10, 9)
+
+
+@pytest.mark.parametrize("last_modified", ["", "yesterday"])
+def test_copy_date_unknown(last_modified):
+    assert copy_date(ParksCopy('"x"', last_modified)) is None
 
 
 def test_md5_etag_is_quoted_md5():
@@ -120,12 +70,6 @@ def test_changed_list_replaces_the_copy(pota, folder):
     assert (folder / PARKS_FILE).read_bytes() == NEWER_LIST
 
 
-def test_forced_download_skips_the_check(pota, folder):
-    download_parks(folder, pota.url)
-    assert download_parks(folder, pota.url, force=True) is not None
-    assert "If-None-Match" not in pota.requests[1]
-
-
 def test_hand_edited_copy_is_downloaded_afresh(pota, folder):
     download_parks(folder, pota.url)
     (folder / PARKS_FILE).write_bytes(LIST + b"extra\n")
@@ -158,7 +102,7 @@ def test_damaged_download_keeps_the_saved_copy(pota, folder):
     download_parks(folder, pota.url)
     pota.content, pota.etag = NEWER_LIST, md5_etag(LIST + b"other")
     with pytest.raises(ParksDownloadError, match="arrived damaged"):
-        download_parks(folder, pota.url, force=True)
+        download_parks(folder, pota.url)
     assert (folder / PARKS_FILE).read_bytes() == LIST
     assert saved_copy(folder).etag == md5_etag(LIST)
 
@@ -167,7 +111,7 @@ def test_server_error_keeps_the_saved_copy(pota, folder):
     download_parks(folder, pota.url)
     pota.status = 503
     with pytest.raises(ParksDownloadError, match="server replied 503"):
-        download_parks(folder, pota.url, force=True)
+        download_parks(folder, pota.url)
     assert (folder / PARKS_FILE).read_bytes() == LIST
 
 
