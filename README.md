@@ -14,6 +14,38 @@ POTA's parks list, only when you choose.
 Scope: hunter contacts only (not activating), voice (SSB, USB, LSB) and CW, on
 US amateur bands from 80m to 10m, WARC bands included.
 
+## Install
+
+You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
+the dependencies itself. Install POTA Logger, then run it:
+
+```bash
+uv tool install git+<repo-url>
+```
+
+```bash
+pota-logger
+```
+
+To update it later:
+
+```bash
+uv tool upgrade pota-logger
+```
+
+To uninstall it:
+
+```bash
+uv tool uninstall pota-logger
+```
+
+Uninstalling removes only the app: your logs and settings stay in
+`~/.local/share/pota-logger/` (see Your data), and are there again if
+you reinstall. To remove them as well, delete that folder.
+
+To run it from a clone instead, to change the code, see
+[DEVELOPMENT.md](DEVELOPMENT.md).
+
 ## Features
 
 ### Fast entry
@@ -158,11 +190,14 @@ logged contact, edit that record's COMMENT.
 
 ## Your data
 
-Logs live in the `data/` folder, one CSV file per UTC date, named
-`YYYYMMDD.csv` (for example `data/20261001.csv`). Settings are in
-`data/settings.toml`, and POTA's parks list, if downloaded, in
-`data/pota/`. The folder is ignored by git, so your logs stay out of
-the code history.
+Everything lives in `~/.local/share/pota-logger/data/` (or
+`$XDG_DATA_HOME/pota-logger/data/`), called `data/` here. Upgrading or
+uninstalling the app leaves it alone; back it up to keep your log. A
+`README.txt` beside it sums up this section, for reading at a terminal.
+
+Logs are one CSV file per UTC date, named `YYYYMMDD.csv` (for example
+`data/20261001.csv`). Settings are in `data/settings.toml`, and POTA's
+parks list, if downloaded, in `data/pota/`.
 
 Every file is loaded and checked when the app starts. A row that breaks a
 rule isn't silently fixed or dropped: it shows in the log marked `!`, to fix

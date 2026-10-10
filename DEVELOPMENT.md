@@ -19,8 +19,16 @@ the dependencies itself.
 uv run pota-logger
 ```
 
-Run it from the project folder. It keeps its data in `data/` there
-(git-ignored). At first start it asks for your station callsign.
+Run it from the project folder. At first start it asks for your
+station callsign.
+
+Run from a clone, the app keeps its files in the clone's `data/`, for
+development: git-ignored, so logs stay out of the code history.
+Installed (`uv tool install`, see README.md), it uses
+`~/.local/share/pota-logger/data/` (or `$XDG_DATA_HOME/pota-logger/data/`)
+instead, outside the install, which an upgrade replaces, and writes a
+`README.txt` beside it. `data_folder.py` tells the two apart by a
+`pyproject.toml` two folders above the package, which only a clone has.
 
 If you'll commit, install the callsign guard git hooks once per clone
 (see Privacy):
@@ -91,7 +99,9 @@ uv run pytest -n0 tests/test_freq.py
   - `adif.py`: ADIF records and the export file.
   - `parks_list.py`: POTA's parks list download, the app's only network
     use.
-  - `settings.py`: the settings file.
+  - `settings.py`: the settings file. `data_folder.py`: where the app
+    keeps its files, and the installed `README.txt` (`README_TEXT`), a
+    summary of README.md's "Your data": change them together.
   - `*_screen.py`: the modals. `status_bar.py`, `theme.py`: the status
     bar and the color theme.
   - `callsign_guard.py`: the git hooks (see Privacy).

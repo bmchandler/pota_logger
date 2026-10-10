@@ -105,6 +105,10 @@ Versioning is decided (2026-10-10; see Versioning): calendar versions,
 set with `uv version` and tagged together by `tag_new_version.py`
 (built 2026-10-10), when the operator asks for a release.
 
+Installing with `uv tool install` is built (2026-10-10; see Storage):
+installed, the app keeps its files in `~/.local/share/pota-logger/data/`,
+with a `README.txt` beside it; a clone keeps using its own `data/`.
+
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
 by default, in pyproject.toml), and the COMMENT limit test fills the
@@ -623,9 +627,19 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 ## Storage
 
 - CSV files only. No SQLite.
-- Stored in a `data/` folder under the project.
+- Stored in a `data/` folder (decided 2026-10-10): run from a clone
+  (`uv run pota-logger`), the clone's `data/`, for development;
+  installed (`uv tool install`), `~/.local/share/pota-logger/data/`
+  (XDG's data home: `$XDG_DATA_HOME` when set to an absolute path), as
+  inside the install an upgrade would replace it. A clone is told apart
+  by its `pyproject.toml`, two folders above the package. Installed, the
+  app also writes `README.txt` beside `data/` at start, when missing or
+  out of date: what each file is and the hand-editing rules (README.md's
+  Your data, summed up), for reading at a terminal. It's the app's own
+  file, so edits to it aren't kept. A PyPI package is set aside for now;
+  the install is from the git repository.
 - One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
-- `data/` is ignored by git, so logs stay out of the code history.
+- A clone's `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the log table (see
   Entry fields):
   `FREQ, MODE, CALL, PARK, ST, SNT, RCD, PWR, DATE, TIME, COMMENT`, then

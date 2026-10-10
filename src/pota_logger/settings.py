@@ -5,9 +5,9 @@ from pathlib import Path
 
 from pota_logger.ascii_text import check_ascii
 from pota_logger.callsigns import parse_callsign
+from pota_logger.data_folder import data_dir
 
-# src/pota_logger/settings.py -> project root
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = data_dir()
 SETTINGS_PATH = DATA_DIR / "settings.toml"
 
 

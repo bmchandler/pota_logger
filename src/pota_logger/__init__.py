@@ -13,6 +13,7 @@ from textual.content import Content
 from textual.widgets import Button, DataTable, Footer, Static
 
 from pota_logger import file_errors
+from pota_logger.data_folder import from_source, write_readme
 from pota_logger.dates import default_date, format_date, format_time, parse_date
 from pota_logger.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
@@ -35,6 +36,7 @@ from pota_logger.parks_offer_screen import ParksOfferScreen
 from pota_logger.power import format_power
 from pota_logger.record_ids import new_id, parse_id
 from pota_logger.settings import (
+    DATA_DIR,
     SETTINGS_PATH,
     Settings,
     StationCallsignError,
@@ -1081,4 +1083,6 @@ class PotaLoggerApp(App):
 
 
 def main() -> None:
+    if not from_source():
+        write_readme(DATA_DIR.parent)
     PotaLoggerApp().run()
