@@ -18,6 +18,11 @@ In scope:
   10m, including the WARC bands (3.5 to 29.7 MHz). 160m, 60m, 630m, and
   2200m are left out as impractical or rare for POTA.
 - Local storage in human-readable CSV files.
+- Linux as the target system (decided 2026-10-10). macOS and Windows
+  aren't tested: it will likely run on macOS (F keys may need Fn) and
+  may run on Windows (in Windows Terminal, with its data in
+  `C:\Users\<you>\.local\share\pota-logger\data\`, and a log file
+  open in another program likely blocking saves until it's closed).
 - ADIF export aimed at QRZ.com import (built after the logbook itself is
   settled).
 

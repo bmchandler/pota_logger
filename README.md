@@ -16,6 +16,10 @@ US amateur bands from 80m to 10m, WARC bands included.
 
 ## Install
 
+POTA Logger is built and tested on Linux. It will likely run on macOS
+(where the F keys may need **Fn** held down), and may run on Windows (in
+Windows Terminal), but neither is tested: your mileage may vary.
+
 You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
 the dependencies itself. Install POTA Logger, then run it:
 
@@ -40,8 +44,8 @@ uv tool uninstall pota-logger
 ```
 
 Uninstalling removes only the app: your logs and settings stay in
-`~/.local/share/pota-logger/` (see Your data), and are there again if
-you reinstall. To remove them as well, delete that folder.
+`~/.local/share/pota-logger/` (see Your data for other systems), and
+are there again if you reinstall. To remove them as well, delete that folder.
 
 To run it from a clone instead, to change the code, see
 [DEVELOPMENT.md](DEVELOPMENT.md).
@@ -190,10 +194,16 @@ logged contact, edit that record's COMMENT.
 
 ## Your data
 
-Everything lives in `~/.local/share/pota-logger/data/` (or
-`$XDG_DATA_HOME/pota-logger/data/`), called `data/` here. Upgrading or
-uninstalling the app leaves it alone; back it up to keep your log. A
-`README.txt` beside it sums up this section, for reading at a terminal.
+Everything lives in one folder, called `data/` here:
+
+- Linux and macOS: `~/.local/share/pota-logger/data/` (or
+  `$XDG_DATA_HOME/pota-logger/data/` when that's set). On a Mac, that's
+  this folder in your home folder, not one in `~/Library`.
+- Windows (untested): `C:\Users\<you>\.local\share\pota-logger\data\`.
+
+Upgrading or uninstalling the app leaves it alone; back it up to keep
+your log. A `README.txt` beside it sums up this section, for reading at
+a terminal.
 
 Logs are one CSV file per UTC date, named `YYYYMMDD.csv` (for example
 `data/20261001.csv`). Settings are in `data/settings.toml`, and POTA's
