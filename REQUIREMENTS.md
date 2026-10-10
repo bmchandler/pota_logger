@@ -101,6 +101,10 @@ used the ADIF export in a few real sessions, outside the development
 VM, importing the files into QRZ.com. Known issues that won't be fixed
 are listed in README.md's Noted issues.
 
+Versioning is decided (2026-10-10; see Versioning): calendar versions,
+set with `uv version` and tagged together, when the operator asks for a
+release.
+
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
 by default, in pyproject.toml), and the COMMENT limit test fills the
@@ -1076,3 +1080,39 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     the full list, 0.2 for "not modified".
   - POTA's per-park API (`api.pota.app/park/US-1048`, JSON with the same
     fields) is unofficial and undocumented, so the list is preferred.
+
+## Versioning
+
+- Calendar versioning (decided 2026-10-10): a release is named for the
+  date it's made, as `YYYY.M.D` (`2026.10.10`), with `.1`, `.2` and so
+  on for a second or third release the same day (`2026.10.10.1`). The
+  app isn't a library: no code depends on it, so semantic versioning's
+  "is this change breaking?" has no one to answer to, and the date
+  needs no judgment call. The log file's compatibility, if its format
+  ever changes, is a separate matter from the app's version.
+- No leading zeros (`2026.1.5`, not `2026.01.05`): Python's version
+  rules (PEP 440) drop them, so `uv version 2026.01.05` writes
+  `2026.1.5`, and the tag must read the same as `pyproject.toml`.
+- Releases are made only when the operator asks. The first tag, `MVP`
+  (e1ad0e4), stays as it is; the version stays `0.1.0` until the first
+  dated release.
+- A release takes these steps, always together and in this order,
+  whether an agent or a person makes it:
+  1. `uv version <date>`, which sets the version in `pyproject.toml`
+     and `uv.lock`.
+  2. Commit both files.
+  3. Tag that commit with the same `<date>` (no `v` before it).
+- Why together: what the app reports as its version comes from
+  `pyproject.toml` (through the installed package's metadata), never
+  from the tag. It's the ADIF export's `PROGRAMVERSION` and the
+  `pota-logger/<version>` user agent on the parks list download (and
+  on the QRZ.com API, when built). A tag alone changes nothing the app
+  reports, so exports would carry the last release's version; a version
+  set without a tag names a release no commit can be found by. Done
+  together, a version in an exported file points at exactly one tagged
+  commit.
+- Between releases, the app reports the last release's version, with
+  no commit hash. The hash would need the version read from git when
+  the package is built, which the `uv_build` backend doesn't do; a
+  backend that does (`hatchling` with `hatch-vcs`) was set aside to
+  stay with uv's own. Revisit if uv adds versions from git.
