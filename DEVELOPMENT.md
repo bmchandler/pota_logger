@@ -1,0 +1,170 @@
+# Development
+
+For anyone who wants to run POTA Logger from source, change it, or adapt
+it for their own use.
+
+## Contributions
+
+This is a personal project, shared as is, for anyone to use or adapt
+and as a portfolio example. Pull requests aren't reviewed or merged.
+If issues are open, they're read, and fixed at the maintainer's own
+pace and choice. You're welcome to fork it and make it your own.
+
+## Setup
+
+You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
+the dependencies itself.
+
+```bash
+uv run pota-logger
+```
+
+Run it from the project folder. It keeps its data in `data/` there
+(git-ignored). At first start it asks for your station callsign.
+
+If you'll commit, install the callsign guard git hooks once per clone
+(see Privacy):
+
+```bash
+uv run python -m pota_logger.callsign_guard install
+```
+
+## Tests
+
+```bash
+uv run pytest
+```
+
+Tests run in parallel (pytest-xdist, with `--dist worksteal`), about 75
+seconds in all. For a few tests, add `-n0`, as starting the workers
+takes about 2 seconds:
+
+```bash
+uv run pytest -n0 tests/test_freq.py
+```
+
+- Most of the time is app tests: about 0.6 second per `run_test` (mostly
+  Textual's own styling and layout), plus about 0.1 second per
+  `pilot.press`. Set field values with `fill()` unless typing key by key
+  is what's being tested. Put a field's rules and messages in its
+  module's unit tests, which are nearly instant, but keep an app test
+  that shows the field is wired into the form.
+- Tests never touch the real `data/`: use the `settings_path` and `app`
+  fixtures in `tests/conftest.py`, which point at a temp dir. `app` has
+  station callsign `W1TST` saved; an app on `settings_path` alone has
+  none, so it opens on the station-callsign-required block. Each test
+  keeps to its own temp dir, as tests run in parallel.
+- Tests never reach pota.app: the `pota` fixture is a local server
+  standing in for it.
+- `tests/test_app.py` builds on `ENTRY` (USB on a 20m voice frequency)
+  and `CW_ENTRY`. A test that saves several entries needs a different
+  CALL on each, or the dupe block stops it. Use past dates, or `991231`
+  for a future one.
+- REQUIREMENTS.md's "Status and plan" has the test-speed history and
+  why the slow tests are kept as they are.
+
+## Where things are
+
+- [REQUIREMENTS.md](REQUIREMENTS.md) is the source of truth for scope,
+  field rules, and what's built and planned. A change to a rule updates
+  it in the same commit.
+- [RELEASING.md](RELEASING.md): how to make a release.
+- [CLAUDE.md](CLAUDE.md): instructions for the AI coding agent used on
+  this project (Claude Code), with detailed notes on how the code fits
+  together. Worth a read for the same reason.
+- `src/pota_logger/`:
+  - `__init__.py`: the app (`PotaLoggerApp`) and the log table.
+  - `entry_form.py`: the entry form, its fields, and the checks run on
+    Enter.
+  - One module per entry field with rules: `freq.py`, `modes.py`,
+    `callsigns.py`, `parks.py`, `states.py`, `reports.py`, `power.py`,
+    `dates.py`. Each has `parse_*`, which raises `ValueError` with the
+    message shown to the operator, and `format_*` where the value shows
+    differently from how it's stored. `sidebands.py` holds the rules
+    that tie MODE and FREQ together.
+  - `entry_warnings.py`: warnings (probably wrong, but saveable).
+    `dupes.py`: the definite dupe check. `ascii_text.py`: the ASCII
+    check on every text input.
+  - `logbook.py`: the CSV storage, loading and checking the files.
+    `record_ids.py`: each row's record ID. `file_errors.py`: the
+    errors file for rows too broken to load.
+  - `adif.py`: ADIF records and the export file.
+  - `parks_list.py`: POTA's parks list download, the app's only network
+    use.
+  - `settings.py`: the settings file.
+  - `*_screen.py`: the modals. `status_bar.py`, `theme.py`: the status
+    bar and the color theme.
+  - `callsign_guard.py`: the git hooks (see Privacy).
+- `tag_new_version.py`: makes a release (see RELEASING.md).
+
+## Conventions
+
+### Entry checks: block vs warn
+
+- Block (refuse with a notification, focus the field) only what can't be
+  right: a report digit out of range, a frequency outside the bands, or
+  anything the ADIF standard doesn't allow (input must always fit ADIF,
+  whatever QRZ or other logbooks accept; what ADIF allows is accepted
+  unless the operator decides otherwise). Non-ASCII is refused up front
+  by `check_ascii` (`ascii_text.py`), since Python's `isdigit()` and
+  `\d` also match digits like ５ and ²; use it for any new text input
+  too. A definite dupe (`dupes.py`: the same in every column but COMMENT
+  and the record ID) is also blocked, with its own modal (`Roger
+  Roger`).
+- Warn (modal, Enter saves anyway) what's probably wrong but could be
+  real, like a special-event call or a voice signal outside the voice
+  range. The operator copies a paper log, so a real but odd contact must
+  never be unsaveable.
+- Messages use the operator's ham shorthand ("dupe", not "duplicate").
+  Warning messages end with "Esc to correct, or confirm with Enter." and
+  use explicit line breaks so they wrap cleanly.
+
+### Textual
+
+- Prefer stock Textual behavior and looks, and avoid overriding its key
+  bindings; overriding them is a deliberate decision.
+- Colors come from the `pota` theme in `theme.py`; widget CSS uses theme
+  variables (`$primary`, `$warning`, `$surface`...), not hex colors.
+- Never pass a DataTable a plain `str` cell: it's read as Rich markup,
+  which hid brackets in a COMMENT and crashed on `[/]`. Log cells are
+  Rich `Text`.
+
+### Third parties
+
+In docs and comments, state what a third party (POTA, QRZ.com, other
+logbooks) does as fact only from its own documentation (the ADIF spec
+for ADIF). Otherwise word it as uncertain ("appears to", "it's likely"),
+with the evidence where known.
+
+## Seeing what the TUI draws
+
+- Text: run the app with `run_test(size=(107, 24))` in a scratch script
+  (107 is the form's full width; narrower adds its scrollbar), and print
+  `"".join(seg.text for seg in strip)` for each strip in
+  `app.screen._compositor.render_strips()`.
+- An image: `app.export_screenshot()` gives an SVG. Before converting it
+  (e.g. cairosvg), replace the "Fira Code" font with "DejaVu Sans Mono":
+  without Fira Code, the block characters in borders (▊ ▎ ▔ ▁) draw as
+  full-cell boxes and hide sub-cell edges.
+- cairosvg skips `text-decoration`, so it doesn't draw underlines; a
+  headless Firefox screenshot of the SVG does (`firefox --headless
+  --screenshot=out.png --window-size=1330,650 file:///path/to.svg`).
+  Textual's SVG export doesn't draw overlines at all (the log divider),
+  so no screenshot shows it.
+- To confirm what escape codes reach a real terminal (e.g. SGR 53 for
+  overline), run a scratch app under `pty.fork()` with the window size
+  set by `TIOCSWINSZ`, capture its output, and search the `\x1b[...m`
+  codes.
+
+## Privacy
+
+Don't commit real callsigns if at all possible: in tracked files,
+tests, examples, or commit messages. Take care with them in tests in
+particular. There's no official standard reserving callsigns for
+examples, the way some domain names are, so any call that passes the
+app's callsign checks may belong to someone. The tests use calls
+chosen to look made up, like `W1TST` or `W1ABC`.
+
+`data/` is git-ignored, and the callsign guard hooks block whatever
+call is in `data/settings.toml` from commits. They're a backup, not the
+main rule, so check staged changes yourself.
