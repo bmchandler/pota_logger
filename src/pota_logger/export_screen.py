@@ -167,7 +167,7 @@ class ExportScreen(ModalScreen[None]):
         try:
             # "x": never over another file, should two land in one second.
             with path.open("x", encoding="ascii", newline="\n") as file:
-                file.write(adif_file(entries, created))
+                file.write(adif_file(entries, created, self.app.parks))
         except OSError as error:
             self.show_problem(f"{WRITE_FAILED}\n{error}")
             return

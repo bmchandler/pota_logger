@@ -3,6 +3,8 @@ from decimal import Decimal
 
 import pytest
 
+from pota_logger.parks import Park
+
 from pota_logger.adif import (
     ADIF_VERSION,
     adif_field,
@@ -154,3 +156,44 @@ def test_file_is_plain_ascii():
 )
 def test_export_file_name(start, end, name):
     assert export_file_name(start, end, CREATED) == name
+
+
+PARKS = {
+    "US-1234": Park("Some Park", True, "291", ("NJ",)),
+    "US-0002": Park("Alagnak Wild River National Park", True, "6", ("AK",)),
+    "FR-0081": Park("Guadeloupe Provincial Park", False, "", ()),
+}
+
+
+def test_dxcc_from_the_parks_list():
+    assert ("DXCC", "291") in adif_fields(ENTRY, PARKS)
+    assert "<DXCC:3>291" in adif_record(ENTRY, PARKS)
+    alaska = ENTRY | {"PARK": "US-0002", "ST": "AK"}
+    assert ("DXCC", "6") in adif_fields(alaska, PARKS)
+
+
+def test_dxcc_after_state():
+    names = [name for name, _ in adif_fields(ENTRY, PARKS)]
+    assert names[names.index("STATE") + 1] == "DXCC"
+
+
+def test_dxcc_for_a_park_with_location():
+    entry = ENTRY | {"PARK": "US-1234@US-NJ"}
+    assert ("DXCC", "291") in adif_fields(entry, PARKS)
+
+
+@pytest.mark.parametrize(
+    "entry, parks",
+    [
+        (ENTRY, {}),
+        (ENTRY | {"PARK": "US-9999"}, PARKS),
+        (ENTRY | {"PARK": "FR-0081", "ST": ""}, PARKS),
+    ],
+)
+def test_no_dxcc_without_the_parks_entity(entry, parks):
+    assert "DXCC" not in [name for name, _ in adif_fields(entry, parks)]
+
+
+def test_file_records_take_dxcc():
+    text = adif_file([ENTRY], datetime(2026, 10, 10, 1, 2, 3), PARKS)
+    assert "<DXCC:3>291" in text.splitlines()[-1]

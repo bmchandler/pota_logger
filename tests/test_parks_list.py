@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 from conftest import LAST_MODIFIED, LIST, NEWER_LIST
 
+from pota_logger.parks import Park
 from pota_logger.parks_list import (
     PARKS_FILE,
     PARKS_INFO_FILE,
@@ -12,6 +13,7 @@ from pota_logger.parks_list import (
     copy_date,
     download_parks,
     md5_etag,
+    load_parks,
     parks_folder,
     saved_copy,
 )
@@ -133,3 +135,62 @@ def test_unsavable_copy(pota, tmp_path):
     blocker.write_text("a file, not a folder")
     with pytest.raises(ParksDownloadError, match="couldn't be saved"):
         download_parks(parks_folder(blocker), pota.url)
+
+
+def test_parks_by_reference(pota, folder):
+    pota.content, pota.etag = NEWER_LIST, md5_etag(NEWER_LIST)
+    download_parks(folder, pota.url)
+    assert load_parks(folder) == {
+        "US-0001": Park("Acadia National Park", True, "291", ("ME",)),
+        "US-0002": Park("Alagnak Wild River National Park", True, "6", ("AK",)),
+    }
+
+
+@pytest.mark.parametrize(
+    "row, park",
+    [
+        # Trimmed of spaces around it.
+        ('" Acadia ","1","291","US-ME"', Park("Acadia", True, "291", ("ME",))),
+        ('"Old Park","0","291","US-ME"', Park("Old Park", False, "291", ("ME",))),
+        # No entity, given either way.
+        ('"Gone","0","","US-ME"', Park("Gone", False, "", ("ME",))),
+        ('"Gone","0","0","US-ME"', Park("Gone", False, "", ("ME",))),
+        # Several states, without US-.
+        (
+            '"Trail","1","291","US-DC,US-MD,US-WV"',
+            Park("Trail", True, "291", ("DC", "MD", "WV")),
+        ),
+        # Outside the US, or a US location that isn't a state.
+        ('"Rishiri","1","339","JA-01"', Park("Rishiri", True, "339", ())),
+        ('"Kure","1","138","US-KI"', Park("Kure", True, "138", ())),
+        ('"Blank","1","291",""', Park("Blank", True, "291", ())),
+    ],
+)
+def test_park_as_listed(pota, folder, row, park):
+    content = (
+        b'"reference","name","active","entityId","locationDesc"\n'
+        + f'"US-0001",{row}\n'.encode()
+    )
+    pota.content, pota.etag = content, md5_etag(content)
+    download_parks(folder, pota.url)
+    assert load_parks(folder) == {"US-0001": park}
+
+
+def test_no_parks_without_a_sound_copy(pota, folder):
+    assert load_parks(folder) == {}
+    download_parks(folder, pota.url)
+    (folder / PARKS_FILE).write_bytes(LIST + b"extra\n")
+    assert load_parks(folder) == {}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b'"ref","title"\n"US-0001","Acadia"\n',
+        b'"reference","name","active","entityId","locationDesc"\n"US-0001","Acadia"\n',
+    ],
+)
+def test_no_parks_from_a_list_not_shaped_like_potas(pota, folder, content):
+    pota.content, pota.etag = content, md5_etag(content)
+    download_parks(folder, pota.url)
+    assert load_parks(folder) == {}

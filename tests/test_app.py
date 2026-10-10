@@ -3,7 +3,7 @@ from collections import Counter
 from datetime import date, time
 
 import pytest
-from conftest import LIST
+from conftest import LIST, NEWER_LIST
 from textual.command import CommandPalette
 from textual.containers import Vertical
 from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
@@ -3725,3 +3725,287 @@ async def test_parks_list_check_not_doubled(app, pota):
         app.check_parks_list()
         await parks_list_done(app, pilot)
         assert len(pota.requests) == 1
+
+
+# The park's name, on COMMENT's label row, from the parks list.
+
+
+# POTA's parks list as the parks tests' app has it: a park in one state
+# each (Maine, Alaska), one in two, and an inactive one.
+APP_LIST = NEWER_LIST + (
+    b'"US-0003","Two State Trail","1","291","US-DC,US-MD","38.9","-77.0","FM18lv"\n'
+    b'"US-0004","Old Park","0","291","US-ME","44.3","-68.2","FN54vh"\n'
+)
+
+
+def save_parks_list(settings_path, pota) -> None:
+    pota.content, pota.etag = APP_LIST, md5_etag(APP_LIST)
+    download_parks(parks_folder(settings_path.parent), pota.url)
+
+
+@pytest.fixture
+def parks_app(app, settings_path, pota):
+    """The app with POTA's parks list saved (APP_LIST)."""
+    save_parks_list(settings_path, pota)
+    app.parks_url = pota.url
+    return app
+
+
+def park_name(app) -> str:
+    return str(app.query_one("#park-name", Label).render())
+
+
+async def leave_park(app, pilot, text: str) -> None:
+    """Type PARK as `text`, then Tab out of it."""
+    app.query_one("#field-park", Input).value = text
+    app.query_one("#field-park", Input).focus()
+    await pilot.press("tab")
+
+
+async def test_park_name_shows_on_leaving_park(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        assert park_name(app) == ""
+        await leave_park(app, pilot, "1")
+        assert park_name(app) == "Acadia National Park"
+        await leave_park(app, pilot, "us-2")
+        assert park_name(app) == "Alagnak Wild River National Park"
+
+
+@pytest.mark.parametrize("text", ["9999", "12x", "", "JP-0001"])
+async def test_no_park_name_for_a_park_not_read_or_listed(parks_app, text):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        await leave_park(app, pilot, text)
+        assert park_name(app) == ""
+
+
+async def test_park_name_for_a_park_with_a_location(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1@us-me")
+        assert park_name(app) == "Acadia National Park"
+
+
+async def test_park_name_on_enter_in_park(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        app.query_one("#field-park", Input).value = "1"
+        app.query_one("#field-park", Input).focus()
+        # Stopped by the missing fields, still in PARK.
+        await pilot.press("enter")
+        assert park_name(app) == "Acadia National Park"
+
+
+async def test_park_name_cleared_after_save(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "1", "ST": "ME"})
+        await pilot.press("enter")
+        assert table_calls(app) == ["W1ABC"]
+        assert park_name(app) == ""
+
+
+async def test_park_name_for_a_selected_row_then_back_to_the_form(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "1", "ST": "ME"})
+        await pilot.press("enter")
+        await leave_park(app, pilot, "2")
+        assert park_name(app) == "Alagnak Wild River National Park"
+        await select_row(app, pilot, 0)
+        assert park_name(app) == "Acadia National Park"
+        await pilot.press("escape")
+        assert park_name(app) == "Alagnak Wild River National Park"
+
+
+async def test_park_name_once_the_list_is_downloaded(app, pota):
+    app.parks_url = pota.url
+    async with app.run_test() as pilot:
+        await leave_park(app, pilot, "1")
+        assert park_name(app) == ""
+        app.check_parks_list()
+        await parks_list_done(app, pilot)
+        # The names load in a thread of their own, once it's saved.
+        await parks_list_done(app, pilot)
+        assert park_name(app) == "Acadia National Park"
+
+
+# ST filled from the park, and the parks list's warnings.
+
+
+def st_value(app) -> str:
+    return app.query_one("#field-st", Input).value
+
+
+async def test_st_filled_on_leaving_park_and_typing_replaces_it(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        assert st_value(app) == "ME"
+        assert app.focused.id == "field-st"
+        await pilot.press("n", "h")
+        assert st_value(app) == "nh"
+
+
+async def test_filled_st_follows_park(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        assert st_value(app) == "ME"
+        await leave_park(app, pilot, "2")
+        assert st_value(app) == "AK"
+        # A park in two states, or one not read or listed, clears it.
+        await leave_park(app, pilot, "3")
+        assert st_value(app) == ""
+        await leave_park(app, pilot, "1")
+        await leave_park(app, pilot, "9999")
+        assert st_value(app) == ""
+        # A location names the state.
+        await leave_park(app, pilot, "3@us-md")
+        assert st_value(app) == "MD"
+
+
+async def test_typed_st_isnt_changed(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        app.query_one("#field-st", Input).value = "NH"
+        await leave_park(app, pilot, "1")
+        assert st_value(app) == "NH"
+
+
+async def test_st_typed_over_the_filled_one_isnt_changed(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        await pilot.press("n", "h")
+        await leave_park(app, pilot, "2")
+        assert st_value(app) == "nh"
+
+
+async def test_st_filled_on_enter_in_park(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        app.query_one("#field-park", Input).value = "1"
+        app.query_one("#field-park", Input).focus()
+        await pilot.press("enter")
+        assert st_value(app) == "ME"
+
+
+async def test_no_st_filled_without_a_list(app):
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        assert st_value(app) == ""
+
+
+async def test_filled_st_in_comments_pota_info(settings_path, pota):
+    save_settings(Settings("W1TST", new_comment_pota_info=True), settings_path)
+    save_parks_list(settings_path, pota)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "1")
+        assert app.query_one("#field-comment", Input).value == "POTA US-0001 ME"
+
+
+async def test_st_filled_for_a_blank_st_when_editing(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "3", "ST": ""})
+        await pilot.press("enter")
+        await select_row(app, pilot, 0)
+        await pilot.press("f3")
+        await leave_park(app, pilot, "2")
+        assert st_value(app) == "AK"
+
+
+async def test_selected_row_and_back_keep_the_fill(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "3", "ST": ""})
+        await pilot.press("enter")
+        await leave_park(app, pilot, "1")
+        await select_row(app, pilot, 0)
+        assert st_value(app) == ""
+        await pilot.press("escape")
+        # Back to the form's own, still the app's to change.
+        assert st_value(app) == "ME"
+        await leave_park(app, pilot, "2")
+        assert st_value(app) == "AK"
+
+
+async def test_park_not_listed_warns_and_esc_goes_to_park(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "9999", "ST": ""})
+        await pilot.press("enter")
+        assert isinstance(app.screen, WarningScreen)
+        assert required_message(app).startswith("US-9999 isn't in POTA's parks list.\n")
+        await pilot.press("escape")
+        assert app.focused.id == "field-park"
+        assert table_rows(app) == []
+
+
+async def test_inactive_park_warns_and_enter_saves(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "4", "ST": "ME"})
+        await pilot.press("enter")
+        assert required_message(app).startswith("US-0004 is inactive in POTA's parks list.\n")
+        await pilot.press("enter")
+        assert table_calls(app) == ["W1ABC"]
+
+
+async def test_state_not_the_parks_warns_and_esc_goes_to_st(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "3", "ST": "NJ"})
+        await pilot.press("enter")
+        assert required_message(app) == (
+            "US-0003 is in DC or MD, not NJ.\nEsc to correct, or confirm with Enter."
+        )
+        await pilot.press("escape")
+        assert app.focused.id == "field-st"
+
+
+async def test_no_park_warnings_without_a_list(app):
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "9999"})
+        await pilot.press("enter")
+        assert table_calls(app) == ["W1ABC"]
+
+
+async def test_export_takes_dxcc_from_the_parks_list(
+    export_app, settings_path, export_folder, pota
+):
+    save_parks_list(settings_path, pota)
+    async with export_app.run_test() as pilot:
+        await parks_list_done(export_app, pilot)
+        fill(export_app, ENTRY | {"PARK": "2", "ST": "AK", "DATE": "260925"})
+        await pilot.press("enter")
+        fill(export_app, ENTRY | {"CALL": "W1XYZ", "PARK": "1", "ST": "ME", "DATE": "260925"})
+        await pilot.press("enter")
+        await pilot.press("f6")
+        await pilot.press("enter")
+    [exported] = exported_files(export_folder)
+    records = exported.read_text().splitlines()[6:]
+    assert ["<DXCC:1>6" in records[0], "<DXCC:3>291" in records[1]] == [True, True]

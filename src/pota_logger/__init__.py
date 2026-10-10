@@ -21,11 +21,13 @@ from pota_logger.export_screen import ExportScreen
 from pota_logger.freq import format_freq
 from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
+from pota_logger.parks import Park
 from pota_logger.parks_list import (
     PARKS_URL,
     ParksCopy,
     ParksDownloadError,
     download_parks,
+    load_parks,
     parks_folder,
     saved_copy,
 )
@@ -370,6 +372,9 @@ class PotaLoggerApp(App):
         self.parks_folder = parks_folder(settings_path.parent)
         self.parks_url = PARKS_URL
         self.parks_downloading = False
+        # Each park by its reference, once loaded from the list (none
+        # without one).
+        self.parks: dict[str, Park] = {}
         self.settings_error: str | None = None
         # A refused station callsign from the file, shown in Settings to
         # correct (most likely a slip) until a call is saved.
@@ -427,6 +432,7 @@ class PotaLoggerApp(App):
         # the window and the log's vertical scrollbar, and the mark counts'
         # long or short form follows their width.
         table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
+        self.load_parks()
         self.query_one("#field-freq").focus()
         # Filled by load_log once there's a station callsign to check the
         # rows against.
@@ -1044,6 +1050,20 @@ class PotaLoggerApp(App):
             return
         self.call_from_thread(self.parks_list_checked, copy)
 
+    def load_parks(self) -> None:
+        """Load the parks from the saved list, in a thread, as it takes
+        about half a second.
+        """
+        self.run_worker(self.read_parks, thread=True)
+
+    def read_parks(self) -> None:
+        parks = load_parks(self.parks_folder)
+        self.call_from_thread(self.parks_loaded, parks)
+
+    def parks_loaded(self, parks: dict[str, Park]) -> None:
+        self.parks = parks
+        self.query_one(EntryForm).show_park_name()
+
     def parks_list_failed(self, message: str) -> None:
         self.parks_downloading = False
         self.notify(message, severity="error", timeout=30)
@@ -1054,6 +1074,7 @@ class PotaLoggerApp(App):
             self.notify(PARKS_CURRENT)
             return
         self.notify(PARKS_DOWNLOADED)
+        self.load_parks()
         for screen in self.screen_stack:
             if isinstance(screen, SettingsScreen) and not screen.with_callsign:
                 screen.show_parks_copy(copy)

@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.parks import parse_park
+from pota_logger.parks import Park, listed_park, park_states, parse_park
 
 
 @pytest.mark.parametrize(
@@ -60,3 +60,35 @@ def test_parse_park_rejects(text):
 def test_parse_park_rejects_too_many_digits(text):
     with pytest.raises(ValueError, match="isn't a POTA park; parks must be <= 5 digits"):
         parse_park(text)
+
+
+PARKS = {
+    "US-0001": Park("Acadia National Park", True, "291", ("ME",)),
+    "US-4566": Park("California National Historic Trail", True, "291", ("CA", "NV", "WY")),
+    "JA-0001": Park("Rishiri-Rebun-Sarobetsu National Park", True, "339", ()),
+}
+
+
+@pytest.mark.parametrize(
+    "park, reference",
+    [("US-0001", "US-0001"), ("US-4566@US-WY", "US-4566"), ("US-9999", None)],
+)
+def test_listed_park(park, reference):
+    assert listed_park(PARKS, park) == PARKS.get(reference)
+
+
+@pytest.mark.parametrize(
+    "park, states",
+    [
+        ("US-0001", ("ME",)),
+        ("US-4566", ("CA", "NV", "WY")),
+        # A location naming a state is where the operator said.
+        ("US-4566@US-WY", ("WY",)),
+        ("US-0001@CA-ON", ("ME",)),
+        ("JA-0001", ()),
+        ("US-9999", ()),
+        ("US-9999@US-WY", ()),
+    ],
+)
+def test_park_states(park, states):
+    assert park_states(PARKS, park) == states

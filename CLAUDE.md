@@ -105,9 +105,21 @@ updated in the same change whenever a rule changes.
   `load_log` hasn't blocked); Settings after setup shows the copy's date
   with `Check for Updated`. Both run the app's `check_parks_list`, a
   thread worker (`fetch_parks_list`) whose result comes back by
-  `call_from_thread`. Tests use the `pota` fixture (tests/conftest.py), a
+  `call_from_thread`. `load_parks` reads the copy into `app.parks`
+  (reference to `Park`: name, active, DXCC, US states without `US-`),
+  likewise in a thread (the app's `load_parks`, at start and after a
+  download). parks.py holds `Park`, `listed_park` and `park_states`
+  (PARK as parsed, location included), apart from parks_list.py, which
+  imports adif.py (a cycle otherwise, through logbook.py and
+  entry_form.py). `EntryForm.show_park_name` shows PARK's name on
+  COMMENT's label row (`#park-name`, centered via `labeled_input`'s
+  `beside`) and `fill_state` fills ST (`filled_state`, put aside like
+  `pota_comment`), wherever PARK's value changes. Warning checks take
+  `parks` as a third argument (`park_not_listed`,
+  `state_not_the_parks`); `adif_fields` takes it for `DXCC`. Tests use the `pota` fixture (tests/conftest.py), a
   local server, setting `app.parks_url` to its `url`, then
-  `parks_list_done` to wait: never reach pota.app from a test.
+  `parks_list_done` to wait (`parks_app` has `APP_LIST` saved): never reach
+  pota.app from a test.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is
@@ -118,7 +130,8 @@ updated in the same change whenever a rule changes.
   holds `FORMATTERS` and `DISPLAY_LENGTHS` for the log table.
 - Warnings (probably wrong, but saveable) are checks in entry_warnings.py
   listed in `WARNINGS`, shown in warning_screen.py. Each check takes the
-  entry and the entries logged so far (`EntryForm.logged`). The unusual-CALL
+  entry, the entries logged so far (`EntryForm.logged`), and the parks
+  list (`app.parks`, empty without one). The unusual-CALL
   warning has its own modal (callsign_warning_screen.py) so the call can
   be edited there; the settings modal uses it for the station callsign.
 - One station callsign per log (multiple calls, OPERATOR, and multiple

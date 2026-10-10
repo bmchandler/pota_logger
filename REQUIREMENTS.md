@@ -90,8 +90,10 @@ the ADIF button, which replaced the Settings button).
 Support for POTA's parks list is in progress (see Export, POTA's
 parks list), taken before the QRZ.com API (decided 2026-10-09, as the
 more straightforward): the download is built, offered at first start
-and checked for updates from Settings; nothing uses the list yet. Then,
-possibly, QRZ.com API integration (see Export,
+and checked for updates from Settings; its uses are built
+(2026-10-10): the park's name on COMMENT's label row, ST filled from the
+park, warnings on an unlisted or inactive park and on an ST not the
+park's, and DXCC in the export. Then, possibly, QRZ.com API integration (see Export,
 QRZ.com API). Known issues that won't be fixed are listed in
 README.md's Noted issues.
 
@@ -177,7 +179,7 @@ them. COMMENT stays below the row. All times and dates are UTC.
 | MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | `SSB` at app start, then carried forward (decided 2026-10-08: a session switched to CW is likely CW throughout). Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. Last in the top row of the form. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
 | PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, `US-4566@US-WY`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012`, `US-4566@US-WY` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER, optionally @LOCATION. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. LOCATION is a 4 to 6 character ISO 3166-2 code (`US-WY`), only for parks spanning more than one, like trails. Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference (17 characters); the log column is 17 wide. |
-| ST | `NJ`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC). Blank, not `NA`, for a park outside the US (decided 2026-10-08): QRZ.com and similar logbooks leave the state blank there, and have no field for a POTA location like `BB-PH` (which can go in COMMENT). Not checked against the park; no park database is kept until POTA's parks list is supported (see Export, POTA's parks list). |
+| ST | `NJ`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC). Blank, not `NA`, for a park outside the US (decided 2026-10-08): QRZ.com and similar logbooks leave the state blank there, and have no field for a POTA location like `BB-PH` (which can go in COMMENT). With POTA's parks list saved (see Export, POTA's parks list), filled from the park when it's in one state, and checked against the park's states (a warning, see Entry behavior); without it, not checked against the park. |
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. The placeholder follows MODE as a hint: `599` while MODE is `CW` (any case), `59` for any other MODE typed. It updates when leaving MODE (Tab, Shift+Tab, or a click), not on each keystroke, and stays as it was after a save, since MODE carries forward. With MODE last in the form, a new session's first CW entry shows `59` while the reports are typed; the digit check on Enter catches a missing third digit. Only the placeholder changes, which shows only while the field is empty: a value already typed is never cleared or changed. The non-ASCII message's example (`59, or 599 on CW`) stays as is. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
 | PWR | Watts as a number: `60`, `2.5`, `.5` | Decimal watts | `60W`, `2.5W`, `.5W` | Carried forward. 0.1 to 1500 watts (US legal limit). No `W` when typing. |
@@ -429,8 +431,18 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     USB and 21.450 LSB don't. SSB is checked at the dial frequency only,
     since it's refused near edges. CW is fine anywhere. Esc goes back to
     FREQ.
+  - **Park not in POTA's parks list** (only with the list saved): `US-9999
+    isn't in POTA's parks list.` / `It may be new: Check for Updated in` /
+    `Settings (f2) to get the latest list.`, or for a park the list marks
+    inactive, `US-0004 is inactive in POTA's parks list.` (decided
+    2026-10-10). Esc goes back to PARK.
   - **State on a non-US park:** PARK isn't a US park but ST is a US state.
     Blank is fine. Esc goes back to ST.
+  - **State not the park's** (only with the list saved): ST isn't one of
+    the park's states, or the location's when PARK names one: `US-0001 is
+    in ME, not NJ.`, `in DC or MD`, `in CA, NV, or WY` (decided
+    2026-10-10), wrapped to the modal for a long list. Blank is fine, as
+    is any ST for a park with no US state. Esc goes back to ST.
   - **Future date/time:** DATE plus TIME is later than the current UTC
     time. Esc goes back to DATE.
 
@@ -913,6 +925,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   - MODE `USB`/`LSB` export as `MODE` SSB with `SUBMODE` USB/LSB (ADIF
     lists them as submodes of SSB); `SSB` and `CW` are modes.
   - A blank ST means no state: `STATE` is left out.
+  - `DXCC`, the contacted station's entity, is the park's, from POTA's
+    parks list (decided 2026-10-10), after `STATE`; left out without the
+    list, for a park not in it, or one the list gives no entity (2,204,
+    mostly inactive `FR-` parks). It's more reliable than the callsign,
+    which QRZ.com goes by otherwise: a mainland call activating an
+    Alaska (6) or Hawaii (110) park is that entity, not 291.
   - ST exports as `STATE` when filled (decided 2026-10-09): the park's
     state, as the POTA site lists it with the spot (and later the parks
     list), which is ADIF's meaning (the contacted station's location).
@@ -998,15 +1016,32 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     `ETag` and downloads only a changed list; an unchanged one reports
     `Parks file is already current.` There's no deleting the copy in
     the app.
-  - The park's name (decided 2026-10-09, not built): on the COMMENT
-    label row, to the right of `COMMENT` (an empty row, so nothing
-    moves), the name alone (PARK, just above, shows the reference),
+  - The park's name (decided 2026-10-09, built 2026-10-10): on the COMMENT
+    label row, centered over the COMMENT field (decided 2026-10-10; an
+    empty row, so nothing moves), in the label's color, the name alone (PARK, just above, shows the reference),
     updated on leaving PARK and shown for a selected row too. A
-    name too long for the row is cut off with `…` (99% of names are 87
-    characters or less). The park's states (`locationDesc`) aren't
+    name too long for the row is cut off with `…`: a blank as wide as
+    `COMMENT` balances it on the right, leaving 87 characters at the
+    form's full width (99% of names fit). The park's states (`locationDesc`) aren't
     shown. US states never show with POTA's `US-` (`NC`, not `US-NC`),
     here or in a warning; a location under another prefix would show
-    it, if that ever comes up.
+    it, if that ever comes up. It shows on leaving PARK and on Enter
+    (as COMMENT's POTA info), for PARK as it reads (`1@us-me` shows
+    US-0001's), and none when PARK doesn't read or isn't listed; for a
+    selected row, and back to the form's own on Esc; and none after a
+    save, as PARK clears. The names load from the saved copy in a
+    thread at start (about half a second for the whole list) and again
+    after a download brings a new copy, showing for PARK as it is then.
+    Names keep POTA's accented letters (only what's typed must be
+    ASCII), trimmed of spaces around them.
+  - ST from the park (decided 2026-10-10, built): on leaving PARK and on
+    Enter, a park in one US state (`1` gives `ME`) fills a blank ST, or
+    one the app filled (so correcting PARK corrects its ST; a park in
+    several states, none, or not listed clears it). An ST typed is never
+    changed. A location naming a state fills that (`4566@us-wy` gives
+    `WY`). COMMENT's POTA info follows. Typing in ST replaces what's
+    filled. In an edit, a blank ST is filled the same way. Locations
+    under `US-` that aren't states (`US-KI`, Kure Island) never fill.
   - The offer and Settings row built (2026-10-09). The offer, as
     dictated: `Download POTA's parks list (about 9 MB)?` / `It lets the
     app fill in ST, show park names,` / `and warn on a park not in the

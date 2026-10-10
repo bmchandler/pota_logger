@@ -1,4 +1,6 @@
+import csv
 import hashlib
+import io
 import json
 import os
 import urllib.error
@@ -10,6 +12,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 from pota_logger.adif import PROGRAM_ID
+from pota_logger.parks import Park
+from pota_logger.states import US_STATES
 
 # POTA's list of every park, rebuilt by POTA about nightly.
 PARKS_URL = "https://pota.app/all_parks_ext.csv"
@@ -72,6 +76,34 @@ def saved_copy(folder: Path) -> ParksCopy | None:
     if md5_etag(content) != copy.etag:
         return None
     return copy
+
+
+def list_park(row: dict[str, str]) -> Park:
+    locations = row["locationDesc"].split(",")
+    return Park(
+        name=row["name"].strip(),
+        active=row["active"] == "1",
+        dxcc="" if row["entityId"] in ("", "0") else row["entityId"],
+        states=tuple(
+            location[3:]
+            for location in locations
+            if location.startswith("US-") and location[3:] in US_STATES
+        ),
+    )
+
+
+def load_parks(folder: Path) -> dict[str, Park]:
+    """Each park by its reference (`US-1234`), from the saved copy, or
+    none without a sound copy (or one that doesn't read as POTA's list).
+    Takes about half a second for the whole list.
+    """
+    if saved_copy(folder) is None:
+        return {}
+    try:
+        text = (folder / PARKS_FILE).read_text("utf-8")
+        return {row["reference"]: list_park(row) for row in csv.DictReader(io.StringIO(text))}
+    except (OSError, ValueError, KeyError, AttributeError, csv.Error):
+        return {}
 
 
 def write_file(path: Path, content: bytes) -> None:

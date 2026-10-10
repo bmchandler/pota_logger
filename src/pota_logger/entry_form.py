@@ -16,13 +16,15 @@ from pota_logger.dates import default_date, parse_date, parse_time
 from pota_logger.dupes import DUPE_BUTTON, EDIT_DUPE_MESSAGE, NEW_DUPE_MESSAGE, is_dupe
 from pota_logger.entry_warnings import (
     future_time,
+    park_not_listed,
+    state_not_the_parks,
     state_on_non_us_park,
     voice_outside_range,
 )
 from pota_logger.freq import format_freq, parse_freq
 from pota_logger.modes import parse_mode
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
-from pota_logger.parks import parse_park
+from pota_logger.parks import listed_park, park_states, parse_park
 from pota_logger.power import parse_power
 from pota_logger.record_ids import new_id
 from pota_logger.reports import THREE_DIGIT_MODE, parse_report
@@ -122,7 +124,9 @@ EDITING_TITLE = "Editing record - Esc to cancel"
 # to, check in entry_warnings.py).
 WARNINGS = [
     ("FREQ", voice_outside_range),
+    ("PARK", park_not_listed),
     ("ST", state_on_non_us_park),
+    ("ST", state_not_the_parks),
     ("DATE", future_time),
 ]
 
@@ -159,7 +163,12 @@ def starts_with_info(comment: str, info: str, bare: bool = False) -> bool:
     return comment.startswith(info + " ")
 
 
-def labeled_input(name: str, placeholder: str, max_length: int) -> Vertical:
+def labeled_input(
+    name: str, placeholder: str, max_length: int, beside: Label | None = None
+) -> Vertical:
+    """A field under its label, with `beside` to the label's right,
+    centered over the field: a blank as wide as the label balances it.
+    """
     factory = DEFAULT_FACTORIES.get(name)
     field = Input(
         value=factory() if factory else DEFAULTS.get(name, ""),
@@ -167,7 +176,14 @@ def labeled_input(name: str, placeholder: str, max_length: int) -> Vertical:
         max_length=INPUT_LIMITS.get(name, 0),
         id=f"field-{name.lower()}",
     )
-    column = Vertical(Label(name), field)
+    if beside is None:
+        label = Label(name)
+    else:
+        balance = Label()
+        # The label's width, with its padding.
+        balance.styles.width = len(name) + 2
+        label = Horizontal(Label(name), beside, balance, classes="label-row")
+    column = Vertical(label, field)
     column.styles.width = max_length + INPUT_EXTRA_WIDTH
     return column
 
@@ -224,6 +240,17 @@ class EntryForm(Vertical):
     EntryForm Label {
         padding: 0 1;
     }
+    /* The park's name, on COMMENT's label row, centered over the field:
+       cut off with an ellipsis when it doesn't fit. */
+    EntryForm .label-row {
+        width: 100%;
+    }
+    EntryForm #park-name {
+        width: 1fr;
+        text-align: center;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
     EntryForm Input {
         padding: 0 1;
     }
@@ -273,6 +300,10 @@ class EntryForm(Vertical):
         # fields, while an entry is shown.
         self.pota_comment: str | None = None
         self.put_aside_pota_comment: str | None = None
+        # The ST the app filled from the park, to change as PARK does;
+        # None once it's typed over (or none was filled). Put aside too.
+        self.filled_state: str | None = None
+        self.put_aside_filled_state: str | None = None
 
     def on_mount(self) -> None:
         if self.app.settings.new_comment_pota_info:
@@ -285,7 +316,7 @@ class EntryForm(Vertical):
         with Horizontal():
             for name, placeholder, max_length in ROW_FIELDS:
                 yield labeled_input(name, placeholder, max_length)
-        yield labeled_input("COMMENT", "", COMMENT_LENGTH)
+        yield labeled_input("COMMENT", "", COMMENT_LENGTH, Label(id="park-name"))
         yield Static(id="entry-problems")
 
     def field(self, name: str) -> Input:
@@ -297,8 +328,48 @@ class EntryForm(Vertical):
     def on_input_blurred(self, event: Input.Blurred) -> None:
         if event.input.id == "field-mode":
             self.show_report_placeholders()
+        if event.input.id == "field-park":
+            self.fill_state()
+            self.show_park_name()
         if event.input.id in ("field-park", "field-st"):
             self.update_pota_comment()
+
+    def park_read(self) -> str | None:
+        """PARK as it reads (`US-0001`), or None if it doesn't."""
+        text = self.field("PARK").value
+        try:
+            check_ascii("PARK", text)
+            return parse_park(text)
+        except ValueError:
+            return None
+
+    def show_park_name(self) -> None:
+        """Show the park's name, from POTA's parks list, for PARK as it
+        reads; none when it doesn't, or isn't in the list (or there's no
+        list).
+        """
+        park = self.park_read()
+        listed = None if park is None else listed_park(self.app.parks, park)
+        # Text, not str, so a name with brackets isn't read as markup.
+        self.query_one("#park-name", Label).update(Text(listed.name if listed else ""))
+
+    def fill_state(self) -> None:
+        """Fill ST with the park's state, from POTA's parks list, for a park
+        in one: only a blank ST, or one the app filled (which a park in
+        none or several clears). One typed is never changed.
+        """
+        state = self.field("ST")
+        if state.value.strip() and state.value != self.filled_state:
+            return
+        park = self.park_read()
+        states = () if park is None else park_states(self.app.parks, park)
+        value = states[0] if len(states) == 1 else ""
+        self.filled_state = value or None
+        if state.value != value:
+            state.value = value
+            # Typing in ST replaces what's filled, as on Tab into it.
+            if state.has_focus:
+                state.select_all()
 
     def start_pota_comment(self) -> None:
         """Start a new entry's COMMENT with its POTA info."""
@@ -388,7 +459,9 @@ class EntryForm(Vertical):
         if self.shown is None:
             self.put_aside = {name: self.field(name).value for name, _, _ in FIELDS}
             self.put_aside_pota_comment = self.pota_comment
+            self.put_aside_filled_state = self.filled_state
         self.pota_comment = None
+        self.filled_state = None
         self.shown = entry
         for name, _, _ in FIELDS:
             if texts is None:
@@ -398,6 +471,7 @@ class EntryForm(Vertical):
             self.field(name).disabled = True
         self.show_problems(problems)
         self.show_report_placeholders()
+        self.show_park_name()
 
     def show_problems(self, problems: Sequence[tuple[str, str]]) -> None:
         listed = self.query_one("#entry-problems", Static)
@@ -444,10 +518,12 @@ class EntryForm(Vertical):
         for name, value in self.put_aside.items():
             self.field(name).value = value
         self.pota_comment = self.put_aside_pota_comment
+        self.filled_state = self.put_aside_filled_state
         for name, _, _ in FIELDS:
             self.field(name).disabled = False
         self.show_problems([])
         self.show_report_placeholders()
+        self.show_park_name()
         if self.last_field is not None:
             self.last_field.focus()
         else:
@@ -461,7 +537,9 @@ class EntryForm(Vertical):
             self.app.require_station_callsign()
             return
         # Enter in PARK or ST doesn't leave it.
+        self.fill_state()
         self.update_pota_comment()
+        self.show_park_name()
         values = self.values()
         missing = [name for name, value in values.items() if not value and name not in OPTIONAL]
         if missing:
@@ -545,7 +623,7 @@ class EntryForm(Vertical):
         # An edited entry isn't checked against itself, e.g. as a dupe.
         logged = [entry for entry in self.logged if entry is not self.editing]
         for index, (name, check) in enumerate(warnings):
-            message = check(values, logged)
+            message = check(values, logged, self.app.parks)
             if message:
                 rest = warnings[index + 1 :]
 
@@ -578,7 +656,9 @@ class EntryForm(Vertical):
             if name not in CARRY_FORWARD:
                 self.field(name).value = DEFAULTS.get(name, "")
         self.pota_comment = None
+        self.filled_state = None
         if self.app.settings.new_comment_pota_info:
             self.start_pota_comment()
         self.show_report_placeholders()
+        self.show_park_name()
         self.field("FREQ").focus()

@@ -1,8 +1,10 @@
+from collections.abc import Mapping
 from datetime import date, datetime
 from importlib.metadata import version
 
 from pota_logger.freq import band_name
 from pota_logger.logbook import stored_text
+from pota_logger.parks import Park, listed_park
 
 # The ADIF version the export follows, and the app as ADIF names it.
 ADIF_VERSION = "3.1.6"
@@ -25,11 +27,14 @@ def adif_freq(hz: int) -> str:
     return f"{hz // 1_000_000}.{hz % 1_000_000:06d}"
 
 
-def adif_fields(entry: dict) -> list[tuple[str, str]]:
+def adif_fields(entry: dict, parks: Mapping[str, Park] = {}) -> list[tuple[str, str]]:
     """An entry's ADIF fields as (name, value), leaving out blank ones (ST
     and COMMENT). PARK goes in `POTA_REF` and in `SIG`/`SIG_INFO`, as
-    QRZ.com reads the older pair. The record ID isn't exported.
+    QRZ.com reads the older pair. `DXCC` is the park's entity, from POTA's
+    parks list (`parks`), when it's listed with one. The record ID isn't
+    exported.
     """
+    listed = listed_park(parks, entry["PARK"])
     mode = entry["MODE"]
     fields = [
         ("QSO_DATE", stored_text("DATE", entry["DATE"])),
@@ -43,6 +48,7 @@ def adif_fields(entry: dict) -> list[tuple[str, str]]:
         ("RST_RCVD", entry["RCD"]),
         ("TX_PWR", stored_text("PWR", entry["PWR"])),
         ("STATE", entry["ST"]),
+        ("DXCC", listed.dxcc if listed else ""),
         ("POTA_REF", entry["PARK"]),
         ("SIG", "POTA"),
         ("SIG_INFO", entry["PARK"]),
@@ -52,11 +58,11 @@ def adif_fields(entry: dict) -> list[tuple[str, str]]:
     return [(name, value) for name, value in fields if value]
 
 
-def adif_record(entry: dict) -> str:
+def adif_record(entry: dict, parks: Mapping[str, Park] = {}) -> str:
     """An entry as one ADIF record, ending with `<EOR>`: what a file
     export writes per entry, and what QRZ.com's API takes per QSO.
     """
-    fields = " ".join(adif_field(name, value) for name, value in adif_fields(entry))
+    fields = " ".join(adif_field(name, value) for name, value in adif_fields(entry, parks))
     return f"{fields} <EOR>"
 
 
@@ -74,11 +80,12 @@ def adif_header(created: datetime) -> str:
     return "\n".join(lines) + "\n<EOH>"
 
 
-def adif_file(entries: list[dict], created: datetime) -> str:
+def adif_file(entries: list[dict], created: datetime, parks: Mapping[str, Park] = {}) -> str:
     """An ADIF file's text: the header, then each entry's record on its
     own line, in the order given.
     """
-    return "\n".join([adif_header(created)] + [adif_record(entry) for entry in entries]) + "\n"
+    records = [adif_record(entry, parks) for entry in entries]
+    return "\n".join([adif_header(created)] + records) + "\n"
 
 
 def export_file_name(start: date, end: date, created: datetime) -> str:
