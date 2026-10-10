@@ -178,7 +178,7 @@ them. COMMENT stays below the row. All times and dates are UTC.
 | FREQ | Always MHz, shorthand allowed: `14`, `14.1`, `14.0745`, `14.074.5`, `14074`, `28312456` | Integer Hz | Always in full: `14.000.000`, `14.074.500` | Never carried forward. Missing digits are filled with zeros. After a dot, up to 6 fractional MHz digits, optionally with a second dot after the 3 kHz digits (`14.1` is `14.100.000`; `14.0745` and `14.074.5` are `14.074.500`). Bare digits are the same with the dot left out; the MHz part is whichever of 1 or 2 leading digits lands in a band (`141501` is `14.150.100`, `3985` is `3.985.000`). Across 80m to 10m only one reading ever fits. Must be inside a US amateur band from 80m to 10m. |
 | MODE | `SSB`, `USB`, `LSB`, or `CW`, any case | Uppercase text | Same | `SSB` at app start, then carried forward (decided 2026-10-08: a session switched to CW is likely CW throughout). Typed, with no drop-down, auto-complete, or single-letter shortcuts; Tab just moves to the next field. Last in the top row of the form. `SSB` means the standard sideband (LSB below 10 MHz, USB above) and is what's logged away from voice edges. `USB`/`LSB` are logged near a voice edge, to record which side of the dial the signal was on. SSB with FREQ (the dial frequency) at a voice range edge or less than 3 kHz inside it is refused: log USB or LSB there. |
 | CALL | Any case, e.g. `w1abc`, `VE3/w1abc/p` | Uppercase text | Same | International and slash calls allowed. Shape check only: letters, digits, and up to two `/`, no empty parts, and at least one part shaped like a call (prefix, a digit, then a suffix ending in a letter). Prefixes aren't checked against a country table, so special-event calls like `GB250RSGB` still work. Warns (see Entry behavior) when no part is in ITU's normal form: a prefix, one digit, then 1–4 letters. The prefix is 1 letter only for countries holding a whole letter (`B`, `F`, `G`, `I`, `K`, `M`, `N`, `R`, `W`), which may also use 2 letters; otherwise it's 2 characters, possibly with a digit (`VE`, `9A`, `3D`). So `W11BC` and `W100AW` warn. |
-| PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, `US-4566@US-WY`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012`, `US-4566@US-WY` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER, optionally @LOCATION. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. LOCATION is a 4 to 6 character ISO 3166-2 code (`US-WY`), only for parks spanning more than one, like trails. Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference (17 characters); the log column is 17 wide. |
+| PARK | `1234`, `464`, `JP1234`, `JP-1234`, `4X-12`, any case | POTA reference: `US-1234`, `US-0464`, `JP-1234`, `4X-0012` | Same | One park per entry. Must fit ADIF's POTA reference: PROGRAM-NUMBER. The program is 1 to 4 letters and digits with at least one letter; a bare number means a US park (`US`). The dash may be left out when the program ends in a letter (`jp234`). The number is 4 or 5 digits; shorter numbers get leading zeros (`464` is `US-0464`), so `4640` must be typed in full. ADIF's optional @LOCATION (an ISO 3166-2 code like `US-WY`, for parks spanning more than one, like trails) isn't taken (decided 2026-10-10): it says only which state the activator was in, which ST holds, so it would be a second way to write one fact, able to contradict ST. `4566@us-wy` is refused with `PARK '4566@us-wy': @ form not accepted for input; ADIF export only` (in log files too); the ADIF export adds it from ST (see Export). Anything else is refused; a number over 5 digits gets its own message (`parks must be <= 5 digits`), since the rest of its shape is right. The field stays 8 characters wide, sized for common references, and scrolls up to ADIF's longest reference without a location (`ABCD-12345`, 10 characters); the log column is 10 wide (decided 2026-10-10, from 17 with the location: POTA follows ADIF, so a longer reference would come with an ADIF change, and the parser's with it). POTA's own list has 2-letter programs and up to 5 digits (`FR-16791`). |
 | ST | `NJ`, or blank | Uppercase text | Same | State the park is in. Optional, even for US parks, since it isn't always clear at entry time. If given, must be a US state code (50 states plus DC). Blank, not `NA`, for a park outside the US (decided 2026-10-08): QRZ.com and similar logbooks leave the state blank there, and have no field for a POTA location like `BB-PH` (which can go in COMMENT). With POTA's parks list saved (see Export, POTA's parks list), filled from the park when it's in one state, and checked against the park's states (a warning, see Entry behavior); without it, not checked against the park. |
 | SNT | `59` / `599` | Text | Same | Comes before RCD on purpose. Digits only. The digit count follows MODE: `CW` takes exactly 3 (`599`), other modes exactly 2 (`59`), in the entry form and on load alike. A 2-digit CW report is possible but rare, and with modern radios the tone digit is nearly always 9, so a missing third digit on CW is most likely a slip in copying: it's refused (`SNT '59' needs 3 digits on CW, like 599`) and the operator adds the digit (no auto-fill). An operator whose contact needs a 2-digit CW report to confirm on QRZ.com can sort that out there. The placeholder follows MODE as a hint: `599` while MODE is `CW` (any case), `59` for any other MODE typed. It updates when leaving MODE (Tab, Shift+Tab, or a click), not on each keystroke, and stays as it was after a save, since MODE carries forward. With MODE last in the form, a new session's first CW entry shows `59` while the reports are typed; the digit check on Enter catches a missing third digit. Only the placeholder changes, which shows only while the field is empty: a value already typed is never cleared or changed. The non-ASCII message's example (`59, or 599 on CW`) stays as is. Each digit must be in range (RST): readability 1–5, strength 1–9, tone 1–9, so `69` or `590` is refused. |
 | RCD | `59` / `599` | Text | Same | Same rules as SNT. |
@@ -439,7 +439,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   - **State on a non-US park:** PARK isn't a US park but ST is a US state.
     Blank is fine. Esc goes back to ST.
   - **State not the park's** (only with the list saved): ST isn't one of
-    the park's states, or the location's when PARK names one: `US-0001 is
+    the park's states: `US-0001 is
     in ME, not NJ.`, `in DC or MD`, `in CA, NV, or WY` (decided
     2026-10-10), wrapped to the modal for a long list. Blank is fine, as
     is any ST for a park with no US state. Esc goes back to ST.
@@ -850,6 +850,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     `POTA_REF` is for programs on the current standard. ADIF's
     `POTA_REF` takes a comma list of parks; `SIG_INFO` is a plain
     string, by convention one park.
+  - `POTA_REF` takes ST as ADIF's location (`US-4566@US-WY`) for a park
+    POTA's parks list puts in several states, with ST one of them
+    (decided 2026-10-10): ADIF has the location for parks spanning more
+    than one, and an ADIF reader must take either form. Not for a park in
+    one state, nor without the list; `SIG_INFO` stays the plain
+    reference. The location isn't typed in PARK (see Entry fields).
   - Exports a date range (decided 2026-10-08), not the whole log. It
     defaults to the dates of this session's entries (from the earliest
     to the latest, if they span several), or, with none this session,
@@ -1026,8 +1032,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     shown. US states never show with POTA's `US-` (`NC`, not `US-NC`),
     here or in a warning; a location under another prefix would show
     it, if that ever comes up. It shows on leaving PARK and on Enter
-    (as COMMENT's POTA info), for PARK as it reads (`1@us-me` shows
-    US-0001's), and none when PARK doesn't read or isn't listed; for a
+    (as COMMENT's POTA info), for PARK as it reads, and none when PARK doesn't read or isn't listed; for a
     selected row, and back to the form's own on Esc; and none after a
     save, as PARK clears. The names load from the saved copy in a
     thread at start (about half a second for the whole list) and again
@@ -1038,8 +1043,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     Enter, a park in one US state (`1` gives `ME`) fills a blank ST, or
     one the app filled (so correcting PARK corrects its ST; a park in
     several states, none, or not listed clears it). An ST typed is never
-    changed. A location naming a state fills that (`4566@us-wy` gives
-    `WY`). COMMENT's POTA info follows. Typing in ST replaces what's
+    changed. COMMENT's POTA info follows. Typing in ST replaces what's
     filled. In an edit, a blank ST is filled the same way. Locations
     under `US-` that aren't states (`US-KI`, Kure Island) never fill.
   - The offer and Settings row built (2026-10-09). The offer, as

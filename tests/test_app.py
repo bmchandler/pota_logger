@@ -593,11 +593,7 @@ async def test_park_shown_as_full_pota_reference(app):
         await pilot.press("enter")
         fill(app, ENTRY | {"PARK": "jp234", "ST": ""})
         await pilot.press("enter")
-        fill(app, ENTRY | {"PARK": "us4566@us-wy", "ST": ""})
-        await pilot.press("enter")
-        assert [row[3] for row in table_rows(app)] == [
-            "US-1234", "JP-1234", "JP-0234", "US-4566@US-WY"
-        ]
+        assert [row[3] for row in table_rows(app)] == ["US-1234", "JP-1234", "JP-0234"]
 
 
 async def test_park_field_takes_adif_longest_reference_at_its_width(app):
@@ -605,13 +601,13 @@ async def test_park_field_takes_adif_longest_reference_at_its_width(app):
         field = app.query_one("#field-park", Input)
         width = field.region.width
         field.focus()
-        await pilot.press(*"ABCD-12345@US-ABC", *"XYZ")
-        assert field.value == "ABCD-12345@US-ABC"
+        await pilot.press(*"ABCD-12345", *"XYZ")
+        assert field.value == "ABCD-12345"
         assert field.region.width == width
         table = app.query_one("#log-table", DataTable)
         park = next(c for c in table.columns.values() if str(c.label).strip() == "PARK")
         # Plus the padding each log cell carries, a space each side.
-        assert park.width == len("ABCD-12345@US-ABC") + 2
+        assert park.width == len("ABCD-12345") + 2
 
 
 async def test_park_with_too_many_digits_blocks_entry(app):
@@ -625,6 +621,17 @@ async def test_park_with_too_many_digits_blocks_entry(app):
         ]
 
 
+async def test_park_with_location_blocks_entry(app):
+    async with app.run_test() as pilot:
+        fill(app, ENTRY | {"PARK": "4566@us-wy"})
+        await pilot.press("enter")
+        assert table_rows(app) == []
+        assert app.focused.id == "field-park"
+        assert [n.message for n in app._notifications] == [
+            "PARK '4566@us-wy': @ form not accepted for input; ADIF export only"
+        ]
+
+
 async def test_invalid_park_blocks_entry(app):
     async with app.run_test() as pilot:
         fill(app, ENTRY | {"PARK": "US 1234"})
@@ -632,7 +639,7 @@ async def test_invalid_park_blocks_entry(app):
         assert table_rows(app) == []
         assert app.focused.id == "field-park"
         assert [n.message for n in app._notifications] == [
-            "PARK 'US 1234' isn't a POTA park; use a form like 1234, JP-1234, or US-4566@US-WY"
+            "PARK 'US 1234' isn't a POTA park; use a form like 1234 or JP-1234"
         ]
 
 
@@ -1047,7 +1054,7 @@ async def test_non_ascii_blocks_entry_naming_the_characters(app, name, value, me
         ("1234", "nj", "POTA US-1234 NJ"),
         ("1234", "", "POTA US-1234"),
         ("bb10", "", "POTA BB-0010"),
-        ("US-4566@US-WY", "WY", "POTA US-4566@US-WY WY"),
+        ("US-4566@US-WY", "WY", "POTA"),
         # An ST that isn't a state is left out; an ST alone waits for PARK.
         ("1234", "XX", "POTA US-1234"),
         ("", "NJ", "POTA"),
@@ -3783,14 +3790,6 @@ async def test_no_park_name_for_a_park_not_read_or_listed(parks_app, text):
         assert park_name(app) == ""
 
 
-async def test_park_name_for_a_park_with_a_location(parks_app):
-    app = parks_app
-    async with app.run_test() as pilot:
-        await parks_list_done(app, pilot)
-        await leave_park(app, pilot, "1@us-me")
-        assert park_name(app) == "Acadia National Park"
-
-
 async def test_park_name_on_enter_in_park(parks_app):
     app = parks_app
     async with app.run_test() as pilot:
@@ -3870,9 +3869,6 @@ async def test_filled_st_follows_park(parks_app):
         await leave_park(app, pilot, "1")
         await leave_park(app, pilot, "9999")
         assert st_value(app) == ""
-        # A location names the state.
-        await leave_park(app, pilot, "3@us-md")
-        assert st_value(app) == "MD"
 
 
 async def test_typed_st_isnt_changed(parks_app):
@@ -3994,7 +3990,7 @@ async def test_no_park_warnings_without_a_list(app):
         assert table_calls(app) == ["W1ABC"]
 
 
-async def test_export_takes_dxcc_from_the_parks_list(
+async def test_export_takes_dxcc_and_location_from_the_parks_list(
     export_app, settings_path, export_folder, pota
 ):
     save_parks_list(settings_path, pota)
@@ -4004,8 +4000,14 @@ async def test_export_takes_dxcc_from_the_parks_list(
         await pilot.press("enter")
         fill(export_app, ENTRY | {"CALL": "W1XYZ", "PARK": "1", "ST": "ME", "DATE": "260925"})
         await pilot.press("enter")
+        fill(export_app, ENTRY | {"CALL": "K1ABC", "PARK": "3", "ST": "MD", "DATE": "260925"})
+        await pilot.press("enter")
         await pilot.press("f6")
         await pilot.press("enter")
     [exported] = exported_files(export_folder)
     records = exported.read_text().splitlines()[6:]
     assert ["<DXCC:1>6" in records[0], "<DXCC:3>291" in records[1]] == [True, True]
+    # A park in several states takes ST as its location in POTA_REF.
+    assert "<POTA_REF:7>US-0001 " in records[1]
+    assert "<POTA_REF:13>US-0003@US-MD " in records[2]
+    assert "<SIG_INFO:7>US-0003 " in records[2]

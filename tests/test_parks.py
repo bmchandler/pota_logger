@@ -1,6 +1,6 @@
 import pytest
 
-from pota_logger.parks import Park, listed_park, park_states, parse_park
+from pota_logger.parks import parse_park
 
 
 @pytest.mark.parametrize(
@@ -23,10 +23,6 @@ from pota_logger.parks import Park, listed_park, park_states, parse_park
         ("4x12", "4X-0012"),
         ("9M2-1234", "9M2-1234"),
         ("ABCD-1234", "ABCD-1234"),
-        ("US-4566@US-WY", "US-4566@US-WY"),
-        ("us4566@us-wy", "US-4566@US-WY"),
-        ("1234@US-WY", "US-1234@US-WY"),
-        ("VE-5082@CA-AB", "VE-5082@CA-AB"),
     ],
 )
 def test_parse_park(text, park):
@@ -45,9 +41,6 @@ def test_parse_park(text, park):
         "US--1234",
         "Café",
         "US-１２３４",
-        "US-1234@",
-        "US-1234@WY",
-        "US-1234@US-WYOMI",
         "US-1234,US-1235",
     ],
 )
@@ -56,39 +49,17 @@ def test_parse_park_rejects(text):
         parse_park(text)
 
 
-@pytest.mark.parametrize("text", ["123456", "US-123456", "4x123456", "US-123456@US-WY"])
+@pytest.mark.parametrize("text", ["123456", "US-123456", "4x123456"])
 def test_parse_park_rejects_too_many_digits(text):
     with pytest.raises(ValueError, match="isn't a POTA park; parks must be <= 5 digits"):
         parse_park(text)
 
 
-PARKS = {
-    "US-0001": Park("Acadia National Park", True, "291", ("ME",)),
-    "US-4566": Park("California National Historic Trail", True, "291", ("CA", "NV", "WY")),
-    "JA-0001": Park("Rishiri-Rebun-Sarobetsu National Park", True, "339", ()),
-}
-
-
 @pytest.mark.parametrize(
-    "park, reference",
-    [("US-0001", "US-0001"), ("US-4566@US-WY", "US-4566"), ("US-9999", None)],
+    "text", ["US-4566@US-WY", "us4566@us-wy", "1234@US-WY", "VE-5082@CA-AB", "US-1234@", "@"]
 )
-def test_listed_park(park, reference):
-    assert listed_park(PARKS, park) == PARKS.get(reference)
-
-
-@pytest.mark.parametrize(
-    "park, states",
-    [
-        ("US-0001", ("ME",)),
-        ("US-4566", ("CA", "NV", "WY")),
-        # A location naming a state is where the operator said.
-        ("US-4566@US-WY", ("WY",)),
-        ("US-0001@CA-ON", ("ME",)),
-        ("JA-0001", ()),
-        ("US-9999", ()),
-        ("US-9999@US-WY", ()),
-    ],
-)
-def test_park_states(park, states):
-    assert park_states(PARKS, park) == states
+def test_parse_park_refuses_the_location_form(text):
+    # ADIF's location is the export's to add, from ST.
+    with pytest.raises(ValueError) as refused:
+        parse_park(text)
+    assert str(refused.value) == f"PARK {text!r}: @ form not accepted for input; ADIF export only"

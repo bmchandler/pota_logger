@@ -101,10 +101,6 @@ def test_blank_comment_is_left_out():
     assert "COMMENT" not in fields(ENTRY | {"COMMENT": ""})
 
 
-def test_park_with_location():
-    exported = fields(ENTRY | {"PARK": "US-4566@US-WY"})
-    assert exported["POTA_REF"] == "US-4566@US-WY"
-    assert exported["SIG_INFO"] == "US-4566@US-WY"
 
 
 @pytest.mark.parametrize("watts, shown", [("2.5", "2.5"), ("0.5", "0.5"), ("1500", "1500")])
@@ -162,6 +158,7 @@ PARKS = {
     "US-1234": Park("Some Park", True, "291", ("NJ",)),
     "US-0002": Park("Alagnak Wild River National Park", True, "6", ("AK",)),
     "FR-0081": Park("Guadeloupe Provincial Park", False, "", ()),
+    "US-4566": Park("California National Historic Trail", True, "291", ("CA", "NV", "WY")),
 }
 
 
@@ -175,11 +172,6 @@ def test_dxcc_from_the_parks_list():
 def test_dxcc_after_state():
     names = [name for name, _ in adif_fields(ENTRY, PARKS)]
     assert names[names.index("STATE") + 1] == "DXCC"
-
-
-def test_dxcc_for_a_park_with_location():
-    entry = ENTRY | {"PARK": "US-1234@US-NJ"}
-    assert ("DXCC", "291") in adif_fields(entry, PARKS)
 
 
 @pytest.mark.parametrize(
@@ -197,3 +189,25 @@ def test_no_dxcc_without_the_parks_entity(entry, parks):
 def test_file_records_take_dxcc():
     text = adif_file([ENTRY], datetime(2026, 10, 10, 1, 2, 3), PARKS)
     assert "<DXCC:3>291" in text.splitlines()[-1]
+
+
+
+def test_park_in_several_states_takes_st_as_its_location():
+    exported = dict(adif_fields(ENTRY | {"PARK": "US-4566", "ST": "WY"}, PARKS))
+    assert exported["POTA_REF"] == "US-4566@US-WY"
+    # The older pair stays the plain reference.
+    assert exported["SIG_INFO"] == "US-4566"
+
+
+@pytest.mark.parametrize(
+    "entry, parks",
+    [
+        # A park in one state, no ST or one not the park's, or no list.
+        (ENTRY, PARKS),
+        (ENTRY | {"PARK": "US-4566", "ST": ""}, PARKS),
+        (ENTRY | {"PARK": "US-4566", "ST": "NJ"}, PARKS),
+        (ENTRY | {"PARK": "US-4566", "ST": "WY"}, {}),
+    ],
+)
+def test_pota_ref_without_location(entry, parks):
+    assert dict(adif_fields(entry, parks))["POTA_REF"] == entry["PARK"]

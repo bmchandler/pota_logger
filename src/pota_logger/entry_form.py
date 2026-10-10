@@ -24,7 +24,7 @@ from pota_logger.entry_warnings import (
 from pota_logger.freq import format_freq, parse_freq
 from pota_logger.modes import parse_mode
 from pota_logger.parks import MAX_LENGTH as PARK_MAX_LENGTH
-from pota_logger.parks import listed_park, park_states, parse_park
+from pota_logger.parks import parse_park
 from pota_logger.power import parse_power
 from pota_logger.record_ids import new_id
 from pota_logger.reports import THREE_DIGIT_MODE, parse_report
@@ -349,7 +349,7 @@ class EntryForm(Vertical):
         list).
         """
         park = self.park_read()
-        listed = None if park is None else listed_park(self.app.parks, park)
+        listed = None if park is None else self.app.parks.get(park)
         # Text, not str, so a name with brackets isn't read as markup.
         self.query_one("#park-name", Label).update(Text(listed.name if listed else ""))
 
@@ -362,7 +362,8 @@ class EntryForm(Vertical):
         if state.value.strip() and state.value != self.filled_state:
             return
         park = self.park_read()
-        states = () if park is None else park_states(self.app.parks, park)
+        listed = None if park is None else self.app.parks.get(park)
+        states = listed.states if listed else ()
         value = states[0] if len(states) == 1 else ""
         self.filled_state = value or None
         if state.value != value:

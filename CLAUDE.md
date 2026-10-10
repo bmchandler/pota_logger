@@ -108,15 +108,15 @@ updated in the same change whenever a rule changes.
   `call_from_thread`. `load_parks` reads the copy into `app.parks`
   (reference to `Park`: name, active, DXCC, US states without `US-`),
   likewise in a thread (the app's `load_parks`, at start and after a
-  download). parks.py holds `Park`, `listed_park` and `park_states`
-  (PARK as parsed, location included), apart from parks_list.py, which
+  download). parks.py holds `Park`, apart from parks_list.py, which
   imports adif.py (a cycle otherwise, through logbook.py and
-  entry_form.py). `EntryForm.show_park_name` shows PARK's name on
+  entry_form.py). PARK refuses ADIF's `@LOCATION`: `adif_fields` adds
+  it to `POTA_REF` from ST, for a park in several states. `EntryForm.show_park_name` shows PARK's name on
   COMMENT's label row (`#park-name`, centered via `labeled_input`'s
   `beside`) and `fill_state` fills ST (`filled_state`, put aside like
   `pota_comment`), wherever PARK's value changes. Warning checks take
   `parks` as a third argument (`park_not_listed`,
-  `state_not_the_parks`); `adif_fields` takes it for `DXCC`. Tests use the `pota` fixture (tests/conftest.py), a
+  `state_not_the_parks`); `adif_fields` takes it for `DXCC` and that location. Tests use the `pota` fixture (tests/conftest.py), a
   local server, setting `app.parks_url` to its `url`, then
   `parks_list_done` to wait (`parks_app` has `APP_LIST` saved): never reach
   pota.app from a test.

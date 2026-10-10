@@ -76,7 +76,7 @@ def test_voice_outside_range_message():
 
 @pytest.mark.parametrize(
     "park, state",
-    [("US-1234", "NJ"), ("US-4566@US-WY", "WY"), ("JP-1234", "")],
+    [("US-1234", "NJ"), ("JP-1234", "")],
 )
 def test_state_on_park_without_warning(park, state):
     assert state_on_non_us_park({"PARK": park, "ST": state}, []) is None
@@ -102,7 +102,7 @@ PARKS = {
 }
 
 
-@pytest.mark.parametrize("park", ["US-0001", "US-4566@US-WY", "JA-0001"])
+@pytest.mark.parametrize("park", ["US-0001", "US-4566", "JA-0001"])
 def test_listed_active_park_has_no_warning(park):
     assert park_not_listed({"PARK": park}, [], PARKS) is None
 
@@ -111,9 +111,8 @@ def test_no_park_warning_without_a_list():
     assert park_not_listed({"PARK": "US-9999"}, []) is None
 
 
-@pytest.mark.parametrize("park", ["US-9999", "US-9999@US-WY"])
-def test_park_not_in_the_list_warns(park):
-    assert park_not_listed({"PARK": park}, [], PARKS) == (
+def test_park_not_in_the_list_warns():
+    assert park_not_listed({"PARK": "US-9999"}, [], PARKS) == (
         "US-9999 isn't in POTA's parks list.\n"
         "It may be new: Check for Updated in\n"
         "Settings (f2) to get the latest list.\n"
@@ -133,7 +132,6 @@ def test_inactive_park_warns():
         ("US-0001", "ME"),
         ("US-0001", ""),
         ("US-4566", "NV"),
-        ("US-4566@US-WY", "WY"),
         # Not this check's: no US state, or not listed.
         ("JA-0001", "NJ"),
         ("US-9999", "NJ"),
@@ -156,13 +154,6 @@ def test_state_not_the_parks_warns():
 def test_state_not_one_of_the_parks_warns():
     assert state_not_the_parks({"PARK": "US-0003", "ST": "NJ"}, [], PARKS) == (
         "US-0003 is in DC or MD, not NJ.\nEsc to correct, or confirm with Enter."
-    )
-
-
-def test_state_not_the_locations_warns():
-    # The location says where, though NV is one of the trail's.
-    assert state_not_the_parks({"PARK": "US-4566@US-WY", "ST": "NV"}, [], PARKS) == (
-        "US-4566 is in WY, not NV.\nEsc to correct, or confirm with Enter."
     )
 
 

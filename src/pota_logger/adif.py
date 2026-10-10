@@ -4,7 +4,7 @@ from importlib.metadata import version
 
 from pota_logger.freq import band_name
 from pota_logger.logbook import stored_text
-from pota_logger.parks import Park, listed_park
+from pota_logger.parks import Park
 
 # The ADIF version the export follows, and the app as ADIF names it.
 ADIF_VERSION = "3.1.6"
@@ -30,11 +30,17 @@ def adif_freq(hz: int) -> str:
 def adif_fields(entry: dict, parks: Mapping[str, Park] = {}) -> list[tuple[str, str]]:
     """An entry's ADIF fields as (name, value), leaving out blank ones (ST
     and COMMENT). PARK goes in `POTA_REF` and in `SIG`/`SIG_INFO`, as
-    QRZ.com reads the older pair. `DXCC` is the park's entity, from POTA's
-    parks list (`parks`), when it's listed with one. The record ID isn't
-    exported.
+    QRZ.com reads the older pair. From POTA's parks list (`parks`): `DXCC`
+    is the park's entity, when it's listed with one, and `POTA_REF` takes
+    ST as its location (`US-4566@US-WY`) for a park in several states,
+    as ADIF has it for parks spanning more than one; `SIG_INFO` stays the
+    plain reference. The record ID isn't exported.
     """
-    listed = listed_park(parks, entry["PARK"])
+    park, state = entry["PARK"], entry["ST"]
+    listed = parks.get(park)
+    pota_ref = park
+    if listed and len(listed.states) > 1 and state in listed.states:
+        pota_ref = f"{park}@US-{state}"
     mode = entry["MODE"]
     fields = [
         ("QSO_DATE", stored_text("DATE", entry["DATE"])),
@@ -49,7 +55,7 @@ def adif_fields(entry: dict, parks: Mapping[str, Park] = {}) -> list[tuple[str, 
         ("TX_PWR", stored_text("PWR", entry["PWR"])),
         ("STATE", entry["ST"]),
         ("DXCC", listed.dxcc if listed else ""),
-        ("POTA_REF", entry["PARK"]),
+        ("POTA_REF", pota_ref),
         ("SIG", "POTA"),
         ("SIG_INFO", entry["PARK"]),
         ("COMMENT", entry["COMMENT"]),
