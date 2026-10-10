@@ -87,11 +87,12 @@ module (each entry as one ADIF record, for both the file export and
 the API), the export folder setting, and the Export modal (`f6`, or
 the ADIF button, which replaced the Settings button).
 
-To do, in this order (decided 2026-10-09): possibly QRZ.com API
-integration (see Export,
-QRZ.com API); then support for POTA's parks list (see Export, POTA's
-parks list). Known issues that won't be fixed are listed in README.md's
-Noted issues.
+Support for POTA's parks list is in progress (see Export, POTA's
+parks list), taken before the QRZ.com API (decided 2026-10-09, as the
+more straightforward): the download module (parks_list.py) is built,
+with no UI yet. Then, possibly, QRZ.com API integration (see Export,
+QRZ.com API). Known issues that won't be fixed are listed in
+README.md's Noted issues.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -964,8 +965,8 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   never used on air (a suffix makes a new call, with its own logbook,
   key, and date range; a same-call logbook can't overlap dates), kept
   out of awards. App tests fake QRZ's responses.
-- POTA's parks list (decided 2026-10-09, after ADIF export and possibly
-  the API): `all_parks_ext.csv` from pota.app (about 96,000 parks, 9
+- POTA's parks list (decided 2026-10-09, after ADIF export, and taken
+  before the API): `all_parks_ext.csv` from pota.app (about 96,000 parks, 9
   MB; columns reference, name, active, entityId (DXCC), locationDesc,
   latitude, longitude, grid), kept in `data/pota/`. Optional: offered
   as a download at first-time setup, with a way to download a fresh
@@ -987,5 +988,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     or hand-edited copy (then download afresh). Deleting the copy drops
     the saved `ETag` too. A forced full download costs POTA well under a
     cent, so it's fine to offer.
+  - Download built (2026-10-09, parks_list.py): the copy and its info
+    (`all_parks_ext.json`: `ETag`, `Last-Modified`) go in `data/pota/`,
+    each through a temporary file. A download whose MD5 doesn't match
+    its `ETag`, a server error, or a failed save keeps the copy already
+    saved. Requests carry a `pota-logger/version` user agent. Python's
+    own `urllib`, so no new dependency. A real run: about 2 seconds for
+    the full list, 0.2 for "not modified".
   - POTA's per-park API (`api.pota.app/park/US-1048`, JSON with the same
     fields) is unofficial and undocumented, so the list is preferred.

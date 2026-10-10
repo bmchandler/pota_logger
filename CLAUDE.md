@@ -97,6 +97,12 @@ updated in the same change whenever a rule changes.
   made (`folder_path` in settings.py expands `~`; Settings saves only
   an existing folder). Tests use the `export_folder` and `export_app`
   fixtures (an existing folder in the temp dir), or `home` for `~`.
+- parks_list.py downloads POTA's parks list (`download_parks`, the
+  app's only network use; raises `ParksDownloadError` with a message for
+  the operator) into `parks_folder(data_dir)`; `saved_copy` gives a
+  sound copy's `ParksCopy` (`ETag`, `Last-Modified`), or None. Tests use
+  the `pota` fixture (tests/test_parks_list.py), a local server: never
+  reach pota.app from a test.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is
