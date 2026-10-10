@@ -101,8 +101,8 @@ release script dates), installing with `uv tool install`, the MIT
 license, DEVELOPMENT.md and RELEASING.md, a checked test suite, and the
 code and tests grouped into folders (`fields/`, `screens/`, the app in
 `app.py`; `tests/` mirroring them). The first release is the operator's
-to make, after a last check by hand. README.md's install command keeps
-its `<repo-url>` placeholder until the GitHub repository exists.
+to make. README.md's install command keeps its `<repo-url>` placeholder
+until the GitHub repository exists.
 
 Next, after the first release: real use. QRZ.com API integration (see
 Export, QRZ.com API) is on hold until the operator has used the ADIF
