@@ -15,7 +15,8 @@ PARK_PATTERN = re.compile(
 PROGRAM_LETTER = re.compile(r"[A-Z]")
 
 # ADIF's longest POTA reference as PARK takes it (no @LOCATION), e.g.
-# ABCD-12345: the limit for POTA too, which follows ADIF.
+# ABCD-12345. POTA's references appear to follow ADIF's, so it's
+# assumed to be POTA's limit too.
 MAX_LENGTH = 10
 
 US_PROGRAM = "US"

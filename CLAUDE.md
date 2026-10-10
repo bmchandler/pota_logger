@@ -38,6 +38,11 @@ updated in the same change whenever a rule changes.
   Avoid overriding framework defaults unless the user decides to.
 - REQUIREMENTS.md's "Status and plan" section says what's built and
   what's next; update it when a planned item lands.
+- In docs and comments, state what a third party (POTA, QRZ.com, other
+  logbooks) does as fact only from its own documentation (the ADIF spec
+  for ADIF). Otherwise word it as uncertain: "appears to", "it's
+  likely", "the assumption is", "evidence suggests", with the evidence
+  where known.
 - README.md's "Noted issues" table (Issue, Status, Reason) lists only
   issues the operator decides to note: ones that won't be fixed (so
   users don't expect a fix), or that users must know about to keep
