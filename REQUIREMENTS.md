@@ -95,11 +95,20 @@ row, ST filled from the park, warnings on an unlisted or inactive park
 and on an ST not the park's, and DXCC (and a multi-state park's
 location) in the export.
 
-Next (decided 2026-10-10): small changes and loose ends. QRZ.com API
-integration (see Export, QRZ.com API) is on hold until the operator has
-used the ADIF export in a few real sessions, outside the development
-VM, importing the files into QRZ.com. Known issues that won't be fixed
-are listed in README.md's Noted issues.
+The loose ends before a first release are done (2026-10-10): calendar
+versioning and the release script, a changelog (CHANGELOG.md, which the
+release script dates), installing with `uv tool install`, the MIT
+license, DEVELOPMENT.md and RELEASING.md, a checked test suite, and the
+code and tests grouped into folders (`fields/`, `screens/`, the app in
+`app.py`; `tests/` mirroring them). The first release is the operator's
+to make, after a last check by hand. README.md's install command keeps
+its `<repo-url>` placeholder until the GitHub repository exists.
+
+Next, after the first release: real use. QRZ.com API integration (see
+Export, QRZ.com API) is on hold until the operator has used the ADIF
+export in a few real sessions, outside the development VM, importing
+the files into QRZ.com. Known issues that won't be fixed are listed in
+README.md's Noted issues.
 
 Versioning is decided (2026-10-10; see Versioning): calendar versions,
 set with `uv version` and tagged together by `tag_new_version.py`
