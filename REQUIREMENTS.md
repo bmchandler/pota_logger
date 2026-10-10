@@ -39,8 +39,8 @@ Out of scope:
 
 Future (not now):
 
-- QRZ.com API integration: likely the next stage after ADIF export, if
-  pursued (see Status and plan).
+- QRZ.com API integration, if pursued: on hold until the ADIF export
+  has seen some real use (see Status and plan).
 
 ## Status and plan
 
@@ -87,15 +87,19 @@ module (each entry as one ADIF record, for both the file export and
 the API), the export folder setting, and the Export modal (`f6`, or
 the ADIF button, which replaced the Settings button).
 
-Support for POTA's parks list is in progress (see Export, POTA's
-parks list), taken before the QRZ.com API (decided 2026-10-09, as the
-more straightforward): the download is built, offered at first start
-and checked for updates from Settings; its uses are built
-(2026-10-10): the park's name on COMMENT's label row, ST filled from the
-park, warnings on an unlisted or inactive park and on an ST not the
-park's, and DXCC in the export. Then, possibly, QRZ.com API integration (see Export,
-QRZ.com API). Known issues that won't be fixed are listed in
-README.md's Noted issues.
+Support for POTA's parks list is built (2026-10-10; see Export,
+POTA's parks list), taken before the QRZ.com API (decided 2026-10-09,
+as the more straightforward): the download, offered at first start and
+checked for updates from Settings; the park's name on COMMENT's label
+row, ST filled from the park, warnings on an unlisted or inactive park
+and on an ST not the park's, and DXCC (and a multi-state park's
+location) in the export.
+
+Next (decided 2026-10-10): small changes and loose ends. QRZ.com API
+integration (see Export, QRZ.com API) is on hold until the operator has
+used the ADIF export in a few real sessions, outside the development
+VM, importing the files into QRZ.com. Known issues that won't be fixed
+are listed in README.md's Noted issues.
 
 The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
 to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
@@ -118,8 +122,6 @@ The editing plan (decided 2026-10-04) is built: the log is where records
 are checked and fixed, with no need to open a CSV. Its status column shows
 each row's state, the form makes every change, and only the operator
 changes a record.
-
-Also not built: ADIF export.
 
 Ideas considered and deferred:
 

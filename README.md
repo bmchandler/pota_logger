@@ -8,7 +8,8 @@ The intended workflow is paper log → POTA Logger → ADIF export → QRZ.com i
 
 It runs in a terminal (built with [Textual](https://textual.textualize.io/)),
 stores everything in plain CSV files you can open in a text editor or
-spreadsheet, and needs no internet connection.
+spreadsheet, and needs no internet connection. Its one optional download is
+POTA's parks list, only when you choose.
 
 Scope: hunter contacts only (not activating), voice (SSB, USB, LSB) and CW, on
 US amateur bands from 80m to 10m, WARC bands included.
@@ -26,7 +27,8 @@ US amateur bands from 80m to 10m, WARC bands included.
   - FREQ in MHz, with digits left out: `14.074.5`, `14.0745`, `14074`, and
     `141501` (read as 14.150.100) all work.
   - PARK as a bare number for US parks: `464` becomes `US-0464`, and `jp1234`
-    becomes `JP-1234`.
+    becomes `JP-1234`. ADIF's location form (`US-4566@US-WY`) isn't taken:
+    the state goes in ST, and the export adds the location.
   - DATE as `YYMMDD`, TIME as `HHMM`, and any case for MODE and CALL.
 - PWR, DATE, and MODE carry over to the next entry. MODE starts as `SSB` when
   the app opens.
@@ -44,10 +46,32 @@ The app sorts mistakes into two kinds:
   with a message saying what's wrong.
 - **Warned:** values that are probably wrong but could be real, such as an
   unusual callsign, a voice signal outside the voice range, a state on a
-  non-US park, or a time in the future. Enter saves anyway; Esc goes back to
-  fix it. A real but odd contact copied from paper can always be saved.
+  non-US park, a park not in POTA's parks list (or inactive there), a
+  state that isn't the park's, or a time in the future. Enter saves
+  anyway; Esc goes back to fix it. A real but odd contact copied from
+  paper can always be saved.
   Tab moves between a modal's Back and Confirm buttons, and Enter then
   presses the one highlighted.
+
+### POTA's parks list
+
+Optional: the app works fully without it, and does more with it.
+
+- Offered once, at first start, after the station callsign is saved
+  (about 9 MB from pota.app). Skip it, and download it later in Settings
+  (**F2**) with **Check for Updated**, which also refreshes it: an
+  unchanged list isn't downloaded again (`Parks file is already
+  current.`). Settings shows the date of your copy.
+- With it:
+  - The park's name shows above COMMENT, for the park typed or the row
+    selected.
+  - ST is filled in for a park in one state. A state you type is never
+    changed; a park in several states leaves ST to you.
+  - Warnings on a park not in the list (it may be new: check for an
+    updated list) or inactive there, and on a state that isn't one of
+    the park's.
+  - The export adds the park's DXCC entity, and the state as the
+    park's location for a park in several states.
 
 ### Dupes
 
@@ -81,7 +105,10 @@ logged contact, edit that record's COMMENT.
 - Export waits until no row is marked `!`, `U`, or `=`, anywhere in the
   log: fix or delete those first, so a mistake doesn't reach QRZ.com.
 - Each record carries the park as `POTA_REF` and as `SIG`/`SIG_INFO`,
-  and ST as `STATE` (left out when blank). The record ID isn't exported.
+  and ST as `STATE` (left out when blank). With POTA's parks list, it
+  also carries the park's `DXCC` entity, and for a park in several
+  states, ST as the location in `POTA_REF` (`US-4566@US-WY`). The record
+  ID isn't exported.
 - The first column marks each row's status:
 
   | Mark | Meaning |
@@ -115,7 +142,7 @@ logged contact, edit that record's COMMENT.
   call changes, start a new log: move the old log files out of `data/`,
   then set the new call in `data/settings.toml`.
 - **F2** opens Settings, with two checkboxes, both
-  off at first, and a folder:
+  off at first, a folder, and POTA's parks list:
   - `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
     starts as `POTA `, and becomes `POTA US-1234 NJ` (or `POTA US-1234`
     with no state) as you leave PARK and ST. Anything you type after that
@@ -124,6 +151,8 @@ logged contact, edit that record's COMMENT.
     same info, if its COMMENT starts with it.
   - `ADIF export folder`: where ADIF exports go, like `~/Downloads`. It
     must already exist: none is created, so a typo is caught.
+  - `POTA parks list:` your copy's date (or `none`), with **Check for
+    Updated** to download it or refresh it (see POTA's parks list).
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 
@@ -131,7 +160,8 @@ logged contact, edit that record's COMMENT.
 
 Logs live in the `data/` folder, one CSV file per UTC date, named
 `YYYYMMDD.csv` (for example `data/20261001.csv`). Settings are in
-`data/settings.toml`. The folder is ignored by git, so your logs stay out of
+`data/settings.toml`, and POTA's parks list, if downloaded, in
+`data/pota/`. The folder is ignored by git, so your logs stay out of
 the code history.
 
 Every file is loaded and checked when the app starts. A row that breaks a
@@ -172,7 +202,7 @@ value is written (spaces, case, a number's form) is fixed for you.
   | FREQ | Hz: `14074500` | `14.074.5` |
   | MODE | `SSB`, `USB`, `LSB`, or `CW` | `FT8` |
   | CALL, STATION_CALLSIGN | Uppercase: `W1ABC` | |
-  | PARK | Full reference: `US-0464` | `464`, `US464` |
+  | PARK | Full reference: `US-0464` | `464`, `US464`, `US-4566@US-WY` |
   | ST | A state code, or empty | `XX`, `NA` |
   | SNT, RCD | 2 digits (3 on CW): `59`, `599` | |
   | PWR | Watts: `60`, `0.5` | `60W` |
@@ -208,8 +238,8 @@ Built: everything above.
 
 Not built yet:
 
-- QRZ.com API upload (maybe)
-- POTA's parks list (filling ST, park names)
+- QRZ.com API upload (maybe; on hold until the ADIF export has seen some
+  real use)
 
 Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md).
 
