@@ -107,8 +107,8 @@ versioning and the release script, a changelog (CHANGELOG.md, which the
 release script dates), installing with `uv tool install`, the MIT
 license, DEVELOPMENT.md and RELEASING.md, a checked test suite, and the
 code and tests grouped into folders (`fields/`, `screens/`, the app in
-`app.py`; `tests/` mirroring them). The first release is the operator's
-to make. README.md's install commands keep their `<repo-url>` placeholder
+`app.py`; `tests/` mirroring them). The first release, 2026.10.10, is
+made. README.md's install commands keep their `<repo-url>` placeholder
 until the GitHub repository exists.
 
 Next, after the first release: real use. QRZ.com API integration (see
@@ -120,6 +120,12 @@ README.md's Noted issues.
 Versioning is decided (2026-10-10; see Versioning): calendar versions,
 set with `uv version` and tagged together by `tag_new_version.py`
 (built 2026-10-10), when the operator asks for a release.
+
+The branch model is built (2026-10-11; see Versioning, Branches):
+`main` at the newest release, work and releases on `dev`, the release
+script moving `main` forward, dev builds reporting `+dev.<commit>` and
+keeping their files in `~/.local/share/pota-logger-dev/`, and
+`branch_guard.py`'s hooks.
 
 Installing with `uv tool install` is built (2026-10-10; see Storage):
 installed, the app keeps its files in `~/.local/share/pota-logger/data/`,
@@ -662,6 +668,14 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   Your data, summed up), for reading at a terminal. It's the app's own
   file, so edits to it aren't kept. A PyPI package is set aside for now;
   the install is from the git repository.
+- A dev build installed (its version ends `+dev`; see Versioning) keeps
+  its files in `~/.local/share/pota-logger-dev/` instead (decided
+  2026-10-11), its `data/`, `exports/`, and `README.txt` apart from a
+  release's, so testing one never touches the real log. Every dev build
+  shares that one folder (no commit in its name), so an upgrade keeps
+  the test logs. A clone keeps its own `data/` whatever its version.
+  Commits from before this was built report a release's version, so,
+  installed by commit, they use the release's folder.
 - ADIF exports go by default to `exports/`, beside `data/` (decided
   2026-10-11): the clone's `exports/` (git-ignored), or installed,
   `~/.local/share/pota-logger/exports/` (see Settings). `data/` is
@@ -1176,8 +1190,9 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   bump. It takes today's date, with `.1`, `.2` when that's tagged, or a
   version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
   it's malformed, already tagged, or older than the newest tag. It
-  refuses a tree with changes, a branch other than `main`, or nothing
-  under `## Unreleased` in CHANGELOG.md, and asks
+  refuses a tree with changes, a branch other than `dev`, a `main` that
+  `dev` doesn't lead on from, or nothing under `## Unreleased` in
+  CHANGELOG.md, and asks
   `Tag <version>? [y/N]` before changing anything; on `y` it runs the
   tests (asked first, as they take a while, so a run by mistake or a
   mistyped version stops at once). Then it takes these steps, always together and in this order:
@@ -1187,8 +1202,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
      commit the three files, as `Version <date>`.
   3. Tag that commit with the same `<date>` (no `v` before it; a plain
      tag, like `MVP`).
+  4. Move `main` to that commit, only forward (see Branches below).
+  5. `uv version <date>+dev`, committed (`pyproject.toml`, `uv.lock`)
+     on `dev` as `Version <date>+dev`, so dev builds don't report the
+     release's version.
 
-  It never pushes; it prints `git push origin main <date>`. An agent
+  It never pushes; it prints `git push origin dev main <date>`. An agent
   making a release still pauses for the operator's go-ahead before
   running it, as before any commit.
 - Why together: what the app reports as its version comes from
@@ -1200,8 +1219,37 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   set without a tag names a release no commit can be found by. Done
   together, a version in an exported file points at exactly one tagged
   commit.
-- Between releases, the app reports the last release's version, with
-  no commit hash. The hash would need the version read from git when
-  the package is built, which the `uv_build` backend doesn't do; a
-  backend that does (`hatchling` with `hatch-vcs`) was set aside to
-  stay with uv's own. Revisit if uv adds versions from git.
+- Between releases (decided 2026-10-11), `dev`'s version is the last
+  release's plus `+dev` (`2026.10.12+dev`, a PEP 440 local version),
+  and a dev build installed from git reports the commit it was built
+  from too: `2026.10.12+dev.5f820a58`, the first 8 characters of the
+  commit, wherever the app reports its version (app_version.py). The
+  commit can't be written in `pyproject.toml` (a commit can't contain
+  its own hash), and reading it from git when the package is built
+  needs a backend that does that (`hatchling` with `hatch-vcs`), set
+  aside to stay with uv's own. So it's read when the app runs, from
+  the `direct_url.json` an installer writes for an install from git
+  (PEP 610, which requires the commit; uv 0.12.17 checked writing it,
+  for `uv tool install` and `uvx`). A clone run (`uv run`) or an
+  install from a package index has no commit there, so its version is
+  reported as written. PyPI refuses local versions, which never reach
+  it: only releases would be published there.
+- Branches (decided 2026-10-11): `main` only ever points at the newest
+  release's tag, so an install from git without a branch or tag
+  (`uv tool install git+<repo-url>`) gets the newest release, and
+  `uv tool upgrade` the next one. Work goes on `dev`, and releases are
+  made there; `main` is never committed to, only moved forward by
+  `tag_new_version.py`. Tags are for releases only: a dev build is
+  installed by branch (`@dev`, which `uv tool upgrade` follows) or by
+  commit (`@<commit>`, which it doesn't). README.md shows `main`'s
+  code, so it can lag `dev`; a fix to docs about released behavior
+  that users need goes out as a release of its own, noted in the
+  changelog.
+- `branch_guard.py` (beside `tag_new_version.py`, for developers, not
+  in the package) installs git hooks that refuse a commit on `main`, and
+  a push that would set the remote's `main` to a commit no release tag
+  points at, or delete it. They share the hook files with the callsign
+  guard's (git_hooks.py: each guard's install changes only its own
+  line), installed apart. A checkout from before the guard (a branch
+  from an older release) has no script, so its line does nothing
+  there.

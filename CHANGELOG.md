@@ -4,6 +4,21 @@ What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`; see [RELEASING.md](RELEASING.md)). Changes not released yet
 are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- Installing from git without a tag gets the newest release, and
+  `uv tool upgrade` moves it to the next one. Work in progress is on
+  the `dev` branch instead (see README.md, Development builds).
+
+### Added
+
+- Development builds keep their files in
+  `~/.local/share/pota-logger-dev/`, apart from a release's, and report
+  their version with `+dev` and their commit
+  (`2026.10.11+dev.5f820a58`), in ADIF exports too.
+
 ## 2026.10.11
 
 ### Changed

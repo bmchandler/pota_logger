@@ -3,15 +3,21 @@
 Run from a clone (`uv run pota-logger`), it's the clone's `data/`, for
 development (git-ignored). Installed (`uv tool install`), it's
 `~/.local/share/pota-logger/data/`, outside the install, which an
-upgrade or uninstall replaces or removes.
+upgrade or uninstall replaces or removes. A dev build installed (its
+version ends `+dev`, app_version.py) uses
+`~/.local/share/pota-logger-dev/data/` instead, so testing one never
+touches the release's log.
 """
 
 import os
 from pathlib import Path
 
+from pota_logger.app_version import is_dev, package_version
+
 # src/pota_logger/data_folder.py -> the project root, in a clone.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APP_FOLDER = "pota-logger"
+DEV_APP_FOLDER = "pota-logger-dev"
 
 # Written beside data/ when installed, for the operator at a terminal.
 # It sums up README.md's "Your data": keep the two in step.
@@ -87,10 +93,11 @@ def user_data_home(environ=os.environ) -> Path:
     return base if base.is_absolute() else Path.home() / ".local" / "share"
 
 
-def data_dir(root: Path = PROJECT_ROOT, environ=os.environ) -> Path:
+def data_dir(root: Path = PROJECT_ROOT, environ=os.environ, version: str | None = None) -> Path:
     if from_source(root):
         return root / "data"
-    return user_data_home(environ) / APP_FOLDER / "data"
+    folder = DEV_APP_FOLDER if is_dev(version or package_version()) else APP_FOLDER
+    return user_data_home(environ) / folder / "data"
 
 
 def write_readme(folder: Path) -> None:

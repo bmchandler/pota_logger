@@ -18,10 +18,16 @@ REQUIREMENTS.md, Versioning. The same commit turns CHANGELOG.md's
 `## Unreleased` heading into the version's, so the release notes name
 the version they shipped in.
 
-It refuses a tree with changes, a branch other than main, or a
-CHANGELOG.md with nothing under `## Unreleased`, asks
-before changing anything, then runs the tests. It never pushes; it
-prints the push command. RELEASING.md has the steps, how to undo a
+Releases are made on dev. Once tagged, main is moved to the release
+(only ever forward, so main is always the newest release, what an
+install from git without a branch or tag gets), and dev's version
+becomes the release's plus `+dev` in a second commit, so a dev build
+never reports a release's version (src/pota_logger/app_version.py).
+
+It refuses a tree with changes, a branch other than dev, a main that
+dev doesn't lead on from, or a CHANGELOG.md with nothing under
+`## Unreleased`, asks before changing anything, then runs the tests. It
+never pushes; it prints the push command. RELEASING.md has the steps, how to undo a
 release before it's pushed, and how to do it by hand.
 """
 
@@ -33,7 +39,9 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-BRANCH = "main"
+BRANCH = "dev"
+MAIN = "main"
+DEV_MARK = "+dev"
 CHANGELOG = "CHANGELOG.md"
 UNRELEASED = "## Unreleased"
 VERSION = re.compile(r"(\d{4})\.([1-9]\d?)\.([1-9]\d?)(?:\.([1-9]\d*))?")
@@ -105,6 +113,11 @@ def repo_problems(cwd: Path) -> list[str]:
     branch = run("git", "branch", "--show-current", cwd=cwd)
     if branch != BRANCH:
         problems.append(f"On branch {branch or '(none)'}, not {BRANCH}.")
+    behind = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", MAIN, "HEAD"], cwd=cwd, capture_output=True
+    )
+    if behind.returncode != 0:
+        problems.append(f"{MAIN} isn't behind {BRANCH}, so it can't move forward to the release.")
     if run("git", "status", "--porcelain", cwd=cwd):
         problems.append("The tree has changes; commit or stash them first.")
     changelog = cwd / CHANGELOG
@@ -113,18 +126,31 @@ def repo_problems(cwd: Path) -> list[str]:
     return problems
 
 
-def release(version: str, cwd: Path) -> None:
-    """Set the version and the changelog's heading, commit them, and tag that commit."""
+def set_version(version: str, cwd: Path) -> None:
+    """Set the version in pyproject.toml and uv.lock, and check it took."""
     run("uv", "version", version, cwd=cwd)
     with open(cwd / "pyproject.toml", "rb") as file:
         written = tomllib.load(file)["project"]["version"]
     if written != version:
-        raise SystemExit(f"pyproject.toml reads {written}, not {version}; nothing committed.")
+        raise SystemExit(f"pyproject.toml reads {written}, not {version}; stopped there.")
+
+
+def release(version: str, cwd: Path) -> None:
+    """Set the version and the changelog's heading, commit them, tag that
+    commit, move main to it, and commit dev's next version.
+    """
+    set_version(version, cwd)
     changelog = cwd / CHANGELOG
     changelog.write_text(released_changelog(changelog.read_text(), version))
     run("git", "add", "pyproject.toml", "uv.lock", CHANGELOG, cwd=cwd)
     run("git", "commit", "-m", f"Version {version}", cwd=cwd)
     run("git", "tag", version, cwd=cwd)
+    # Only from where main was, which repo_problems checked is behind.
+    old_main = run("git", "rev-parse", MAIN, cwd=cwd)
+    run("git", "update-ref", f"refs/heads/{MAIN}", "HEAD", old_main, cwd=cwd)
+    set_version(version + DEV_MARK, cwd)
+    run("git", "add", "pyproject.toml", "uv.lock", cwd=cwd)
+    run("git", "commit", "-m", f"Version {version}{DEV_MARK}", cwd=cwd)
 
 
 def main(argv: list[str]) -> int:
@@ -159,7 +185,8 @@ def main(argv: list[str]) -> int:
         print("Tests failed; nothing changed.")
         return 1
     release(version, ROOT)
-    print(f"Committed and tagged {version}. To push: git push origin {BRANCH} {version}")
+    print(f"Committed and tagged {version}, and moved {MAIN} to it.")
+    print(f"To push: git push origin {BRANCH} {MAIN} {version}")
     return 0
 
 

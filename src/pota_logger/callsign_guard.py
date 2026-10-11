@@ -1,7 +1,8 @@
 """Git hooks that block commits containing the station callsign.
 
 The callsign comes from data/settings.toml, which git ignores, so the
-hooks themselves never contain it. Install with:
+hooks themselves never contain it. They share the hook files with
+branch_guard.py (git_hooks.py). Install with:
 
     uv run python -m pota_logger.callsign_guard install
 """
@@ -12,9 +13,10 @@ import sys
 import tomllib
 from pathlib import Path
 
+from pota_logger.git_hooks import add_hook_line, hooks_dir
 from pota_logger.settings import SETTINGS_PATH, load_settings
 
-HOOK_MARKER = "# pota_logger callsign guard"
+HOOK_MARKER = "pota_logger callsign guard"
 HOOKS = {
     "pre-commit": "pre-commit",
     "commit-msg": 'commit-msg "$1"',
@@ -100,25 +102,14 @@ def report(findings: list[str]) -> int:
 
 
 def install(repo: Path = Path(".")) -> int:
-    hooks_dir = repo / subprocess.run(
-        ["git", "rev-parse", "--git-path", "hooks"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    hooks_dir.mkdir(parents=True, exist_ok=True)
+    folder = hooks_dir(repo)
     for hook, command in HOOKS.items():
-        path = hooks_dir / hook
-        if path.exists() and HOOK_MARKER not in path.read_text():
-            print(f"callsign guard: {path} already exists; not replacing it.", file=sys.stderr)
+        path = folder / hook
+        line = f"uv run --quiet python -m pota_logger.callsign_guard {command}"
+        if not add_hook_line(path, line, HOOK_MARKER):
+            print(f"callsign guard: {path} is another tool's; not changing it.", file=sys.stderr)
             return 1
-        path.write_text(
-            f"#!/bin/sh\n{HOOK_MARKER}\n"
-            f"exec uv run --quiet python -m pota_logger.callsign_guard {command}\n"
-        )
-        path.chmod(0o755)
-        print(f"Installed {path}")
+        print(f"Installed in {path}")
     return 0
 
 

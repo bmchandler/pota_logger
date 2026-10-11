@@ -23,41 +23,37 @@ Windows Terminal), but neither is tested: your mileage may vary.
 You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
 the dependencies itself.
 
-Each release is a git tag named for its date, like `2026.10.10`. To list
-them:
+Install the newest release, then run it:
 
 ```bash
-git ls-remote --tags --refs <repo-url>
-```
-
-Install a release (the newest, or any other), then run it:
-
-```bash
-uv tool install "git+<repo-url>@2026.10.10"
+uv tool install "git+<repo-url>"
 ```
 
 ```bash
 pota-logger
 ```
 
-To update to a newer release, run the same install command with its
-tag. `uv tool upgrade` doesn't move an install to a newer tag.
-
-To install the development version instead (the latest commit, which
-may not be ready for use):
-
-```bash
-uv tool install "git+<repo-url>"
-```
-
-To update the development version:
+To update to a newer release:
 
 ```bash
 uv tool upgrade pota-logger
 ```
 
-To switch between a release and the development version, run the
-other's install command.
+Each release is a git tag named for its date, like `2026.10.11`. To
+install an older one, list them:
+
+```bash
+git ls-remote --tags --refs <repo-url>
+```
+
+then install it by its tag:
+
+```bash
+uv tool install "git+<repo-url>@2026.10.11"
+```
+
+`uv tool upgrade` doesn't move an install from a tag: to follow new
+releases again, run the first install command.
 
 To uninstall it:
 
@@ -71,6 +67,36 @@ are there again if you reinstall. To remove them as well, delete that folder.
 
 To run it from a clone instead, to change the code, see
 [DEVELOPMENT.md](DEVELOPMENT.md).
+
+### Development builds
+
+To test what's being worked on (which may not be ready for use),
+install the newest development build:
+
+```bash
+uv tool install "git+<repo-url>@dev"
+```
+
+and update it with `uv tool upgrade pota-logger`. Or install one
+commit, which `uv tool upgrade` doesn't move:
+
+```bash
+uv tool install "git+<repo-url>@<commit>"
+```
+
+A development build keeps its files in `~/.local/share/pota-logger-dev/`,
+apart from a release's, so testing it never touches your real log
+(uninstalling leaves it, too). It reports its version as the release it follows, plus `+dev` and its
+commit (`2026.10.11+dev.5f820a58`), in ADIF exports too.
+
+Only one `pota-logger` is installed at a time: to switch between a
+release and a development build, run the other's install command. Go
+back to the release before logging for real. To try a development build
+without replacing your installed release:
+
+```bash
+uvx --from "git+<repo-url>@dev" pota-logger
+```
 
 ## Features
 
@@ -226,6 +252,9 @@ exports in `exports/` beside it (unless Settings names another folder):
   `$XDG_DATA_HOME/pota-logger/data/` when that's set). On a Mac, that's
   this folder in your home folder, not one in `~/Library`.
 - Windows (untested): `C:\Users\<you>\.local\share\pota-logger\data\`.
+
+A development build uses `pota-logger-dev` in place of `pota-logger`
+(see Development builds).
 
 Upgrading or uninstalling the app leaves it alone; back it up to keep
 your log. A `README.txt` beside it sums up this section, for reading at

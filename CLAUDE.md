@@ -19,11 +19,14 @@ developer are in DEVELOPMENT.md, imported here:
   the diff/stage/message and app behavior and gives a clear go-ahead to
   commit, in whatever natural phrasing ("Proceed", "Proceed with commit",
   "Looks good, proceed", "Go ahead and commit", etc.).
-- Releases (only when the user asks; steps in RELEASING.md):
+- Work and commit on `dev`, never on `main`: `main` only ever points at
+  the newest release's tag, and only the release script moves it
+  (`branch_guard.py`'s hooks refuse a commit on it).
+- Releases (only when the user asks; steps in RELEASING.md), on `dev`:
   `uv run tag_new_version.py`, the only way to bump the version. It sets a calendar version (`uv
   version <YYYY.M.D>`), commits `pyproject.toml` and `uv.lock`, and tags
   that commit, always all together (see REQUIREMENTS.md Versioning for
-  why). It asks before changing anything: get the user's go-ahead first,
+  why), then moves `main` to it and commits `<YYYY.M.D>+dev` on `dev`. It asks before changing anything: get the user's go-ahead first,
   as for any commit.
 - Note each change a user would notice in CHANGELOG.md, under
   `## Unreleased` (add the heading if a release removed it), in the same
@@ -76,6 +79,18 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   line; `export_file_name` names the file. It takes clean entries only:
   export is refused while any row is marked `!`, `U`, or `=` (see
   REQUIREMENTS.md Export).
+- app_version.py's `app_version()` is the version the app reports
+  (ADIF's `PROGRAMVERSION`, the parks download's user agent; the QRZ.com
+  API's when built): pyproject.toml's, plus a dev build's short commit
+  from `direct_url.json` (`2026.10.11+dev.5f820a58`). Use it, not
+  `importlib.metadata.version`. `is_dev` (a `+dev` version) also picks
+  data_folder.py's `pota-logger-dev` folder for an install; a clone
+  keeps `data/`. Tests pass `data_dir` a version rather than rely on
+  the clone's.
+- Git hooks: callsign_guard.py (in the package) and branch_guard.py
+  (beside tag_new_version.py, which it imports `MAIN` and `VERSION`
+  from) each add their own marked line to the shared hook files
+  (git_hooks.py's `add_hook_line`), installed apart.
 - export_screen.py holds `ExportScreen` (`f6`, or the ADIF button; the
   app's `action_export` gives it the log's entries, refused rows left
   out, whether the log is clean of `CLEAN_LOG_MARKERS`, and
@@ -99,8 +114,8 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   `call_from_thread`. `load_parks` reads the copy into `app.parks`
   (reference to `Park`: name, active, DXCC, US states without `US-`),
   likewise in a thread (the app's `load_parks`, at start and after a
-  download). parks.py holds `Park`, apart from parks_list.py, which
-  imports adif.py (a cycle otherwise, through logbook.py and
+  download). parks.py holds `Park`, apart from parks_list.py (once
+  needed to avoid an import cycle through adif.py, logbook.py, and
   entry_form.py). PARK refuses ADIF's `@LOCATION`: `adif_fields` adds
   it to `POTA_REF` from ST, for a park in several states. `EntryForm.show_park_name` shows PARK's name on
   COMMENT's label row (`#park-name`, centered via `labeled_input`'s

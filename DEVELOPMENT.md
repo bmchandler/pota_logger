@@ -15,12 +15,31 @@ pace and choice. You're welcome to fork it and make it your own.
 You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
 the dependencies itself.
 
+A clone starts on `main`, the newest release. Work goes on `dev`:
+
+```bash
+git switch dev
+```
+
 ```bash
 uv run pota-logger
 ```
 
 Run it from the project folder. At first start it asks for your
 station callsign.
+
+## Branches
+
+- `main` only ever points at the newest release's tag, so an install
+  from git without a branch or tag gets it. It's never committed to:
+  `tag_new_version.py` moves it forward at each release (see
+  RELEASING.md).
+- `dev` is where work goes, and releases are made. Its version is the
+  last release's plus `+dev` (`2026.10.11+dev`), set by the release
+  script; a build installed from git adds its commit
+  (`2026.10.11+dev.5f820a58`), read when the app runs (`app_version.py`).
+- Tags are for releases only. Testers install a development build by
+  branch or commit instead (see README.md, Development builds).
 
 Run from a clone, the app keeps its files in the clone's `data/`, for
 development: git-ignored, so logs stay out of the code history.
@@ -29,18 +48,32 @@ Installed (`uv tool install`, see README.md), it uses
 instead, outside the install, which an upgrade replaces, and writes a
 `README.txt` beside it. `data_folder.py` tells the two apart by a
 `pyproject.toml` two folders above the package, which only a clone has.
+A development build installed (its version has `+dev`) uses
+`~/.local/share/pota-logger-dev/` instead of `pota-logger/`, so testing
+it never touches a release's log; a clone keeps its `data/` either way.
 
 ADIF exports go to `exports/` beside `data/` unless Settings names
 another folder: the clone's `exports/` (git-ignored), or installed,
 `~/.local/share/pota-logger/exports/`. `tmp/` (git-ignored) is for
 other scratch files while developing.
 
-If you'll commit, install the callsign guard git hooks once per clone
-(see Privacy):
+If you'll commit, install the git hooks once per clone: the callsign
+guard's (see Privacy), then the branch guard's, which refuse a commit
+on `main` and a push that would set the remote's `main` to anything
+but a release. They share git's hook files, each install changing only
+its own line (`git_hooks.py`):
 
 ```bash
 uv run python -m pota_logger.callsign_guard install
 ```
+
+```bash
+uv run branch_guard.py install
+```
+
+Install the callsign guard's first in a clone that had it before the
+hooks were shared: it updates its old hook files, which the branch
+guard won't change.
 
 ## Tests
 
@@ -117,11 +150,15 @@ uv run pytest -n0 tests/fields/test_freq.py
   - `settings.py`: the settings file. `data_folder.py`: where the app
     keeps its files, and the installed `README.txt` (`README_TEXT`), a
     summary of README.md's "Your data": change them together.
+  - `app_version.py`: the version the app reports (ADIF export, user
+    agent), with a development build's commit.
   - `screens/`: the modals (`*_screen.py`) and the status bar
     (`status_bar.py`).
   - `theme.py`: the color theme.
-  - `callsign_guard.py`: the git hooks (see Privacy).
+  - `callsign_guard.py`: the callsign guard's git hooks (see Privacy).
+    `git_hooks.py`: the hook files it shares with the branch guard.
 - `tag_new_version.py`: makes a release (see RELEASING.md).
+- `branch_guard.py`: the branch guard's git hooks (see Branches).
 
 ## Conventions
 

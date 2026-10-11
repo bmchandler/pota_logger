@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 
+from pota_logger.app_version import app_version
 from pota_logger.fields.parks import Park
 
 from pota_logger.adif import (
@@ -128,7 +129,7 @@ def test_header():
     assert lines[0] == "POTA Logger ADIF export"
     assert lines[1] == f"<ADIF_VER:5>{ADIF_VERSION}"
     assert lines[2] == "<PROGRAMID:11>pota-logger"
-    assert lines[3].startswith("<PROGRAMVERSION:")
+    assert lines[3] == adif_field("PROGRAMVERSION", app_version())
     assert lines[4] == "<CREATED_TIMESTAMP:15>20261009 195312"
     assert lines[5] == "<EOH>"
 

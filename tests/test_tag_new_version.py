@@ -88,7 +88,9 @@ def git(repo, *args):
 
 @pytest.fixture
 def repo(tmp_path):
-    """A git repo on main with a small uv project, no dependencies."""
+    """A git repo on dev, with main behind it, and a small uv project, no
+    dependencies.
+    """
     git(tmp_path, "init", "-q", "-b", "main")
     git(tmp_path, "config", "user.name", "Test")
     git(tmp_path, "config", "user.email", "test@example.com")
@@ -102,10 +104,11 @@ def repo(tmp_path):
     git(tmp_path, "add", ".")
     git(tmp_path, "commit", "-q", "-m", "Initial Commit")
     git(tmp_path, "tag", "MVP")
+    git(tmp_path, "switch", "-q", "-c", "dev")
     return tmp_path
 
 
-def test_clean_main_has_no_problems(repo):
+def test_clean_dev_has_no_problems(repo):
     assert tnv.repo_problems(repo) == []
     assert tnv.version_tags(repo) == []
 
@@ -125,24 +128,51 @@ def test_changes_or_another_branch_refused(repo):
     (repo / "notes.txt").write_text("x")
     git(repo, "switch", "-q", "-c", "other")
     assert tnv.repo_problems(repo) == [
-        "On branch other, not main.",
+        "On branch other, not dev.",
         "The tree has changes; commit or stash them first.",
     ]
 
 
+def test_main_moved_or_off_on_its_own_refused(repo):
+    git(repo, "switch", "-q", "main")
+    (repo / "notes.txt").write_text("x")
+    git(repo, "add", "notes.txt")
+    git(repo, "commit", "-q", "-m", "On main")
+    git(repo, "switch", "-q", "dev")
+    assert tnv.repo_problems(repo) == ["main isn't behind dev, so it can't move forward to the release."]
+
+
+def version_at(repo, rev):
+    return tomllib.loads(git(repo, "show", f"{rev}:pyproject.toml"))["project"]["version"]
+
+
 def test_release_commits_the_version_and_tags_that_commit(repo):
     tnv.release("2026.10.10", repo)
-    with open(repo / "pyproject.toml", "rb") as file:
-        assert tomllib.load(file)["project"]["version"] == "2026.10.10"
-    assert 'version = "2026.10.10"' in (repo / "uv.lock").read_text()
-    assert git(repo, "log", "-1", "--format=%s") == "Version 2026.10.10"
-    assert git(repo, "show", "--name-only", "--format=", "HEAD").split() == [
+    assert version_at(repo, "2026.10.10") == "2026.10.10"
+    assert 'version = "2026.10.10"' in git(repo, "show", "2026.10.10:uv.lock")
+    assert git(repo, "log", "-1", "--format=%s", "2026.10.10") == "Version 2026.10.10"
+    assert git(repo, "show", "--name-only", "--format=", "2026.10.10").split() == [
         "CHANGELOG.md",
         "pyproject.toml",
         "uv.lock",
     ]
     assert (repo / "CHANGELOG.md").read_text() == CHANGELOG.replace("## Unreleased", "## 2026.10.10")
-    assert git(repo, "rev-parse", "2026.10.10") == git(repo, "rev-parse", "HEAD")
+
+
+def test_release_moves_main_to_the_tag(repo):
+    tnv.release("2026.10.10", repo)
+    assert git(repo, "rev-parse", "main") == git(repo, "rev-parse", "2026.10.10")
+
+
+def test_release_starts_dev_on_the_next_dev_version(repo):
+    tnv.release("2026.10.10", repo)
+    assert git(repo, "branch", "--show-current") == "dev"
+    assert git(repo, "rev-parse", "HEAD~1") == git(repo, "rev-parse", "2026.10.10")
+    assert git(repo, "log", "-1", "--format=%s") == "Version 2026.10.10+dev"
+    assert git(repo, "show", "--name-only", "--format=", "HEAD").split() == ["pyproject.toml", "uv.lock"]
+    with open(repo / "pyproject.toml", "rb") as file:
+        assert tomllib.load(file)["project"]["version"] == "2026.10.10+dev"
+    assert 'version = "2026.10.10+dev"' in (repo / "uv.lock").read_text()
     # Clean, but with nothing unreleased until the next change is noted.
     assert len(tnv.repo_problems(repo)) == 1
     assert tnv.version_tags(repo) == ["2026.10.10"]

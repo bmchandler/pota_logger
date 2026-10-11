@@ -27,8 +27,20 @@ def test_this_checkout_runs_from_source():
 def test_an_install_keeps_its_data_in_the_users_data_folder(tmp_path):
     # Installed, two folders up from the package is lib/, with no pyproject.toml.
     assert not from_source(tmp_path)
-    assert data_dir(tmp_path, {}) == Path.home() / ".local/share/pota-logger/data"
-    assert data_dir(tmp_path, {"XDG_DATA_HOME": "/xdg"}) == Path("/xdg/pota-logger/data")
+    release = "2026.10.12"
+    assert data_dir(tmp_path, {}, release) == Path.home() / ".local/share/pota-logger/data"
+    assert data_dir(tmp_path, {"XDG_DATA_HOME": "/xdg"}, release) == Path("/xdg/pota-logger/data")
+
+
+def test_a_dev_install_keeps_its_data_apart_from_a_releases(tmp_path):
+    dev = "2026.10.12+dev"
+    assert data_dir(tmp_path, {}, dev) == Path.home() / ".local/share/pota-logger-dev/data"
+    assert data_dir(tmp_path, {"XDG_DATA_HOME": "/xdg"}, dev) == Path("/xdg/pota-logger-dev/data")
+
+
+def test_a_dev_clone_keeps_its_data_in_the_projects_data_folder(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("")
+    assert data_dir(tmp_path, {}, "2026.10.12+dev") == tmp_path / "data"
 
 
 def test_xdg_data_home_only_when_absolute():

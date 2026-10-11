@@ -1,14 +1,13 @@
 from collections.abc import Mapping
 from datetime import date, datetime
-from importlib.metadata import version
 
+from pota_logger.app_version import PROGRAM_ID, app_version
 from pota_logger.fields.freq import band_name
 from pota_logger.logbook import stored_text
 from pota_logger.fields.parks import Park
 
-# The ADIF version the export follows, and the app as ADIF names it.
+# The ADIF version the export follows.
 ADIF_VERSION = "3.1.6"
-PROGRAM_ID = "pota-logger"
 
 # MODE values that ADIF lists as submodes of SSB.
 SSB_SUBMODES = {"USB", "LSB"}
@@ -79,7 +78,7 @@ def adif_header(created: datetime) -> str:
     fields = [
         ("ADIF_VER", ADIF_VERSION),
         ("PROGRAMID", PROGRAM_ID),
-        ("PROGRAMVERSION", version(PROGRAM_ID)),
+        ("PROGRAMVERSION", app_version()),
         ("CREATED_TIMESTAMP", f"{created:%Y%m%d %H%M%S}"),
     ]
     lines = ["POTA Logger ADIF export"] + [adif_field(name, value) for name, value in fields]

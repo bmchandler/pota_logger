@@ -8,10 +8,9 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import date
 from email.utils import parsedate_to_datetime
-from importlib.metadata import version
 from pathlib import Path
 
-from pota_logger.adif import PROGRAM_ID
+from pota_logger.app_version import PROGRAM_ID, app_version
 from pota_logger.fields.parks import Park
 from pota_logger.fields.states import US_STATES
 
@@ -129,7 +128,7 @@ def download_parks(folder: Path, url: str = PARKS_URL) -> ParksCopy | None:
 
     Raises ParksDownloadError, with a message for the operator.
     """
-    headers = {"User-Agent": f"{PROGRAM_ID}/{version(PROGRAM_ID)}"}
+    headers = {"User-Agent": f"{PROGRAM_ID}/{app_version()}"}
     copy = saved_copy(folder)
     if copy:
         headers["If-None-Match"] = copy.etag

@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 from tests.conftest import LAST_MODIFIED, LIST, NEWER_LIST
 
+from pota_logger.app_version import app_version
 from pota_logger.fields.parks import Park
 from pota_logger.parks_list import (
     PARKS_FILE,
@@ -54,7 +55,7 @@ def test_first_download_saves_list_and_info(pota, folder):
 
 def test_user_agent_names_the_app(pota, folder):
     download_parks(folder, pota.url)
-    assert pota.requests[0]["User-Agent"].startswith("pota-logger/")
+    assert pota.requests[0]["User-Agent"] == f"pota-logger/{app_version()}"
 
 
 def test_unchanged_list_is_not_downloaded_again(pota, folder):
