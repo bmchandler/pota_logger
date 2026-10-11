@@ -14,6 +14,12 @@ are under Unreleased.
   including an existing one, takes it at the next start; change it in
   Settings as before.
 
+### Fixed
+
+- README's install steps: install a release by its tag, update to a
+  newer release by installing its tag, and `uv tool upgrade` only for
+  the development version.
+
 ## 2026.10.10
 
 ### Added

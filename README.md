@@ -21,21 +21,43 @@ POTA Logger is built and tested on Linux. It will likely run on macOS
 Windows Terminal), but neither is tested: your mileage may vary.
 
 You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
-the dependencies itself. Install POTA Logger, then run it:
+the dependencies itself.
+
+Each release is a git tag named for its date, like `2026.10.10`. To list
+them:
 
 ```bash
-uv tool install git+<repo-url>
+git ls-remote --tags --refs <repo-url>
+```
+
+Install a release (the newest, or any other), then run it:
+
+```bash
+uv tool install "git+<repo-url>@2026.10.10"
 ```
 
 ```bash
 pota-logger
 ```
 
-To update it later:
+To update to a newer release, run the same install command with its
+tag. `uv tool upgrade` doesn't move an install to a newer tag.
+
+To install the development version instead (the latest commit, which
+may not be ready for use):
+
+```bash
+uv tool install "git+<repo-url>"
+```
+
+To update the development version:
 
 ```bash
 uv tool upgrade pota-logger
 ```
+
+To switch between a release and the development version, run the
+other's install command.
 
 To uninstall it:
 
