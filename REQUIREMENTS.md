@@ -674,7 +674,8 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   release's, so testing one never touches the real log. Every dev build
   shares that one folder (no commit in its name), so an upgrade keeps
   the test logs. A clone keeps its own `data/` whatever its version.
-  Commits from before this was built report a release's version, so,
+  Commits from before this was built (before `4ccbe051`, named in
+  README.md's Development builds) report a release's version, so,
   installed by commit, they use the release's folder.
 - ADIF exports go by default to `exports/`, beside `data/` (decided
   2026-10-11): the clone's `exports/` (git-ignored), or installed,

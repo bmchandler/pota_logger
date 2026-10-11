@@ -89,6 +89,16 @@ apart from a release's, so testing it never touches your real log
 (uninstalling leaves it, too). It reports its version as the release it follows, plus `+dev` and its
 commit (`2026.10.11+dev.5f820a58`), in ADIF exports too.
 
+Commits from `4ccbe051` on use `pota-logger-dev`. Earlier ones were made
+before development builds had a folder of their own: installed by
+commit, they report a release's version and use the release's
+`~/.local/share/pota-logger/`, your real log's. With a clone, to tell
+which side a commit is on (it prints `after` or `before`):
+
+```bash
+git merge-base --is-ancestor 4ccbe051 <commit> && echo after || echo before
+```
+
 Only one `pota-logger` is installed at a time: to switch between a
 release and a development build, run the other's install command. Go
 back to the release before logging for real. To try a development build

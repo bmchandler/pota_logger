@@ -17,7 +17,8 @@ are under Unreleased.
 - Development builds keep their files in
   `~/.local/share/pota-logger-dev/`, apart from a release's, and report
   their version with `+dev` and their commit
-  (`2026.10.11+dev.5f820a58`), in ADIF exports too.
+  (`2026.10.11+dev.5f820a58`), in ADIF exports too: from commit
+  `4ccbe051` on, where they began.
 
 ## 2026.10.11
 
