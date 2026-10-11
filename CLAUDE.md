@@ -81,9 +81,12 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   out, whether the log is clean of `CLEAN_LOG_MARKERS`, and
   `export_range`'s default dates). It doesn't show the folder; it reads
   it from `app.settings` on Export, since F2 opens Settings over it (its
-  own binding: the app's keys don't reach a modal). No folder is ever
-  made (`folder_path` in settings.py expands `~`; Settings saves only
-  an existing folder). Tests use the `export_folder` and `export_app`
+  own binding: the app's keys don't reach a modal). The only folder
+  made is the default (`default_export_folder`: `exports/` beside
+  `data/`), by the app's `with_export_folder`, only when it fills a
+  blank setting (at start, or a folder cleared in Settings); `folder_path`
+  in settings.py expands `~`, and Settings saves only an existing typed
+  folder. Tests use the `export_folder` and `export_app`
   fixtures (an existing folder in the temp dir), or `home` for `~`.
 - parks_list.py downloads POTA's parks list (`download_parks`, the
   app's only network use; raises `ParksDownloadError` with a message for

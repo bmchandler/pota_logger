@@ -14,6 +14,7 @@ from tests.app.helpers import (
     ENTRY_ROW,
     SETTING_LABELS,
     checkbox_marks,
+    exports,
     field_values,
     fill,
     folder_problem,
@@ -49,7 +50,8 @@ async def test_no_station_callsign_opens_on_required_block(settings_path):
         assert len(app.screen_stack) == 1
         assert app.focused.id == "field-freq"
         assert station_callsign(app) == "W1TST"
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        expected = Settings("W1TST", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_settings_cancelled_with_no_call_goes_back_to_block(settings_path):
@@ -135,7 +137,12 @@ async def test_settings_saved_after_setup_keep_the_call(app, settings_path):
         await pilot.click("#save")
         assert not isinstance(app.screen, SettingsScreen)
         assert station_callsign(app) == "W1TST"
-        expected = Settings("W1TST", new_comment_pota_info=True, edit_comment_pota_info=True)
+        expected = Settings(
+            "W1TST",
+            new_comment_pota_info=True,
+            edit_comment_pota_info=True,
+            adif_export_folder=exports(settings_path),
+        )
         assert app.settings == expected
         assert load_settings(settings_path) == expected
 
@@ -145,7 +152,10 @@ async def test_settings_saved_at_first_start_with_the_call(no_call_app, settings
     async with app.run_test() as pilot:
         await pilot.press("enter", *"w1tst", "tab", "space")
         await pilot.click("#save")
-        assert load_settings(settings_path) == Settings("W1TST", new_comment_pota_info=True)
+        expected = Settings(
+            "W1TST", new_comment_pota_info=True, adif_export_folder=exports(settings_path)
+        )
+        assert load_settings(settings_path) == expected
 
 
 async def test_settings_after_setup_save_the_export_folder(app, settings_path, home):
@@ -184,11 +194,11 @@ async def test_export_folder_must_exist(app, settings_path, home, folder, proble
         assert isinstance(app.screen, SettingsScreen)
         assert app.focused.id == "folder-input"
         assert folder_problem(app) == problem
-        assert load_settings(settings_path).adif_export_folder == ""
+        assert load_settings(settings_path).adif_export_folder == exports(settings_path)
     assert not (home / "deve").exists()
 
 
-async def test_blank_export_folder_saves_as_none_set(settings_path):
+async def test_blank_export_folder_saves_as_the_default(settings_path):
     save_settings(Settings("W1TST", adif_export_folder="~/gone"), settings_path)
     app = PotaLoggerApp(settings_path=settings_path)
     async with app.run_test() as pilot:
@@ -196,7 +206,68 @@ async def test_blank_export_folder_saves_as_none_set(settings_path):
         app.screen.query_one("#folder-input", Input).value = ""
         await pilot.click("#save")
         assert not isinstance(app.screen, SettingsScreen)
+        assert app.settings.adif_export_folder == exports(settings_path)
+    assert load_settings(settings_path).adif_export_folder == exports(settings_path)
+    assert (settings_path.parent.parent / "exports").is_dir()
+
+
+async def test_first_start_makes_data_and_shows_the_default_export_folder(no_call_app, settings_path):
+    exports_dir = settings_path.parent.parent / "exports"
+    async with no_call_app.run_test() as pilot:
+        assert exports_dir.is_dir()
+        assert settings_path.parent.is_dir()
+        assert not settings_path.exists()
+        await pilot.press("enter")
+        folder = no_call_app.screen.query_one("#folder-input", Input).value
+        assert folder == exports(settings_path) == str(exports_dir)
+        await pilot.press(*"w1tst", "enter")
+    assert load_settings(settings_path).adif_export_folder == exports(settings_path)
+
+
+async def test_blank_export_folder_in_file_is_set_to_the_default(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\n')
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.settings.adif_export_folder == exports(settings_path)
+    assert load_settings(settings_path).adif_export_folder == exports(settings_path)
+    assert (settings_path.parent.parent / "exports").is_dir()
+
+
+async def test_default_export_folder_is_written_with_tilde_in_home(home):
+    settings_path = home / ".local/share/pota-logger/data/settings.toml"
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.settings.adif_export_folder == "~/.local/share/pota-logger/exports"
+    assert (home / ".local/share/pota-logger/exports").is_dir()
+
+
+async def test_default_export_folder_once_set_isnt_made_again(settings_path):
+    exports_dir = settings_path.parent.parent / "exports"
+    save_settings(Settings("W1TST", adif_export_folder=str(exports_dir)), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.settings.adif_export_folder == str(exports_dir)
+    assert not exports_dir.exists()
+
+
+async def test_export_folder_stays_unset_when_the_default_cant_be_made(settings_path):
+    # A file in its place.
+    save_settings(Settings("W1TST"), settings_path)
+    (settings_path.parent.parent / "exports").write_text("")
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.settings.adif_export_folder == ""
     assert load_settings(settings_path).adif_export_folder == ""
+
+
+async def test_non_ascii_default_export_folder_is_left_unset(tmp_path):
+    settings_path = tmp_path / "T\u00e9l\u00e9" / "data" / "settings.toml"
+    save_settings(Settings("W1TST"), settings_path)
+    app = PotaLoggerApp(settings_path=settings_path)
+    async with app.run_test():
+        assert app.settings.adif_export_folder == ""
+    assert not (settings_path.parent.parent / "exports").exists()
 
 
 async def test_settings_open_with_the_export_folder(settings_path):
@@ -218,7 +289,7 @@ async def test_non_ascii_export_folder_is_refused_below_it(app, settings_path):
             "ADIF export folder '~/T\u00e9l\u00e9chargements' has non-ASCII characters: '\u00e9'.\n"
             "Use plain ASCII, like ~/Downloads."
         )
-        assert load_settings(settings_path).adif_export_folder == ""
+        assert load_settings(settings_path).adif_export_folder == exports(settings_path)
         await pilot.press("backspace")
         assert folder_problem(app) == ""
 
@@ -302,7 +373,8 @@ async def test_save_uppercases_updates_status_and_file(no_call_app, settings_pat
         await pilot.press("enter", *"w1abc", "enter")
         assert not isinstance(app.screen, SettingsScreen)
         assert station_callsign(app) == "W1ABC"
-        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
+        expected = Settings("W1ABC", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_save_button_saves(no_call_app, settings_path):
@@ -311,7 +383,8 @@ async def test_save_button_saves(no_call_app, settings_path):
         await pilot.press("enter")
         app.screen.query_one("#station-callsign-input", Input).value = "W1ABC"
         await pilot.click("#save")
-        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
+        expected = Settings("W1ABC", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_invalid_station_callsign_is_refused(no_call_app, settings_path):
@@ -346,7 +419,8 @@ async def test_non_ascii_station_callsign_is_refused(app, settings_path):
             "Station callsign 'W1ABÇ' has non-ASCII characters: 'Ç'.\n"
             "Use plain ASCII, like W1ABC."
         )
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        expected = Settings("W1TST", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_blank_station_callsign_saves_and_asks_for_one(no_call_app, settings_path):
@@ -357,7 +431,8 @@ async def test_blank_station_callsign_saves_and_asks_for_one(no_call_app, settin
         await pilot.press("enter")
         assert app.screen.id == "station-callsign-required"
         assert station_callsign(app) == "NOCALL"
-        assert load_settings(settings_path) == Settings(station_callsign="")
+        expected = Settings("", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
         await pilot.press("enter")
         assert isinstance(app.screen, SettingsScreen)
 
@@ -372,7 +447,8 @@ async def test_unusual_station_callsign_warns_and_enter_saves(no_call_app, setti
         await pilot.press("enter")
         assert not isinstance(app.screen, (CallsignWarningScreen, SettingsScreen))
         assert station_callsign(app) == "W111111AB"
-        assert load_settings(settings_path) == Settings(station_callsign="W111111AB")
+        expected = Settings("W111111AB", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_unusual_station_callsign_escape_returns_to_settings(no_call_app, settings_path):
@@ -398,7 +474,8 @@ async def test_unusual_station_callsign_corrected_in_warning(no_call_app, settin
         ]
         app.screen.query_one("#callsign-warning-input", Input).value = "w1abc"
         await pilot.press("enter")
-        assert load_settings(settings_path) == Settings(station_callsign="W1ABC")
+        expected = Settings("W1ABC", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 async def test_f2_over_station_callsign_warning_does_not_stack(no_call_app):
@@ -414,16 +491,18 @@ async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", "space", "escape")
         assert not isinstance(app.screen, SettingsScreen)
-        assert app.settings == Settings(station_callsign="W1TST")
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        expected = Settings("W1TST", adif_export_folder=exports(settings_path))
+        assert app.settings == expected
+        assert load_settings(settings_path) == expected
 
 
 async def test_cancel_button_cancels(app, settings_path):
     async with app.run_test() as pilot:
         await pilot.press("f2", "space")
         await pilot.click("#cancel")
-        assert app.settings == Settings(station_callsign="W1TST")
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        expected = Settings("W1TST", adif_export_folder=exports(settings_path))
+        assert app.settings == expected
+        assert load_settings(settings_path) == expected
 
 
 async def test_closing_modal_keeps_entry_in_progress(app):
@@ -489,7 +568,8 @@ async def test_bad_station_callsign_in_file_is_reported_and_shown_to_fix(setting
         assert isinstance(app.screen, ParksOfferScreen)
         await pilot.press("escape")
         assert len(app.screen_stack) == 1
-        assert load_settings(settings_path) == Settings(station_callsign="W1TST")
+        expected = Settings("W1TST", adif_export_folder=exports(settings_path))
+        assert load_settings(settings_path) == expected
 
 
 @pytest.mark.parametrize("call", ["w1tst", " W1TST "])
@@ -504,5 +584,5 @@ async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_pat
         'station_callsign = "W1TST"\n'
         "new_comment_pota_info = false\n"
         "edit_comment_pota_info = false\n"
-        'adif_export_folder = ""\n'
+        f'adif_export_folder = "{exports(settings_path)}"\n'
     )

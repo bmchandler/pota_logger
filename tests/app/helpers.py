@@ -7,6 +7,7 @@ from textual.widgets import Button, Checkbox, DataTable, Input, Label, Static
 from pota_logger.entry_form import FIELDS, LOG_FIELDS, EntryForm
 from pota_logger.parks_list import download_parks, md5_etag, parks_folder
 from pota_logger.record_ids import new_id
+from pota_logger.settings import default_export_folder
 
 from tests.conftest import NEWER_LIST
 
@@ -447,3 +448,8 @@ async def leave_park(app, pilot, text: str) -> None:
 
 def st_value(app) -> str:
     return app.query_one("#field-st", Input).value
+
+
+def exports(settings_path) -> str:
+    """The default ADIF export folder, which the app sets when none is."""
+    return default_export_folder(settings_path.parent)

@@ -90,7 +90,9 @@ can still come up as they're noticed.
 ADIF file export is built (2026-10-09; see Export): the ADIF record
 module (each entry as one ADIF record, for both the file export and
 the API), the export folder setting, and the Export modal (`f6`, or
-the ADIF button, which replaced the Settings button).
+the ADIF button, which replaced the Settings button). The export folder
+defaults to `exports/` beside `data/`, made by the app (2026-10-11; see
+Settings).
 
 Support for POTA's parks list is built (2026-10-10; see Export,
 POTA's parks list), taken before the QRZ.com API (decided 2026-10-09,
@@ -273,13 +275,20 @@ Session-level value:
   2026-10-09; see Export). Save (or Enter in the call or the folder)
   saves them all; Esc or Cancel changes nothing.
 - The ADIF export folder is saved as typed, spaces around it dropped
-  (`~` is expanded), and blank means none is set. Like every text
+  (`~` is expanded). Blank means the default (decided 2026-10-11):
+  `exports/` beside `data/` (see Storage), written with `~` when in the
+  home folder (`~/.local/share/pota-logger/exports`). The app sets it
+  in place of a blank setting, at start (first start, where Settings
+  shows it to change, or a file with none set, saved then) and when
+  Settings saves it cleared, making the folder then and only then: one
+  deleted later while set isn't made again (export says it's gone). If
+  it can't be made, or isn't plain ASCII, none is set. Like every text
   input it takes only plain ASCII: anything else is refused below the
   field, in the error color, as a refused call is (`ADIF export folder
   '~/é' has non-ASCII characters: 'é'.` / `Use plain ASCII, like
   ~/Downloads.`), gone once it's edited; a bad call is shown first.
-- The folder must already exist when Settings saves it (decided
-  2026-10-09): no folder is ever made, by Settings or export, since a
+- A typed folder must already exist when Settings saves it (decided
+  2026-10-09): no typed folder is ever made, by Settings or export, since a
   typo (`~/deve` for `~/devel`) would quietly send files somewhere
   unexpected. Otherwise it's refused the same way: `ADIF export folder
   '~/deve/adif' doesn't exist.`, or for a file, `... isn't a folder.`
@@ -653,6 +662,10 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   Your data, summed up), for reading at a terminal. It's the app's own
   file, so edits to it aren't kept. A PyPI package is set aside for now;
   the install is from the git repository.
+- ADIF exports go by default to `exports/`, beside `data/` (decided
+  2026-10-11): the clone's `exports/` (git-ignored), or installed,
+  `~/.local/share/pota-logger/exports/` (see Settings). `data/` is
+  made at start, if missing, rather than at the first save.
 - One CSV file per UTC date, named `YYYYMMDD.csv` (e.g. `data/20260924.csv`).
 - A clone's `data/` is ignored by git, so logs stay out of the code history.
 - Column names use the same shorthand and order as the log table (see
@@ -950,8 +963,10 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     is still a click away.
   - A setting for the default ADIF export folder (decided 2026-10-09),
     in Settings. Like the screenshot-folder idea (see Status and plan),
-    it needs `~` expanded; it must exist (none is made). With none set,
-    ADIF export is refused until one is set in Settings. The Export
+    it needs `~` expanded; a typed one must exist (none is made). It
+    defaults to `exports/` beside `data/`, made by the app (decided
+    2026-10-11; see Settings). With none set (the default couldn't be
+    made), ADIF export is refused until one is set in Settings. The Export
     modal doesn't show the folder (decided 2026-10-09: a path can be
     long, and it can't be changed there); it's seen and set in
     Settings.

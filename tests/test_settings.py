@@ -2,7 +2,13 @@ import tomllib
 
 import pytest
 
-from pota_logger.settings import Settings, StationCallsignError, load_settings, save_settings
+from pota_logger.settings import (
+    Settings,
+    StationCallsignError,
+    default_export_folder,
+    load_settings,
+    save_settings,
+)
 
 
 def test_load_missing_file_returns_defaults(settings_path):
@@ -193,3 +199,13 @@ def test_bad_folder_is_none_set_with_a_problem(settings_path, value, problem):
     settings = load_settings(settings_path)
     assert settings.adif_export_folder == ""
     assert settings.problems == [problem]
+
+
+def test_default_export_folder_is_beside_data(tmp_path):
+    assert default_export_folder(tmp_path / "data") == str(tmp_path / "exports")
+
+
+def test_default_export_folder_in_home_is_written_with_tilde(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    data = tmp_path / ".local/share/pota-logger/data"
+    assert default_export_folder(data) == "~/.local/share/pota-logger/exports"

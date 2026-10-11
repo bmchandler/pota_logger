@@ -19,9 +19,10 @@ README_TEXT = """\
 POTA Logger's files
 ===================
 
-pota-logger keeps everything in data/ here. This file is written by
-the app, and rewritten when a new version changes it: edits to it
-aren't kept.
+pota-logger keeps its files in data/ here, and ADIF exports in exports/
+(unless Settings names another folder). This file is written by the
+app, and rewritten when a new version changes it: edits to it aren't
+kept.
 
 data/
   YYYYMMDD.csv     Your log: one file per UTC date (20261001.csv), one

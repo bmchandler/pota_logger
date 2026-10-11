@@ -185,8 +185,11 @@ logged contact, edit that record's COMMENT.
     is kept when PARK or ST change.
   - `Edit: Update COMMENT with POTA info.`: editing a record updates the
     same info, if its COMMENT starts with it.
-  - `ADIF export folder`: where ADIF exports go, like `~/Downloads`. It
-    must already exist: none is created, so a typo is caught.
+  - `ADIF export folder`: where ADIF exports go. At first start it's set
+    to `exports/` beside `data/` (see Your data), created for you; change
+    it to any folder, like `~/Downloads`. A folder you type must already
+    exist: none is created, so a typo is caught. Cleared, it goes back to
+    `exports/`.
   - `POTA parks list:` your copy's date (or `none`), with **Check for
     Updated** to download it or refresh it (see POTA's parks list).
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
@@ -194,7 +197,8 @@ logged contact, edit that record's COMMENT.
 
 ## Your data
 
-Everything lives in one folder, called `data/` here:
+Your log and settings live in one folder, called `data/` here, with ADIF
+exports in `exports/` beside it (unless Settings names another folder):
 
 - Linux and macOS: `~/.local/share/pota-logger/data/` (or
   `$XDG_DATA_HOME/pota-logger/data/` when that's set). On a Mac, that's

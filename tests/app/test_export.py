@@ -115,7 +115,11 @@ async def test_export_into_a_folder_gone_since_says_why(settings_path, tmp_path)
     assert not gone.exists()
 
 
-async def test_export_without_a_folder_says_to_set_one(app, settings_path):
+async def test_export_without_a_folder_says_to_set_one(settings_path):
+    # None set, as the default can't be made: a file is in its place.
+    save_settings(Settings("W1TST"), settings_path)
+    (settings_path.parent.parent / "exports").write_text("")
+    app = PotaLoggerApp(settings_path=settings_path)
     write_saved_log(settings_path, THREE_DAYS)
     async with app.run_test() as pilot:
         await pilot.press("f6")

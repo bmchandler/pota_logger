@@ -4,6 +4,16 @@ What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`; see [RELEASING.md](RELEASING.md)). Changes not released yet
 are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- The ADIF export folder defaults to `exports/` beside `data/`
+  (installed: `~/.local/share/pota-logger/exports/`), created by the
+  app, so export works without setting one first. A blank setting,
+  including an existing one, takes it at the next start; change it in
+  Settings as before.
+
 ## 2026.10.10
 
 ### Added

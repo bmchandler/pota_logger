@@ -30,9 +30,10 @@ instead, outside the install, which an upgrade replaces, and writes a
 `README.txt` beside it. `data_folder.py` tells the two apart by a
 `pyproject.toml` two folders above the package, which only a clone has.
 
-`tmp/` (git-ignored) is for scratch files while developing, such as
-hand-testing ADIF exports: set its full path as the export folder in
-Settings.
+ADIF exports go to `exports/` beside `data/` unless Settings names
+another folder: the clone's `exports/` (git-ignored), or installed,
+`~/.local/share/pota-logger/exports/`. `tmp/` (git-ignored) is for
+other scratch files while developing.
 
 If you'll commit, install the callsign guard git hooks once per clone
 (see Privacy):

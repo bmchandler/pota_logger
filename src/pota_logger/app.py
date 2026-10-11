@@ -40,6 +40,8 @@ from pota_logger.settings import (
     SETTINGS_PATH,
     Settings,
     StationCallsignError,
+    default_export_folder,
+    folder_path,
     load_settings,
     save_settings,
 )
@@ -367,6 +369,12 @@ class PotaLoggerApp(App):
         self.register_theme(POTA_THEME)
         self.theme = POTA_THEME.name
         self.settings_path = settings_path
+        # data/ is made at start, as the default export folder is beside it
+        # (see with_export_folder); one that can't be is reported on save.
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
         # Log files sit beside the settings, in data/.
         self.logbook = Logbook(settings_path.parent)
         # POTA's parks list, in data/pota/; tests point the URL at a local
@@ -383,14 +391,6 @@ class PotaLoggerApp(App):
         self.station_callsign_to_fix = ""
         try:
             self.settings = load_settings(settings_path)
-            if self.settings.fixed and not self.settings.problems:
-                # How the call was written, fixed. If it can't be saved, it's
-                # fixed again at the next start (as it is while the file has
-                # a problem to fix by hand, which saving would hide).
-                try:
-                    save_settings(self.settings, settings_path)
-                except OSError:
-                    pass
         except tomllib.TOMLDecodeError as error:
             self.settings = Settings()
             self.settings_error = f"Couldn't read {settings_path}: {error}"
@@ -399,6 +399,38 @@ class PotaLoggerApp(App):
             self.settings = Settings()
             self.settings_error = f"{settings_path}: {error}"
             self.station_callsign_to_fix = error.text
+        if not self.settings.problems:
+            filled = self.with_export_folder(self.settings)
+            changed = self.settings.fixed or filled != self.settings
+            self.settings = filled
+            # How the call was written, fixed, or the default export folder
+            # set. If it can't be saved, that's done again at the next start
+            # (as it is while the file has a problem to fix by hand, which
+            # saving would hide). Not saved at first start (no file yet) nor
+            # over a file the app couldn't read: Settings saves it then.
+            if changed and settings_path.exists() and self.settings_error is None:
+                try:
+                    save_settings(self.settings, settings_path)
+                except OSError:
+                    pass
+
+    def with_export_folder(self, settings: Settings) -> Settings:
+        """`settings` with the default ADIF export folder (exports/ beside
+        data/) when none is set, made now if missing: the only folder the
+        app makes, and only here, so one deleted later isn't made again
+        while it's set. Left unset if it can't be made, or isn't plain
+        ASCII (Settings would refuse it).
+        """
+        if settings.adif_export_folder:
+            return settings
+        folder = default_export_folder(self.settings_path.parent)
+        if not folder.isascii():
+            return settings
+        try:
+            folder_path(folder).mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return settings
+        return replace(settings, adif_export_folder=folder)
 
     def compose(self) -> ComposeResult:
         yield StatusBar(station_callsign=self.settings.station_callsign)
@@ -1015,7 +1047,8 @@ class PotaLoggerApp(App):
 
     def apply_settings(self, settings: Settings | None) -> None:
         if settings is not None:
-            self.settings = settings
+            # A folder cleared in Settings means the default, as in the file.
+            self.settings = settings = self.with_export_folder(settings)
             # Saving rewrites the file, so whatever was wrong with it goes.
             self.settings_error = None
             self.station_callsign_to_fix = ""

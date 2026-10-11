@@ -27,9 +27,11 @@ class Settings:
     new_comment_pota_info: bool = False
     edit_comment_pota_info: bool = False
     # Where ADIF export writes its files, as typed (`~` is expanded, see
-    # folder_path). "" means none is set, and ADIF export is refused
-    # until one is. Settings saves only a folder that exists; none is
-    # ever made, so a typo can't send files somewhere unexpected.
+    # folder_path). "" means none is set: the app then sets the default
+    # (default_export_folder), making that folder, the only one it ever
+    # makes. Settings saves only a typed folder that exists, so a typo
+    # can't send files somewhere unexpected. Export is refused while none
+    # is set (the default couldn't be made).
     adif_export_folder: str = ""
     # Whether loading fixed how the file wrote a value, so it's to be
     # saved again. Not a setting, so settings compare without it.
@@ -111,6 +113,17 @@ def load_folder(value, problems: list[str]) -> tuple[str, bool]:
         return "", False
     folder = value.strip(" ")
     return folder, folder != value
+
+
+def default_export_folder(data: Path) -> str:
+    """The ADIF export folder set when none is: exports/ beside `data`
+    (the data folder), written with `~` when it's in the home folder.
+    """
+    folder = data.parent / "exports"
+    try:
+        return "~/" + folder.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(folder)
 
 
 def folder_path(folder: str) -> Path:
