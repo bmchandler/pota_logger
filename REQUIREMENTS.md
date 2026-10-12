@@ -125,7 +125,11 @@ The branch model is built (2026-10-11; see Versioning, Branches):
 `main` at the newest release, work and releases on `dev`, the release
 script moving `main` forward, dev builds reporting `+dev.<commit>` and
 keeping their files in `~/.local/share/pota-logger-dev/`, and
-`branch_guard.py`'s hooks.
+`branch_guard.py`'s hooks. Hand-tested by the operator outside the VM
+(2026-10-11): a release install and an `@dev` install each set up in
+their own folder, with exports defaulting to that folder's `exports/`,
+and the dev build's export reporting `2026.10.11+dev.7601686b`, the
+installed commit.
 
 Installing with `uv tool install` is built (2026-10-10; see Storage):
 installed, the app keeps its files in `~/.local/share/pota-logger/data/`,
