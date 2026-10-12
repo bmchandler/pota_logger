@@ -46,6 +46,10 @@ developer are in DEVELOPMENT.md, imported here:
   Avoid overriding framework defaults unless the user decides to.
 - REQUIREMENTS.md's "Status and plan" section says what's built and
   what's next; update it when a planned item lands.
+- README.md is for users of the release: what it does, installing,
+  upgrading, using it, their data. Developer material (development
+  builds, running from a clone, tests) goes in DEVELOPMENT.md, which
+  README.md links to.
 - README.md's "Noted issues" table (Issue, Status, Reason) lists only
   issues the operator decides to note: ones that won't be fixed (so
   users don't expect a fix), or that users must know about to keep

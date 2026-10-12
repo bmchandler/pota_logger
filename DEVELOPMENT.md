@@ -39,7 +39,7 @@ station callsign.
   script; a build installed from git adds its commit
   (`2026.10.11+dev.5f820a58`), read when the app runs (`app_version.py`).
 - Tags are for releases only. Testers install a development build by
-  branch or commit instead (see README.md, Development builds).
+  branch or commit instead (see Development builds).
 
 Run from a clone, the app keeps its files in the clone's `data/`, for
 development: git-ignored, so logs stay out of the code history.
@@ -71,6 +71,63 @@ installed them, delete the `pota_logger callsign guard` lines from
 fails, as the module they run is gone. If its hook files predate the
 shared ones (no `pota_logger git hooks` line at the top), delete those
 two files whole, then install the branch guard's.
+
+## Development builds
+
+To test what's being worked on (which may not be ready for use),
+install the newest development build:
+
+```bash
+uv tool install "git+https://github.com/bmchandler/pota_logger@dev"
+```
+
+and update it with `uv tool upgrade pota-logger`. Or install one
+commit, which `uv tool upgrade` doesn't move:
+
+```bash
+uv tool install "git+https://github.com/bmchandler/pota_logger@<commit>"
+```
+
+From a git server of your own over SSH, use its URL instead, here for a
+server named `gitserver` with the repository in its `git` user's home:
+
+```bash
+uv tool install "git+ssh://git@gitserver/~/pota_logger.git@dev"
+```
+
+```bash
+uv tool install "git+ssh://git@gitserver/~/pota_logger.git@<commit>"
+```
+
+Leave off `@dev` for the newest release. In an `ssh://` URL the path
+starts at the server's root, so `/~/` stands for the user's home (or
+give the full path, like `/home/git/pota_logger.git`). Git's short form,
+`git@gitserver:pota_logger.git`, isn't a URL, so uv doesn't take it.
+
+A development build keeps its files in `~/.local/share/pota-logger-dev/`,
+apart from a release's, so testing it never touches your real log
+(uninstalling leaves it, too). It reports its version as the release
+it follows, plus `+dev` and its commit (`2026.10.11+dev.5f820a58`), in
+ADIF exports too.
+
+Commits from `4ccbe051` on use `pota-logger-dev`. Earlier ones were made
+before development builds had a folder of their own: installed by
+commit, they report a release's version and use the release's
+`~/.local/share/pota-logger/`, your real log's. With a clone, to tell
+which side a commit is on (it prints `after` or `before`):
+
+```bash
+git merge-base --is-ancestor 4ccbe051 <commit> && echo after || echo before
+```
+
+Only one `pota-logger` can be installed at a time: to switch between a
+release and a development build, run the other's install command. Go
+back to the release before logging for real. To try a development build
+without replacing your installed release:
+
+```bash
+uvx --from "git+https://github.com/bmchandler/pota_logger@dev" pota-logger
+```
 
 ## Tests
 

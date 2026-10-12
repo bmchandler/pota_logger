@@ -1,6 +1,9 @@
 # POTA Logger
 
-A keyboard-first terminal logbook for **hunting** [Parks on the Air](https://docs.pota.app/)
+A streamlined paper to digital POTA logger with ADIF export support.
+Created by Brian M. Chandler, KL4E.
+
+A terminal logbook for **hunting** [Parks on the Air](https://docs.pota.app/)
 contacts. It's built for copying a paper log into the computer quickly and
 accurately: type each line as it's written, and the app checks it as you go.
 
@@ -26,7 +29,7 @@ the dependencies itself.
 Install the newest release, then run it:
 
 ```bash
-uv tool install "git+<repo-url>"
+uv tool install "git+https://github.com/bmchandler/pota_logger"
 ```
 
 ```bash
@@ -43,13 +46,13 @@ Each release is a git tag named for its date, like `2026.10.11`. To
 install an older one, list them:
 
 ```bash
-git ls-remote --tags --refs <repo-url>
+git ls-remote --tags --refs https://github.com/bmchandler/pota_logger
 ```
 
 then install it by its tag:
 
 ```bash
-uv tool install "git+<repo-url>@2026.10.11"
+uv tool install "git+https://github.com/bmchandler/pota_logger@2026.10.11"
 ```
 
 `uv tool upgrade` doesn't move an install from a tag: to follow new
@@ -65,48 +68,8 @@ Uninstalling removes only the app: your logs and settings stay in
 `~/.local/share/pota-logger/` (see Your data for other systems), and
 are there again if you reinstall. To remove them as well, delete that folder.
 
-To run it from a clone instead, to change the code, see
-[DEVELOPMENT.md](DEVELOPMENT.md).
-
-### Development builds
-
-To test what's being worked on (which may not be ready for use),
-install the newest development build:
-
-```bash
-uv tool install "git+<repo-url>@dev"
-```
-
-and update it with `uv tool upgrade pota-logger`. Or install one
-commit, which `uv tool upgrade` doesn't move:
-
-```bash
-uv tool install "git+<repo-url>@<commit>"
-```
-
-A development build keeps its files in `~/.local/share/pota-logger-dev/`,
-apart from a release's, so testing it never touches your real log
-(uninstalling leaves it, too). It reports its version as the release it follows, plus `+dev` and its
-commit (`2026.10.11+dev.5f820a58`), in ADIF exports too.
-
-Commits from `4ccbe051` on use `pota-logger-dev`. Earlier ones were made
-before development builds had a folder of their own: installed by
-commit, they report a release's version and use the release's
-`~/.local/share/pota-logger/`, your real log's. With a clone, to tell
-which side a commit is on (it prints `after` or `before`):
-
-```bash
-git merge-base --is-ancestor 4ccbe051 <commit> && echo after || echo before
-```
-
-Only one `pota-logger` is installed at a time: to switch between a
-release and a development build, run the other's install command. Go
-back to the release before logging for real. To try a development build
-without replacing your installed release:
-
-```bash
-uvx --from "git+<repo-url>@dev" pota-logger
-```
+To try changes not released yet, or run it from a clone to change the
+code, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Features
 
@@ -264,7 +227,7 @@ exports in `exports/` beside it (unless Settings names another folder):
 - Windows (untested): `C:\Users\<you>\.local\share\pota-logger\data\`.
 
 A development build uses `pota-logger-dev` in place of `pota-logger`
-(see Development builds).
+(see DEVELOPMENT.md).
 
 Upgrading or uninstalling the app leaves it alone; back it up to keep
 your log. A `README.txt` beside it sums up this section, for reading at

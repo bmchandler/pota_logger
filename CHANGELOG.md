@@ -8,9 +8,13 @@ are under Unreleased.
 
 ### Changed
 
+- POTA Logger is on GitHub
+  (https://github.com/bmchandler/pota_logger), which README.md's
+  install commands use. How to install a development build moved to
+  DEVELOPMENT.md.
 - Installing from git without a tag gets the newest release, and
   `uv tool upgrade` moves it to the next one. Work in progress is on
-  the `dev` branch instead (see README.md, Development builds).
+  the `dev` branch instead (see DEVELOPMENT.md, Development builds).
 
 ### Added
 

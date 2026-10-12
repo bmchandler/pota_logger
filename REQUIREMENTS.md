@@ -108,8 +108,8 @@ release script dates), installing with `uv tool install`, the MIT
 license, DEVELOPMENT.md and RELEASING.md, a checked test suite, and the
 code and tests grouped into folders (`fields/`, `screens/`, the app in
 `app.py`; `tests/` mirroring them). The first release, 2026.10.10, is
-made. README.md's install commands keep their `<repo-url>` placeholder
-until the GitHub repository exists.
+made. README.md's install commands use the GitHub repository
+(https://github.com/bmchandler/pota_logger, 2026-10-12).
 
 Next, after the first release: real use. QRZ.com API integration (see
 Export, QRZ.com API) is on hold until the operator has used the ADIF
@@ -679,7 +679,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   shares that one folder (no commit in its name), so an upgrade keeps
   the test logs. A clone keeps its own `data/` whatever its version.
   Commits from before this was built (before `4ccbe051`, named in
-  README.md's Development builds) report a release's version, so,
+  DEVELOPMENT.md's Development builds) report a release's version, so,
   installed by commit, they use the release's folder.
 - ADIF exports go by default to `exports/`, beside `data/` (decided
   2026-10-11): the clone's `exports/` (git-ignored), or installed,
