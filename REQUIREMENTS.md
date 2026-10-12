@@ -1076,6 +1076,20 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     to match records already logged, it would go in an
     `APP_<PROGRAM>_<FIELD>` field, ADIF's place for a program's own data.
     QRZ.com would keep it (Lossless ADIF).
+  - A round trip through QRZ.com (tried 2026-10-11: three test records,
+    with a call QRZ.com's lookup didn't find, imported into a separate
+    logbook, then its ADIF export): `POTA_REF` came back as sent,
+    `@US-NC` and `@US-TN` included, as did `SIG`, `SIG_INFO`, `STATE`,
+    `DXCC`, and a `TX_PWR` of 0.1, and none was flagged. QRZ.com stores
+    `FREQ` to 4 decimals (100 Hz): `14.284321` showed and exported as
+    `14.2843` (whether rounded or cut, that value doesn't tell). A paper
+    log is unlikely to need more, so FREQ's rules stay as they are.
+    QRZ.com takes `SUBMODE` but appears to keep no field for it (its log
+    view has no such column): USB and LSB show, and export, as `MODE`
+    (its edit form's mode list has `LSB` under `SSB`); a plain `SSB`
+    stays `SSB`, with no sideband filled in from FREQ. Editing and saving
+    a record on its site wasn't tried; its edit form shows FREQ to 4
+    decimals too.
 - QRZ.com API (notes for the possible stage after ADIF export, from
   QRZ's Logbook API page, 2026-10-09): INSERT takes one QSO as an ADIF
   record, so the ADIF record module serves both. INSERT fails on a dupe
@@ -1090,8 +1104,8 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   (logbook.qrz.com/apicheck) works on a real logbook, so testing by hand
   would use a separate logbook under the operator's call with a suffix
   never used on air (a suffix makes a new call, with its own logbook,
-  key, and date range; a same-call logbook can't overlap dates), kept
-  out of awards. App tests fake QRZ's responses.
+  key, and date range; a same-call logbook can't overlap dates; one
+  made 2026-10-11 for the round trip above), kept out of awards. App tests fake QRZ's responses.
 - POTA's parks list (decided 2026-10-09, after ADIF export, and taken
   before the API): `all_parks_ext.csv` from pota.app (about 96,000 parks, 9
   MB; columns reference, name, active, entityId (DXCC), locationDesc,
