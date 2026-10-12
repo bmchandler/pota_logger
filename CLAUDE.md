@@ -55,11 +55,13 @@ developer are in DEVELOPMENT.md, imported here:
 
 The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 
-- Since logs are saved, the operator's `data/settings.toml` holds a
-  placeholder call, used nowhere in the repo, instead of the real one.
-  So the guard no longer catches the real call: check staged changes and
-  commit messages for it by hand. Never name the placeholder in tracked
-  files either (the guard blocks it), and don't use it as a test call.
+- The operator's `data/settings.toml` holds a placeholder call, used
+  nowhere in the repo, instead of the real one. Never name the
+  placeholder in tracked files, and don't use it as a test call.
+- The operator's real call goes only where it credits them as the
+  app's maker. Check staged changes and commit messages by hand for any
+  other real call (one from a log in `data/`, above all): no hook
+  checks them.
 
 ## Code notes
 
@@ -87,10 +89,9 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   data_folder.py's `pota-logger-dev` folder for an install; a clone
   keeps `data/`. Tests pass `data_dir` a version rather than rely on
   the clone's.
-- Git hooks: callsign_guard.py (in the package) and branch_guard.py
-  (beside tag_new_version.py, which it imports `MAIN` and `VERSION`
-  from) each add their own marked line to the shared hook files
-  (git_hooks.py's `add_hook_line`), installed apart.
+- Git hooks: branch_guard.py (beside tag_new_version.py, which it
+  imports `MAIN` and `VERSION` from) adds its own marked line to the
+  hook files (git_hooks.py's `add_hook_line`), leaving others' alone.
 - export_screen.py holds `ExportScreen` (`f6`, or the ADIF button; the
   app's `action_export` gives it the log's entries, refused rows left
   out, whether the log is clean of `CLEAN_LOG_MARKERS`, and

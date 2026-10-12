@@ -28,16 +28,6 @@ def test_another_tools_hook_left_alone(tmp_path):
     assert path.read_text() == "#!/bin/sh\necho mine\n"
 
 
-def test_a_guards_file_from_before_sharing_is_replaced(tmp_path):
-    path = tmp_path / "pre-commit"
-    path.write_text("#!/bin/sh\n# guard a\nexec guard-a check\n")
-    assert add_hook_line(path, "guard-a check", "guard a")
-    assert path.read_text() == HEADER + "guard-a check || exit $?  # guard a\n"
-    # Another guard doesn't take it for its own.
-    path.write_text("#!/bin/sh\n# guard a\nexec guard-a check\n")
-    assert not add_hook_line(path, "guard-b check", "guard b")
-
-
 def run_hook(path, *, a_exit, b_exit):
     """Run the hook file with each guard's command a shell exit."""
     add_hook_line(path, f"(exit {a_exit})", "guard a")

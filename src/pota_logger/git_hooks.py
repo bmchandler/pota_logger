@@ -1,7 +1,7 @@
-"""Git hook files shared by the guards: callsign_guard.py, and
-branch_guard.py beside the project.
+"""Git hook files for the project's guards (branch_guard.py, beside the
+project).
 
-Git runs one file per hook (`.git/hooks/pre-commit`), so the guards share
+Git runs one file per hook (`.git/hooks/pre-commit`), so guards share
 it: each guard's install adds or replaces only its own line, marked with
 the guard's name, and leaves the others' alone. A line stops the hook
 when its guard refuses, so every guard has its say before git goes on.
@@ -35,10 +35,7 @@ def add_hook_line(path: Path, command: str, marker: str) -> bool:
     """
     text = path.read_text() if path.exists() else HEADER
     if not text.startswith(HEADER):
-        if f"\n# {marker}\n" not in text:
-            return False
-        # The guard's own file from before the hooks were shared, whole.
-        text = HEADER
+        return False
     lines = text.splitlines()
     mine = [i for i, line in enumerate(lines) if line.endswith(f"  # {marker}")]
     if mine:

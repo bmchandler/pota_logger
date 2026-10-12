@@ -57,23 +57,20 @@ another folder: the clone's `exports/` (git-ignored), or installed,
 `~/.local/share/pota-logger/exports/`. `tmp/` (git-ignored) is for
 other scratch files while developing.
 
-If you'll commit, install the git hooks once per clone: the callsign
-guard's (see Privacy), then the branch guard's, which refuse a commit
-on `main` and a push that would set the remote's `main` to anything
-but a release. They share git's hook files, each install changing only
-its own line (`git_hooks.py`):
-
-```bash
-uv run python -m pota_logger.callsign_guard install
-```
+If you'll commit, install the branch guard's git hooks once per clone.
+They refuse a commit on `main` and a push that would set the remote's
+`main` to anything but a release:
 
 ```bash
 uv run branch_guard.py install
 ```
 
-Install the callsign guard's first in a clone that had it before the
-hooks were shared: it updates its old hook files, which the branch
-guard won't change.
+The callsign guard's hooks are retired (see Privacy). In a clone that
+installed them, delete the `pota_logger callsign guard` lines from
+`.git/hooks/pre-commit` and `.git/hooks/commit-msg`, or each commit
+fails, as the module they run is gone. If its hook files predate the
+shared ones (no `pota_logger git hooks` line at the top), delete those
+two files whole, then install the branch guard's.
 
 ## Tests
 
@@ -155,8 +152,8 @@ uv run pytest -n0 tests/fields/test_freq.py
   - `screens/`: the modals (`*_screen.py`) and the status bar
     (`status_bar.py`).
   - `theme.py`: the color theme.
-  - `callsign_guard.py`: the callsign guard's git hooks (see Privacy).
-    `git_hooks.py`: the hook files it shares with the branch guard.
+  - `git_hooks.py`: the git hook files the branch guard writes its
+    lines into.
 - `tag_new_version.py`: makes a release (see RELEASING.md).
 - `branch_guard.py`: the branch guard's git hooks (see Branches).
 
@@ -221,13 +218,27 @@ with the evidence where known.
 
 ## Privacy
 
-Don't commit real callsigns if at all possible: in tracked files,
-tests, examples, or commit messages. Take care with them in tests in
-particular. There's no official standard reserving callsigns for
-examples, the way some domain names are, so any call that passes the
-app's callsign checks may belong to someone. The tests use calls
-chosen to look made up, like `W1TST` or `W1ABC`.
+There's no official standard reserving callsigns for examples, the way
+some domain names are, so any call that passes the app's callsign
+checks may belong to someone. So:
 
-`data/` is git-ignored, and the callsign guard hooks block whatever
-call is in `data/settings.toml` from commits. They're a backup, not the
-main rule, so check staged changes yourself.
+- The maintainer's own call appears only to credit who made the app
+  (README.md, and the app's own about information).
+- Everywhere else (tests, examples, the app's messages and
+  placeholders, commit messages), use calls chosen to look made up,
+  like `W1TST` or `W1ABC`. Never one copied from a real log.
+- Those calls go only in code that can't reach the network: tests with
+  the network mocked, or with a test server the test starts on loopback
+  (`127.0.0.1`) that serves canned data and reaches nothing outside
+  (the `pota` fixture in tests/conftest.py, which stands in for
+  pota.app's parks list). Never in code that may make a real network
+  call.
+- Anything else that sends a callsign (a logbook upload, say) is tested
+  by hand by a person, with their own call (`/TEST` added, for
+  example), and kept out of the test suite.
+
+`data/` is git-ignored, so logs stay out of the repo. Nothing checks
+commits for callsigns: check staged changes and commit messages
+yourself. (The callsign guard's git hooks once blocked the call in
+`data/settings.toml`; they were retired once the maintainer's call
+became public as credit.)

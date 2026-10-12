@@ -9,7 +9,7 @@ release it tags. These hooks catch a slip:
 - pre-push refuses a push that would set the remote's main to a commit
   no release tag points at, or delete it.
 
-They share the hook files with the callsign guard
+Each hook file keeps the guard to its own marked line
 (src/pota_logger/git_hooks.py). Install once per clone:
 
     uv run branch_guard.py install

@@ -1267,8 +1267,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 - `branch_guard.py` (beside `tag_new_version.py`, for developers, not
   in the package) installs git hooks that refuse a commit on `main`, and
   a push that would set the remote's `main` to a commit no release tag
-  points at, or delete it. They share the hook files with the callsign
-  guard's (git_hooks.py: each guard's install changes only its own
-  line), installed apart. A checkout from before the guard (a branch
-  from an older release) has no script, so its line does nothing
-  there.
+  points at, or delete it. Its install changes only its own line in
+  each hook file (git_hooks.py). A checkout from before the guard (a
+  branch from an older release) has no script, so its line does
+  nothing there.

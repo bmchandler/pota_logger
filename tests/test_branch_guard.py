@@ -3,7 +3,6 @@ import subprocess
 import pytest
 
 import branch_guard
-from pota_logger.callsign_guard import install as install_callsign_guard
 from pota_logger.git_hooks import HEADER
 
 ZERO = "0" * 40
@@ -68,17 +67,14 @@ def test_deleting_main_refused(repo):
     ]
 
 
-def test_hooks_installed_beside_the_callsign_guards(repo):
-    assert install_callsign_guard(repo) == 0
+def test_hooks_installed(repo):
     assert branch_guard.install(repo) == 0
     hooks = repo / ".git" / "hooks"
     pre_commit = (hooks / "pre-commit").read_text()
     assert pre_commit.startswith(HEADER)
-    assert "pota_logger.callsign_guard pre-commit" in pre_commit
     assert "test ! -f branch_guard.py || uv run --quiet branch_guard.py pre-commit" in pre_commit
     assert "branch_guard.py pre-push" in (hooks / "pre-push").read_text()
-    assert "branch_guard" not in (hooks / "commit-msg").read_text()
+    assert not (hooks / "commit-msg").exists()
     # Installing again changes nothing.
     assert branch_guard.install(repo) == 0
-    assert install_callsign_guard(repo) == 0
     assert (hooks / "pre-commit").read_text() == pre_commit
