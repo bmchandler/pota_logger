@@ -105,7 +105,7 @@ wheels = [
 
 [[package]]
 name = "pota-logger"
-version = "2026.10.13.3+dev"
+version = "2026.10.13.4"
 source = { editable = "." }
 dependencies = [
     { name = "textual" },
