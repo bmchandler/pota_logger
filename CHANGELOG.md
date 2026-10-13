@@ -16,10 +16,10 @@ What changed in each release, newest first. Versions are dates
 
 ### Added
 
-- **Update Option** in Settings (F2): at start, the app looks for a
+- **Update Option** in Settings (F2): at start, the app checks for a
   newer release and says so in a short note with the command to upgrade
   (Notify, the default), or upgrades itself when you quit (Automatic on
-  Quit), or doesn't look (No notification).
+  Quit), or doesn't check (No notification).
 
 ## 2026.10.12.2
 

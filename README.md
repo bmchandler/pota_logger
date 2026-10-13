@@ -228,16 +228,16 @@ logged contact, edit that record's COMMENT.
   both off at first, POTA's parks list, and a folder. In a terminal under
   28 rows, the part between the title and the buttons scrolls.
   - `Update Option:` what happens when a newer release is out (Enter
-    opens the list). The app looks each time it starts, in the
+    opens the list). The app checks each time it starts, in the
     background:
     - `Notify` (the default): a short note at the bottom right names
       the new version and the command to upgrade with.
     - `Automatic on Quit`: no note. When you quit, if a newer release
       was found, the app runs `uv tool upgrade pota-logger` in the
       terminal, so the next start is the new version.
-    - `No notification`: the app doesn't look.
+    - `No notification`: the app doesn't check.
 
-    To look, it asks where you installed it from (GitHub) for its list
+    To check, it asks where you installed it from (GitHub) for its list
     of releases, with git. Nothing from your log or settings is sent.
     Without a connection it gives up quietly within 20 seconds. An
     install of an older release by its tag isn't checked, as `uv tool
