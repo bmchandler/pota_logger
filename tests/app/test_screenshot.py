@@ -16,7 +16,7 @@ from pota_logger.screens.warning_screen import WarningScreen
 
 from tests.app.helpers import last_notification
 
-NAME = "pota-logger_2026-10-13_181822.svg"
+NAME = "pota-logger_261013_181822.svg"
 
 
 def path_field(app) -> Input:

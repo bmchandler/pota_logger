@@ -3,6 +3,13 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- A screenshot's file name has the date as YYMMDD, like the app's other
+  dates: `pota-logger_261013_181822.svg`.
+
 ## 2026.10.13.3
 
 ### Changed

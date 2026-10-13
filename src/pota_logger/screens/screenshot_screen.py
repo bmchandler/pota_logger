@@ -25,7 +25,7 @@ WRITE_FAILED = "Save error: Couldn't write the file."
 
 
 def screenshot_name(now: datetime) -> str:
-    return f"pota-logger_{now:%Y-%m-%d_%H%M%S}.svg"
+    return f"pota-logger_{now:%y%m%d_%H%M%S}.svg"
 
 
 def typed_path(text: str) -> Path:

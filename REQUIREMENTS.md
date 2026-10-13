@@ -454,7 +454,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   setting) takes the screenshot, so it shows the app and not the
   dialog, then opens a Save As modal: a folder tree (stock
   `DirectoryTree`, folders only, dot-folders too) from the home folder,
-  then `Save as`, a path filled in with `~/pota-logger_<date>_<time>.svg`
+  then `Save as`, a path filled in with `~/pota-logger_YYMMDD_HHMMSS.svg`
   and focused, so Enter saves it. Picking a folder in the tree fills in
   the path's folder part, keeping the file name. Home suits Linux,
   macOS, and Windows alike; Downloads and Pictures were turned down, as
