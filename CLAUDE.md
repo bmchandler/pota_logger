@@ -48,8 +48,14 @@ developer are in DEVELOPMENT.md, imported here:
   what's next; update it when a planned item lands.
 - README.md is for users of the release: what it does, installing,
   upgrading, using it, their data. Developer material (development
-  builds, running from a clone, tests) goes in DEVELOPMENT.md, which
-  README.md links to.
+  builds, running from a clone, tests, releasing, requirements) goes in
+  the developer docs, which README.md never mentions or links: those
+  who need them will find them. Its only links to the repo's files are
+  CHANGELOG.md and LICENSE.md.
+- In docs, a reference to a section or file is a link to it:
+  `[Your data](#your-data)`, `[DEVELOPMENT.md](DEVELOPMENT.md)`,
+  `[Development builds](DEVELOPMENT.md#development-builds)`. Not needed
+  for a file already linked earlier in the same paragraph.
 - README.md's "Noted issues" table (Issue, Status, Reason) lists only
   issues the operator decides to note: ones that won't be fixed (so
   users don't expect a fix), or that users must know about to keep

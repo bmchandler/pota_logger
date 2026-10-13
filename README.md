@@ -19,9 +19,10 @@ US amateur bands from 80m to 10m, WARC bands included.
 
 ## Install
 
-POTA Logger is built and tested on Linux. It will likely run on macOS
-(where the F keys may need **Fn** held down), and may run on Windows (in
-Windows Terminal), but neither is tested: your mileage may vary.
+POTA Logger is built and tested on Linux only. macOS and Windows are
+untested: it will likely run on macOS (where the F keys may need **Fn**
+held down), and may run on Windows (in Windows Terminal), but your
+mileage may vary.
 
 You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
 the dependencies itself.
@@ -65,11 +66,8 @@ uv tool uninstall pota-logger
 ```
 
 Uninstalling removes only the app: your logs and settings stay in
-`~/.local/share/pota-logger/` (see Your data for other systems), and
+`~/.local/share/pota-logger/` (see [Your data](#your-data) for other systems), and
 are there again if you reinstall. To remove them as well, delete that folder.
-
-To try changes not released yet, or run it from a clone to change the
-code, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Features
 
@@ -124,9 +122,11 @@ Optional: the app works fully without it, and does more with it.
     selected.
   - ST is filled in for a park in one state. A state you type is never
     changed; a park in several states leaves ST to you.
-  - Warnings on a park not in the list (it may be new: check for an
-    updated list) or inactive there, and on a state that isn't one of
-    the park's.
+  - A warning (Enter saves anyway) when:
+    - The park isn't in the list. It may be a new park: **Check for
+      Updated** in Settings gets the latest list.
+    - The list marks the park inactive.
+    - ST isn't one of the park's states.
   - The export adds the park's DXCC entity, and the state as the
     park's location for a park in several states.
 
@@ -207,12 +207,12 @@ logged contact, edit that record's COMMENT.
   - `Edit: Update COMMENT with POTA info.`: editing a record updates the
     same info, if its COMMENT starts with it.
   - `ADIF export folder`: where ADIF exports go. At first start it's set
-    to `exports/` beside `data/` (see Your data), created for you; change
+    to `exports/` beside `data/` (see [Your data](#your-data)), created for you; change
     it to any folder, like `~/Downloads`. A folder you type must already
     exist: none is created, so a typo is caught. Cleared, it goes back to
     `exports/`.
   - `POTA parks list:` your copy's date (or `none`), with **Check for
-    Updated** to download it or refresh it (see POTA's parks list).
+    Updated** to download it or refresh it (see [POTA's parks list](#potas-parks-list)).
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 
@@ -221,13 +221,11 @@ logged contact, edit that record's COMMENT.
 Your log and settings live in one folder, called `data/` here, with ADIF
 exports in `exports/` beside it (unless Settings names another folder):
 
-- Linux and macOS: `~/.local/share/pota-logger/data/` (or
-  `$XDG_DATA_HOME/pota-logger/data/` when that's set). On a Mac, that's
-  this folder in your home folder, not one in `~/Library`.
+- Linux: `~/.local/share/pota-logger/data/` (or
+  `$XDG_DATA_HOME/pota-logger/data/` when that's set).
+- macOS (untested): the same, `~/.local/share/pota-logger/data/` in your
+  home folder, not one in `~/Library`.
 - Windows (untested): `C:\Users\<you>\.local\share\pota-logger\data\`.
-
-A development build uses `pota-logger-dev` in place of `pota-logger`
-(see DEVELOPMENT.md).
 
 Upgrading or uninstalling the app leaves it alone; back it up to keep
 your log. A `README.txt` beside it sums up this section, for reading at
@@ -314,11 +312,7 @@ Not built yet:
 - QRZ.com API upload (maybe; on hold until the ADIF export has seen some
   real use)
 
-Scope, field rules, and the plan live in [REQUIREMENTS.md](REQUIREMENTS.md);
-what changed in each release, in [CHANGELOG.md](CHANGELOG.md); how to make
-a release, in [RELEASING.md](RELEASING.md); running it from
-source, the tests, and the code's layout, in [DEVELOPMENT.md](DEVELOPMENT.md).
-It's shared as is: pull requests aren't taken (see DEVELOPMENT.md).
+What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 Licensed under the MIT License ([LICENSE.md](LICENSE.md)).
 
 ## Noted issues

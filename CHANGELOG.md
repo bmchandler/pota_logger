@@ -1,8 +1,16 @@
 # Changelog
 
 What changed in each release, newest first. Versions are dates
-(`YYYY.M.D`; see [RELEASING.md](RELEASING.md)). Changes not released yet
-are under Unreleased.
+(`YYYY.M.D`). Changes not released yet are under Unreleased.
+
+## Unreleased
+
+### Changed
+
+- README.md says plainly that macOS, like Windows, is untested, links
+  the sections it refers to, and lists the parks list's warnings one by
+  one. It's now only for using the app: developer material is left to
+  the developer docs.
 
 ## 2026.10.12
 
