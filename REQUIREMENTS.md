@@ -209,14 +209,22 @@ Ideas considered and deferred:
 - A full ADIF export (every entry) in the Export modal, as a backup
   or for another logging program. Meanwhile a date range from the
   oldest DATE does the same.
+
+Ideas decided against:
+
 - PARK as a comma list of parks (`1234,2345,3456`), mirroring ADIF's
-  `POTA_REF`, for a 2-fer or more in one entry (see Entry behavior,
-  multi-park activations). The better path if multi-park entries become
-  worth it: the input already scrolls, so the form wouldn't change, but
-  the log column, the load checks, the dupe check, sorting, COMMENT's
-  POTA info, and ST (parks in different states) all would. A separate
-  field for extra parks was set aside: it needs room in the form, and a
-  fixed number of fields would cap the parks.
+  `POTA_REF`, for a 2-fer or more in one entry. Kept as an idea when the
+  ADIF export was planned (2026-10-09), since `POTA_REF` takes a list;
+  dropped 2026-10-13. A hunter's park credit comes from the activator's
+  log, so the list would only tidy the operator's own export, and the
+  other parks already go in COMMENT (see Entry behavior, multi-park
+  activations). It would have changed the log column, the load checks,
+  the dupe check, sorting, COMMENT's POTA info, and ST (parks in
+  different states). A separate field for extra parks was set aside
+  earlier: it needs room in the form, and a fixed number of fields would
+  cap the parks.
+- `f1` opening Info over a modal or block (decided 2026-10-13): extra
+  code for little value; like the app's other keys, it doesn't.
 
 ## Entry fields
 
@@ -513,7 +521,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   entry per park isn't an option: QRZ.com takes entries with the same
   CALL, BAND, MODE, DATE, and TIME as dupes and keeps only one. Hunters
   get park credit from the activator's log, not their own. PARK as a
-  list is a deferred idea (see Status and plan).
+  list was decided against (see Status and plan).
 - Entries may be typed in any time order, with no warning. The paper log
   isn't always in time order (an entry is sometimes finished after later
   ones), and typing it 1:1 keeps it easy to double-check.
@@ -1079,6 +1087,13 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     `Quit`: mouse shortcuts to the same exports. The Settings button
     goes; `f2` stays, and the footer's keys are clickable, so Settings
     is still a click away.
+    Reopened 2026-10-13, to settle when the QRZ.com API is built: the
+    QRZ.com upload in the Export modal beside the ADIF file (or an
+    alternate Export modal while an API key is set), or a modal and key
+    of its own. And if `ADIF` and `QRZ` don't fit well side by side (the
+    mark counts share the row), `QRZ` may replace `ADIF` while a key is
+    set. README.md's screenshot (a PNG taken by hand) shows the bottom
+    buttons: retake it if they change, not if `QRZ` only joins `ADIF`.
   - A setting for the default ADIF export folder (decided 2026-10-09),
     in Settings. It needs `~` expanded; a typed one must exist (none is made). It
     defaults to `exports/` beside `data/`, made by the app (decided
