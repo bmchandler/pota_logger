@@ -3,6 +3,13 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- README.md shows a screenshot of the app, and says it goes online to
+  check for a newer app release as well as for POTA's parks list.
+
 ## 2026.10.13
 
 ### Changed
