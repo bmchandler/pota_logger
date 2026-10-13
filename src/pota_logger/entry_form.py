@@ -188,6 +188,32 @@ def labeled_input(
     return column
 
 
+class ParkName(Label):
+    """The park's name, with its states for a park in several
+    (`Some Park (NC,TN,MA)`): a name too long for the width left is cut
+    off with an ellipsis, so the states always show in full.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.park_name = ""
+        self.states: tuple[str, ...] = ()
+
+    def show_park(self, name: str, states: tuple[str, ...] = ()) -> None:
+        self.park_name = name
+        self.states = states
+        self.refresh()
+
+    def render(self) -> Text:
+        # Text, not str, so a name with brackets isn't read as markup.
+        name = Text(self.park_name)
+        if not self.states:
+            return name
+        hint = f" ({','.join(self.states)})"
+        name.truncate(max(self.content_size.width - len(hint), 1), overflow="ellipsis")
+        return name + hint
+
+
 class EntryForm(Vertical):
     """Labeled inputs for a single log entry: a row, then COMMENT below."""
 
@@ -316,7 +342,7 @@ class EntryForm(Vertical):
         with Horizontal():
             for name, placeholder, max_length in ROW_FIELDS:
                 yield labeled_input(name, placeholder, max_length)
-        yield labeled_input("COMMENT", "", COMMENT_LENGTH, Label(id="park-name"))
+        yield labeled_input("COMMENT", "", COMMENT_LENGTH, ParkName(id="park-name"))
         yield Static(id="entry-problems")
 
     def field(self, name: str) -> Input:
@@ -346,12 +372,19 @@ class EntryForm(Vertical):
     def show_park_name(self) -> None:
         """Show the park's name, from POTA's parks list, for PARK as it
         reads; none when it doesn't, or isn't in the list (or there's no
-        list).
+        list). For a park in several states, its states too, as an aid to
+        fill in ST, while the form takes typing (not for an entry shown
+        read-only).
         """
         park = self.park_read()
         listed = None if park is None else self.app.parks.get(park)
-        # Text, not str, so a name with brackets isn't read as markup.
-        self.query_one("#park-name", Label).update(Text(listed.name if listed else ""))
+        label = self.query_one("#park-name", ParkName)
+        if listed is None:
+            label.show_park("")
+            return
+        read_only = self.shown is not None and self.editing is None
+        several = len(listed.states) > 1 and not read_only
+        label.show_park(listed.name, listed.states if several else ())
 
     def fill_state(self) -> None:
         """Fill ST with the park's state, from POTA's parks list, for a park
@@ -489,6 +522,7 @@ class EntryForm(Vertical):
         for name, _, _ in FIELDS:
             self.field(name).disabled = False
         self.show_report_placeholders()
+        self.show_park_name()
         # An edited entry's COMMENT is updated only if it starts with the
         # POTA info its PARK and ST give.
         if self.app.settings.edit_comment_pota_info:

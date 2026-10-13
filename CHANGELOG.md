@@ -3,6 +3,14 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Added
+
+- For a park in several states, the park's name above COMMENT is
+  followed by its states, like `(NC,TN,MA)`, while you type or edit an
+  entry, to help fill in ST. A long name is cut short to fit them.
+
 ## 2026.10.13.1
 
 ### Changed

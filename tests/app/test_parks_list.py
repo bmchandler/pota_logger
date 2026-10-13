@@ -4,6 +4,7 @@ import pytest
 from textual.widgets import Button, Input
 
 from pota_logger.app import PotaLoggerApp
+from pota_logger.fields.parks import Park
 from pota_logger.parks_list import download_parks, md5_etag, parks_folder
 from pota_logger.screens.parks_offer_screen import ParksOfferScreen
 from pota_logger.screens.settings_screen import SettingsScreen
@@ -207,6 +208,45 @@ async def test_park_name_for_a_selected_row_then_back_to_the_form(parks_app):
         assert park_name(app) == "Acadia National Park"
         await pilot.press("escape")
         assert park_name(app) == "Alagnak Wild River National Park"
+
+
+async def test_park_name_with_its_states_for_a_park_in_several(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        await leave_park(app, pilot, "3")
+        assert park_name(app) == "Two State Trail (DC,MD)"
+        # Still there with ST filled in.
+        fill(app, {"ST": "MD"})
+        await leave_park(app, pilot, "3")
+        assert park_name(app) == "Two State Trail (DC,MD)"
+
+
+async def test_long_park_name_cut_off_to_show_its_states_in_full(parks_app):
+    app = parks_app
+    async with app.run_test(size=(107, 24)) as pilot:
+        await parks_list_done(app, pilot)
+        app.parks["US-0005"] = Park("Long " * 30 + "Trail", True, "291", ("NC", "TN", "MA"))
+        await leave_park(app, pilot, "5")
+        await pilot.pause()
+        shown = park_name(app)
+        assert shown.startswith("Long Long ")
+        assert shown.endswith("… (NC,TN,MA)")
+        assert len(shown) == app.query_one("#park-name").content_size.width
+
+
+async def test_park_states_only_while_the_form_takes_typing(parks_app):
+    app = parks_app
+    async with app.run_test() as pilot:
+        await parks_list_done(app, pilot)
+        fill(app, ENTRY | {"PARK": "3", "ST": "DC"})
+        await pilot.press("enter")
+        await select_row(app, pilot, 0)
+        assert park_name(app) == "Two State Trail"
+        await pilot.press("f3")
+        assert park_name(app) == "Two State Trail (DC,MD)"
+        await pilot.press("escape")
+        assert park_name(app) == "Two State Trail"
 
 
 async def test_park_name_once_the_list_is_downloaded(app, pota):

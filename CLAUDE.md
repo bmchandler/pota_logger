@@ -136,8 +136,9 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   needed to avoid an import cycle through adif.py, logbook.py, and
   entry_form.py). PARK refuses ADIF's `@LOCATION`: `adif_fields` adds
   it to `POTA_REF` from ST, for a park in several states. `EntryForm.show_park_name` shows PARK's name on
-  COMMENT's label row (`#park-name`, centered via `labeled_input`'s
-  `beside`) and `fill_state` fills ST (`filled_state`, put aside like
+  COMMENT's label row (`#park-name`, a `ParkName`, centered via
+  `labeled_input`'s `beside`; a multi-state park's states after it,
+  `(DC,MD)`, while the form takes typing, the name cut to fit them) and `fill_state` fills ST (`filled_state`, put aside like
   `pota_comment`), wherever PARK's value changes. Warning checks take
   `parks` as a third argument (`park_not_listed`,
   `state_not_the_parks`); `adif_fields` takes it for `DXCC` and that location. Tests use the `pota` fixture (tests/conftest.py), a

@@ -149,7 +149,9 @@ Optional: the app works fully without it, and does more with it.
   current.`). Settings shows the date of your copy.
 - With it:
   - The park's name shows above COMMENT, for the park typed or the row
-    selected.
+    selected. For a park in several states, while you type or edit an
+    entry, its states follow the name, like `(NC,TN,MA)`, to help you
+    fill in ST.
   - ST is filled in for a park in one state. A state you type is never
     changed; a park in several states leaves ST to you.
   - A warning (Enter saves anyway) when:

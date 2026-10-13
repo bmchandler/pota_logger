@@ -98,7 +98,8 @@ Support for POTA's parks list is built (2026-10-10; see Export,
 POTA's parks list), taken before the QRZ.com API (decided 2026-10-09,
 as the more straightforward): the download, offered at first start and
 checked for updates from Settings; the park's name on COMMENT's label
-row, ST filled from the park, warnings on an unlisted or inactive park
+row (with a multi-state park's states while typing or editing, built
+2026-10-13), ST filled from the park, warnings on an unlisted or inactive park
 and on an ST not the park's, and DXCC (and a multi-state park's
 location) in the export.
 
@@ -1223,12 +1224,22 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     the app.
   - The park's name (decided 2026-10-09, built 2026-10-10): on the COMMENT
     label row, centered over the COMMENT field (decided 2026-10-10; an
-    empty row, so nothing moves), in the label's color, the name alone (PARK, just above, shows the reference),
+    empty row, so nothing moves), in the label's color, the name, not the reference (PARK, just above, shows it),
     updated on leaving PARK and shown for a selected row too. A
     name too long for the row is cut off with `…`: a blank as wide as
     `COMMENT` balances it on the right, leaving 87 characters at the
-    form's full width (99% of names fit). The park's states (`locationDesc`) aren't
-    shown. US states never show with POTA's `US-` (`NC`, not `US-NC`),
+    form's full width (99% of names fit). For a park in several
+    states (`locationDesc`), its states follow the name, as an aid to
+    fill in ST, which the app leaves blank for such a park (decided
+    2026-10-13, built the same day): `Some Park Name (NC,TN,MA)`, in
+    the list's order, no spaces. A name too long to fit with them is
+    cut off instead (`Some Park Nam… (NC,TN,MA)`), so the states always
+    show in full. Only while the form takes typing, a new entry or one
+    edited (F3), whether ST is filled in or not; not for a selected
+    row shown read-only, which shows the name alone. This reverses the
+    2026-10-09 call to show the name alone, made before the name was
+    built so it could be seen first. One state isn't shown: ST is
+    filled from it. US states never show with POTA's `US-` (`NC`, not `US-NC`),
     here or in a warning; a location under another prefix would show
     it, if that ever comes up. It shows on leaving PARK and on Enter
     (as COMMENT's POTA info), for PARK as it reads, and none when PARK doesn't read or isn't listed; for a
