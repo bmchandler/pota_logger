@@ -1,6 +1,6 @@
 [project]
 name = "pota-logger"
-version = "2026.10.13+dev"
+version = "2026.10.13.1"
 description = "A streamlined paper to digital POTA logger with ADIF export support."
 readme = "README.md"
 license = "MIT"

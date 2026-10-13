@@ -3,7 +3,7 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
-## Unreleased
+## 2026.10.13.1
 
 ### Changed
 
