@@ -164,7 +164,9 @@ uv run pytest -n0 tests/fields/test_freq.py
   none, so it opens on the station-callsign-required block. Each test
   keeps to its own temp dir, as tests run in parallel.
 - Tests never reach pota.app: the `pota` fixture is a local server
-  standing in for it.
+  standing in for it. Nor GitHub: the `releases` fixture makes a local
+  git repository with the tags given, for the check for a newer
+  release.
 - App tests build on `ENTRY` (USB on a 20m voice frequency) and
   `CW_ENTRY`. A test that saves several entries needs a different
   CALL on each, or the dupe block stops it. Use past dates, or `991231`
@@ -199,8 +201,10 @@ uv run pytest -n0 tests/fields/test_freq.py
     `record_ids.py`: each row's record ID. `file_errors.py`: the
     errors file for rows too broken to load.
   - `adif.py`: ADIF records and the export file.
-  - `parks_list.py`: POTA's parks list download, the app's only network
-    use.
+  - `parks_list.py`: POTA's parks list download, one of the app's two
+    network uses.
+  - `updates.py`: the other, the check for a newer release at start
+    (`git ls-remote`), and the upgrade on Quit (`uv tool upgrade`).
   - `settings.py`: the settings file. `data_folder.py`: where the app
     keeps its files, and the installed `README.txt` (`README_TEXT`), a
     summary of README.md's "Your data": change them together.

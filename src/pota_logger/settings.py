@@ -18,6 +18,16 @@ EDIT_COMMENT_POTA_INFO = "Edit: Update COMMENT with POTA info."
 # The on/off settings, by their key in the file.
 SWITCHES = ["new_comment_pota_info", "edit_comment_pota_info"]
 
+# What to do about a newer release (updates.py): each choice's value in
+# the file and label, as dictated (2026-10-12), and the default.
+UPDATES_LABEL = "Update Option: "
+UPDATES = {
+    "none": "No notification",
+    "notify": "Notify",
+    "on_quit": "Automatic on Quit",
+}
+DEFAULT_UPDATES = "notify"
+
 
 @dataclass
 class Settings:
@@ -33,6 +43,9 @@ class Settings:
     # can't send files somewhere unexpected. Export is refused while none
     # is set (the default couldn't be made).
     adif_export_folder: str = ""
+    # A key of UPDATES: tell the operator of a newer release found at
+    # start, or upgrade to it on Quit, or neither.
+    updates: str = DEFAULT_UPDATES
     # Whether loading fixed how the file wrote a value, so it's to be
     # saved again. Not a setting, so settings compare without it.
     fixed: bool = field(default=False, compare=False)
@@ -60,7 +73,8 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
 
     An on/off setting that isn't `true` or `false` is off, with a
     message in `problems`; so is an ADIF export folder that isn't plain
-    ASCII text (spaces around it are fixed, like the call's).
+    ASCII text (spaces around it are fixed, like the call's). An
+    `updates` that isn't one of UPDATES is "none", with a message too.
 
     Raises tomllib.TOMLDecodeError if the file has been hand-edited into
     invalid TOML, or StationCallsignError (with a message for the
@@ -89,10 +103,16 @@ def load_settings(path: Path = SETTINGS_PATH) -> Settings:
         else:
             problems.append(f"{key} {value!r} must be true or false")
     folder, folder_fixed = load_folder(data.get("adif_export_folder", ""), problems)
+    updates = data.get("updates", DEFAULT_UPDATES)
+    if not isinstance(updates, str) or updates not in UPDATES:
+        choices = ", ".join(json.dumps(choice) for choice in UPDATES)
+        problems.append(f"updates {updates!r} must be one of {choices}")
+        updates = "none"
     return Settings(
         station_callsign=callsign,
         **switches,
         adif_export_folder=folder,
+        updates=updates,
         fixed=callsign != text or folder_fixed,
         problems=problems,
     )
@@ -141,4 +161,5 @@ def save_settings(settings: Settings, path: Path = SETTINGS_PATH) -> None:
     lines = [f"station_callsign = {json.dumps(settings.station_callsign, ensure_ascii=False)}"]
     lines += [f"{key} = {json.dumps(getattr(settings, key))}" for key in SWITCHES]
     lines.append(f"adif_export_folder = {json.dumps(settings.adif_export_folder)}")
+    lines.append(f"updates = {json.dumps(settings.updates)}")
     path.write_text("".join(f"{line}\n" for line in lines))

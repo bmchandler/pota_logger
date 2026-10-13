@@ -84,6 +84,9 @@ class FakeApp:
     def run(self):
         FakeApp.ran = True
 
+    def upgrade_on_quit(self):
+        return False
+
 
 def test_installed_app_writes_the_readme_beside_data(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "from_source", lambda: False)

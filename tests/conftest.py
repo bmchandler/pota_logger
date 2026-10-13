@@ -1,3 +1,5 @@
+import os
+import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -82,3 +84,29 @@ def pota():
     yield fake
     server.shutdown()
     server.server_close()
+
+
+@pytest.fixture
+def releases(tmp_path):
+    """Make a local git repository with `main` and `dev` and the tags
+    given, standing in for the app's own, so the check for a newer
+    release never reaches the network; gives its URL.
+    """
+
+    def make(*tags: str) -> str:
+        repo = tmp_path / "repo"
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", "-C", str(repo), *args], env=env, check=True, capture_output=True)
+
+        repo.mkdir()
+        git("init", "-b", "main")
+        git("-c", "user.name=Test", "-c", "user.email=test@example.com",
+            "commit", "--allow-empty", "-m", "Initial Commit")
+        git("branch", "dev")
+        for tag in tags:
+            git("tag", tag)
+        return repo.as_uri()
+
+    return make

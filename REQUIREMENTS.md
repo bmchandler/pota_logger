@@ -111,6 +111,10 @@ code and tests grouped into folders (`fields/`, `screens/`, the app in
 made. README.md's install commands use the GitHub repository
 (https://github.com/bmchandler/pota_logger, 2026-10-12).
 
+The check for a newer release is built (2026-10-12; see Settings,
+Updates): a toast at start, or an upgrade once the app quits, chosen
+in Settings.
+
 Next, after the first release: real use. QRZ.com API integration (see
 Export, QRZ.com API) is on hold until the operator has used the ADIF
 export in a few real sessions, outside the development VM, importing
@@ -276,7 +280,8 @@ Session-level value:
 ## Settings
 
 - A settings modal holds app-wide settings: the station callsign while
-  none is set (see Session-level value), then two checkboxes (stock
+  none is set (see Session-level value), then `Update Option` (see
+  Updates below), then two checkboxes (stock
   Textual: Space or Enter toggles one), both off by default, since
   others may not want them. A box shows its X only when checked (decided
   2026-10-08; stock, a dimmed X shows when unchecked too, which reads as
@@ -285,9 +290,24 @@ Session-level value:
   `Edit: Update COMMENT with POTA info.` (see COMMENT's POTA info). It
   opens at first start, from the station-callsign block, and after that
   with F2 (the footer's f2 is clickable), without the call. Below the
-  checkboxes, always, is the `ADIF export folder` field (built
-  2026-10-09; see Export). Save (or Enter in the call or the folder)
-  saves them all; Esc or Cancel changes nothing.
+  checkboxes, after setup, is the parks list's row (see Export, POTA's
+  parks list), then, always, after a blank row, the `ADIF export
+  folder` field (built 2026-10-09; see Export). Save (or Enter in the
+  call or the folder) saves them all; Esc or Cancel changes nothing.
+- Order and spacing as dictated (2026-10-12): the call (first start),
+  then `Update Option: ` with its dropdown, a blank row, the two
+  checkboxes, a blank row, the parks list's date with `Check for
+  Updated` below it, a blank row, the folder, and Cancel and Save at the
+  bottom right. That makes Settings 28 rows after setup, so it may be taller than the
+  terminal (24 rows is common): the part between the title and the
+  buttons then scrolls, keeping the buttons in view, and Tab scrolls
+  each setting into view (the scrolling part isn't a Tab stop itself).
+  Its height is set from the screen's (`FRAME_ROWS`), as CSS can't say
+  "the screen less the frame" in an auto-height modal.
+  `Check for Updated` is 25 wide (decided 2026-10-12): label-wide, its
+  stock focus highlight (reversed, the label and a space each side)
+  filled it edge to edge, unlike Cancel's at the stock minimum width;
+  at 25 it has 3 plain cells each side.
 - The ADIF export folder is saved as typed, spaces around it dropped
   (`~` is expanded). Blank means the default (decided 2026-10-11):
   `exports/` beside `data/` (see Storage), written with `~` when in the
@@ -310,6 +330,50 @@ Session-level value:
   drive not plugged in yet); export says so if it's gone. A folder
   picker isn't planned: Textual has none built in (a `DirectoryTree`
   widget to build one from, or the third-party `textual-fspicker`).
+- Updates (decided and built 2026-10-12): what to do about a newer
+  release, one of three, so a stock Textual `Select` (a dropdown: Enter
+  opens it, arrows pick, Enter confirms), first in Settings after any
+  call: `No notification`, `Notify` (the default), or `Automatic on
+  Quit`. A notice and an upgrade on Quit are one or the other: with the
+  upgrade on, the notice would only say what Quit is about to do. Its
+  label, `Update Option: ` as dictated, sits beside the compact
+  `Select` on one row; the label says there's a choice there, as the
+  theme doesn't make an unfocused dropdown stand out.
+  - At start (unless `No notification`), the app lists its repository's
+    tags with `git ls-remote --heads --tags --refs <url>` and compares
+    the newest release tag (a calendar version; not `MVP`) with its own
+    version, or the release a dev build follows (`2026.10.12.2+dev` is
+    `2026.10.12.2`). The URL, and the branch, tag, or commit asked for,
+    are what uv recorded at install (`direct_url.json`, PEP 610). Only an
+    install from git that follows a branch is checked (none asked for,
+    `main`, or a branch, `dev`): `uv tool upgrade` doesn't move one from
+    a tag or commit. A clone run isn't an install from git, so it's never
+    checked. git is there: uv runs it to install from git.
+  - `uv tool list --outdated` can't stand in for this: it asks PyPI for
+    the package by name, whatever the tool was installed from (it
+    reported nothing for an install of an older release, 2026-10-12),
+    and would compare the app with any other package of that name. `uv
+    tool upgrade` has no dry run.
+  - It never holds up the app or Quit: it runs in a thread of its own
+    (not a Textual worker, which the app waits for at Quit), off the
+    terminal (a new session, no input), with git told never to ask
+    (`GIT_TERMINAL_PROMPT=0`; SSH in batch mode with a 10-second connect
+    timeout, unless `GIT_SSH_COMMAND` is set), giving up on a stalled
+    connection (under a kilobyte a second for 10 seconds), and stopped
+    after 20 seconds in all. Anything that goes wrong (no git, no
+    connection, an error) is no news: nothing is shown.
+  - `Notify`: a newer release is a toast, as dictated (2026-10-12), for
+    Textual's usual 5 seconds:
+    `Version 2026.10.13 is available.` /
+    `Quit, then run: uv tool upgrade pota-logger`
+  - `Automatic on Quit`: no toast; once the app's screen is gone at
+    Quit, `uv tool upgrade pota-logger` runs in the terminal with its
+    output shown, only if a newer release was found (the check may not
+    have finished: then nothing runs). It follows the setting as last
+    saved, so choosing it after the check found one still upgrades.
+    Ctrl+C stops it, quietly. Without uv on the PATH, the toast is shown
+    instead.
+  - Changing the setting doesn't run the check: that's at start.
 - In `data/settings.toml` they're `new_comment_pota_info` and
   `edit_comment_pota_info`, `true` or `false`; a missing one is off (a
   file from before them). Anything else (`"yes"`) is off and blocks at
@@ -318,7 +382,10 @@ Session-level value:
   folder is `adif_export_folder`, a quoted string; a missing one is none
   set, spaces around it are fixed on load (and saved, like the call's),
   and one that isn't plain ASCII text is none set and blocks the same
-  way (`adif_export_folder 1 must be a folder, in quotes`). Fixing the
+  way (`adif_export_folder 1 must be a folder, in quotes`). Updates is
+  `updates`: `"none"`, `"notify"`, or `"on_quit"`; a missing one is
+  `"notify"`, and anything else is `"none"` and blocks the same way
+  (`updates 'yes' must be one of "none", "notify", "on_quit"`). Fixing the
   call's spaces or case isn't saved then, as saving would hide the
   problem.
 - Settings are saved in `data/settings.toml`.
@@ -1127,7 +1194,8 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   park's (`locationDesc` can list several: `US-DC,US-MD,US-WV`), show
   the park's name, warn on a park not in the list (it may be new, so
   never a block), and give the export a DXCC number. It would be the
-  app's only network use, made only when the operator chooses.
+  app's only network use, made only when the operator chooses. (Until
+  the check for a newer release, 2026-10-12; see Settings, Updates.)
   - It's served from Amazon S3 through CloudFront and seems rebuilt
     nightly (no schedule is published). A download is the whole list as
     it stands. Save the server's `ETag` and `Last-Modified` with the
@@ -1183,9 +1251,10 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     after the station callsign is first saved, unless a sound copy is
     already saved or the file errors block is up. Settings after setup
     shows `POTA parks list: 2026.10.09` (POTA's date for the copy, UTC),
-    or `none`, beside `Check for Updated`, below the ADIF export folder
-    with no blank row between, so Settings fits a 24-row terminal; the
-    first-time Settings doesn't (the offer follows it). The download
+    or `none`, with `Check for Updated` below it, below the checkboxes
+    (moved there 2026-10-12; it was beside the date, below the folder,
+    to fit a 24-row terminal); the first-time Settings doesn't (the
+    offer follows it). The download
     runs in a thread, so the app carries on: `Downloading POTA's parks
     list...`, then `Parks list downloaded.` (the date in Settings
     updates, if open), `Parks file is already current.`, or the error

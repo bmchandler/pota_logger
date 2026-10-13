@@ -66,6 +66,9 @@ To update to a newer release:
 uv tool upgrade pota-logger
 ```
 
+The app tells you when a newer release is out, or upgrades itself when
+you quit, as you choose in Settings (see [Settings and keys](#settings-and-keys)).
+
 Each release is a git tag named for its date, like `2026.10.11`. To
 install an older one, list them:
 
@@ -221,21 +224,37 @@ logged contact, edit that record's COMMENT.
   one call: a row with another call is refused, to fix by hand. When your
   call changes, start a new log: move the old log files out of `data/`,
   then set the new call in `data/settings.toml`.
-- **F2** opens Settings, with two checkboxes, both
-  off at first, a folder, and POTA's parks list:
+- **F2** opens Settings, with a choice for updates, two checkboxes,
+  both off at first, POTA's parks list, and a folder. In a terminal under
+  28 rows, the part between the title and the buttons scrolls.
+  - `Update Option:` what happens when a newer release is out (Enter
+    opens the list). The app looks each time it starts, in the
+    background:
+    - `Notify` (the default): a short note at the bottom right names
+      the new version and the command to upgrade with.
+    - `Automatic on Quit`: no note. When you quit, if a newer release
+      was found, the app runs `uv tool upgrade pota-logger` in the
+      terminal, so the next start is the new version.
+    - `No notification`: the app doesn't look.
+
+    To look, it asks where you installed it from (GitHub) for its list
+    of releases, with git. Nothing from your log or settings is sent.
+    Without a connection it gives up quietly within 20 seconds. An
+    install of an older release by its tag isn't checked, as `uv tool
+    upgrade` doesn't move it.
   - `New: Pre-populate COMMENT with POTA info.`: a new entry's COMMENT
     starts as `POTA `, and becomes `POTA US-1234 NJ` (or `POTA US-1234`
     with no state) as you leave PARK and ST. Anything you type after that
     is kept when PARK or ST change.
   - `Edit: Update COMMENT with POTA info.`: editing a record updates the
     same info, if its COMMENT starts with it.
+  - `POTA parks list:` your copy's date (or `none`), with **Check for
+    Updated** below it to download it or refresh it (see [POTA's parks list](#potas-parks-list)).
   - `ADIF export folder`: where ADIF exports go. At first start it's set
     to `exports/` beside `data/` (see [Your data](#your-data)), created for you; change
     it to any folder, like `~/Downloads`. A folder you type must already
     exist: none is created, so a typo is caught. Cleared, it goes back to
     `exports/`.
-  - `POTA parks list:` your copy's date (or `none`), with **Check for
-    Updated** to download it or refresh it (see [POTA's parks list](#potas-parks-list)).
 - **F1** shows Info: the app's version, license, and where it is on
   GitHub, and where it keeps your log and exports. Esc or Enter closes
   it.

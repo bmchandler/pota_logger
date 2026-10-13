@@ -23,6 +23,7 @@ def test_save_creates_data_dir(settings_path):
         "new_comment_pota_info = false\n"
         "edit_comment_pota_info = false\n"
         'adif_export_folder = ""\n'
+        'updates = "notify"\n'
     )
 
 
@@ -220,3 +221,26 @@ def test_home_relative_writes_the_home_folder_as_tilde(tmp_path, monkeypatch):
 def test_home_relative_leaves_a_path_outside_home(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     assert home_relative(tmp_path / "data") == str(tmp_path / "data")
+
+
+def test_updates_round_trip(settings_path):
+    for choice in ("none", "notify", "on_quit"):
+        save_settings(Settings("W1TST", updates=choice), settings_path)
+        assert load_settings(settings_path) == Settings("W1TST", updates=choice)
+
+
+def test_updates_missing_is_notify(settings_path):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('station_callsign = "W1TST"\n')
+    assert load_settings(settings_path).updates == "notify"
+
+
+@pytest.mark.parametrize("value, shown", [('"yes"', "'yes'"), ("true", "True"), ("[]", "[]")])
+def test_updates_not_a_choice_is_none_with_a_problem(settings_path, value, shown):
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(f'station_callsign = "W1TST"\nupdates = {value}\n')
+    settings = load_settings(settings_path)
+    assert settings.updates == "none"
+    assert settings.problems == [
+        f'updates {shown} must be one of "none", "notify", "on_quit"'
+    ]

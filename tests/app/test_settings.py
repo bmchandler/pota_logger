@@ -100,7 +100,8 @@ async def test_settings_is_f2_with_no_button(app):
         assert [str(button.label) for button in app.query("#button-bar Button")] == ["ADIF", "Quit"]
         await pilot.press("f2")
         assert isinstance(app.screen, SettingsScreen)
-        assert app.focused.id == "new_comment_pota_info"
+        # Update Option comes first.
+        assert app.focused.id == "updates"
 
 
 async def test_settings_after_setup_hide_the_call(app):
@@ -114,7 +115,7 @@ async def test_settings_after_setup_hide_the_call(app):
 
 async def test_checkbox_x_shows_only_when_checked(app):
     async with app.run_test() as pilot:
-        await pilot.press("f2")
+        await pilot.press("f2", "tab")
         assert checkbox_marks(app) == [" ", " "]
         await pilot.press("space")
         assert checkbox_marks(app) == ["X", " "]
@@ -133,7 +134,7 @@ async def test_settings_at_first_start_show_the_call_and_the_rest(no_call_app):
 async def test_settings_saved_after_setup_keep_the_call(app, settings_path):
     async with app.run_test() as pilot:
         # Space toggles the focused checkbox (stock), Enter too.
-        await pilot.press("f2", "space", "tab", "enter")
+        await pilot.press("f2", "tab", "space", "tab", "enter")
         await pilot.click("#save")
         assert not isinstance(app.screen, SettingsScreen)
         assert station_callsign(app) == "W1TST"
@@ -150,7 +151,7 @@ async def test_settings_saved_after_setup_keep_the_call(app, settings_path):
 async def test_settings_saved_at_first_start_with_the_call(no_call_app, settings_path):
     app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("enter", *"w1tst", "tab", "space")
+        await pilot.press("enter", *"w1tst", "tab", "tab", "space")
         await pilot.click("#save")
         expected = Settings(
             "W1TST", new_comment_pota_info=True, adif_export_folder=exports(settings_path)
@@ -172,7 +173,8 @@ async def test_settings_after_setup_save_the_export_folder(app, settings_path, h
 
 async def test_enter_in_the_export_folder_saves(app, settings_path, home):
     async with app.run_test() as pilot:
-        await pilot.press("f2", "tab", "tab", *"~/adif", "enter")
+        # Past Update Option, the checkboxes, and Check for Updated.
+        await pilot.press("f2", "tab", "tab", "tab", "tab", *"~/adif", "enter")
         assert not isinstance(app.screen, SettingsScreen)
         assert load_settings(settings_path).adif_export_folder == "~/adif"
 
@@ -299,7 +301,7 @@ async def test_settings_at_first_start_save_the_call_and_the_folder(
 ):
     app = no_call_app
     async with app.run_test() as pilot:
-        await pilot.press("enter", *"w1tst", "tab", "tab", "tab", *"~/adif")
+        await pilot.press("enter", *"w1tst", "tab", "tab", "tab", "tab", *"~/adif")
         await pilot.click("#save")
         assert load_settings(settings_path) == Settings("W1TST", adif_export_folder="~/adif")
 
@@ -489,7 +491,7 @@ async def test_f2_over_station_callsign_warning_does_not_stack(no_call_app):
 
 async def test_escape_cancels_without_saving(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", "space", "escape")
+        await pilot.press("f2", "tab", "space", "escape")
         assert not isinstance(app.screen, SettingsScreen)
         expected = Settings("W1TST", adif_export_folder=exports(settings_path))
         assert app.settings == expected
@@ -498,7 +500,7 @@ async def test_escape_cancels_without_saving(app, settings_path):
 
 async def test_cancel_button_cancels(app, settings_path):
     async with app.run_test() as pilot:
-        await pilot.press("f2", "space")
+        await pilot.press("f2", "tab", "space")
         await pilot.click("#cancel")
         expected = Settings("W1TST", adif_export_folder=exports(settings_path))
         assert app.settings == expected
@@ -585,4 +587,26 @@ async def test_how_the_station_callsign_in_file_is_written_is_fixed(settings_pat
         "new_comment_pota_info = false\n"
         "edit_comment_pota_info = false\n"
         f'adif_export_folder = "{exports(settings_path)}"\n'
+        'updates = "notify"\n'
     )
+
+
+async def test_settings_scroll_in_a_short_terminal_with_the_buttons_in_view(app):
+    async with app.run_test(size=(107, 24)) as pilot:
+        await pilot.press("f2")
+        body = app.screen.query_one("#settings-body")
+        folder = app.screen.query_one("#folder-input", Input)
+        assert body.max_scroll_y > 0
+        assert app.screen.query_one("#save", Button).region.bottom <= 24
+        assert not body.region.contains_region(folder.region)
+        # Past Update Option, the checkboxes, and Check for Updated.
+        await pilot.press("tab", "tab", "tab", "tab")
+        await pilot.pause()
+        assert app.focused is folder
+        assert body.region.contains_region(folder.region)
+
+
+async def test_settings_fit_a_28_row_terminal_whole(app):
+    async with app.run_test(size=(107, 28)) as pilot:
+        await pilot.press("f2")
+        assert app.screen.query_one("#settings-body").max_scroll_y == 0

@@ -1,8 +1,9 @@
 from rich.text import Text
+from textual import events
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, Input, Label, Static
+from textual.widgets import Button, Checkbox, Input, Label, Select, Static
 
 from pota_logger.fields.ascii_text import check_ascii
 from pota_logger.screens.callsign_warning_screen import CallsignWarningScreen
@@ -13,6 +14,8 @@ from pota_logger.settings import (
     EDIT_COMMENT_POTA_INFO,
     NEW_COMMENT_POTA_INFO,
     SWITCHES,
+    UPDATES,
+    UPDATES_LABEL,
     Settings,
     folder_path,
 )
@@ -35,6 +38,11 @@ def parks_list_text(copy: ParksCopy | None) -> str:
     day = copy_date(copy)
     return PARKS_LIST.format(date=format_date(day) if day else "date unknown")
 
+
+# Settings' rows around the part that scrolls: the border and padding
+# above and below, the title and the blank below it, and the buttons and
+# the blank above them.
+FRAME_ROWS = 2 + 2 + 2 + 4
 
 # Where each text field's problem shows, below it.
 PROBLEM_IDS = {"station-callsign-input": "settings-problem", "folder-input": "folder-problem"}
@@ -72,9 +80,15 @@ class SettingsScreen(ModalScreen[Settings | None]):
     SettingsScreen > Vertical {
         width: 56;
         height: auto;
+        max-height: 100%;
         padding: 1 2;
         border: thick $primary;
         background: $surface;
+    }
+    /* Scrolls in a terminal too short for it all (under 28 rows), with
+       the title and the buttons kept in view. */
+    SettingsScreen #settings-body {
+        height: auto;
     }
     SettingsScreen #settings-title {
         text-style: bold;
@@ -91,15 +105,28 @@ class SettingsScreen(ModalScreen[Settings | None]):
     SettingsScreen .settings-problem.-shown {
         display: block;
     }
-    SettingsScreen #folder-label {
-        padding-top: 1;
-    }
-    /* No blank row above it, so Settings fits a 24-row terminal. */
-    SettingsScreen #parks-row {
+    /* Its label beside it, so it reads as a dropdown when not focused. */
+    SettingsScreen #updates-row {
         height: auto;
+        margin: 0 0 1 0;
     }
-    SettingsScreen #parks-list {
-        width: 1fr;
+    SettingsScreen #updates-row.-after-callsign {
+        margin: 1 0 1 0;
+    }
+    SettingsScreen #updates {
+        width: 24;
+    }
+    SettingsScreen #parks {
+        height: auto;
+        margin: 1 0 0 0;
+    }
+    /* Wider than its label, so its focus highlight has plain space each
+       side, as Cancel's does at the stock minimum width. */
+    SettingsScreen #check-parks {
+        width: 25;
+        margin: 0;
+    }
+    SettingsScreen #folder-label {
         padding-top: 1;
     }
     SettingsScreen #settings-buttons {
@@ -128,22 +155,41 @@ class SettingsScreen(ModalScreen[Settings | None]):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Label("Settings", id="settings-title")
-            if self.with_callsign:
-                yield Label("Station callsign")
-                yield Input(value=self.settings.station_callsign, id="station-callsign-input")
-                yield Static(id="settings-problem", classes="settings-problem")
-            for key in SWITCHES:
-                yield SettingCheckbox(SWITCH_LABELS[key], getattr(self.settings, key), id=key)
-            yield Label(ADIF_EXPORT_FOLDER, id="folder-label")
-            yield Input(value=self.settings.adif_export_folder, id="folder-input")
-            yield Static(id="folder-problem", classes="settings-problem")
-            if not self.with_callsign:
-                with Horizontal(id="parks-row"):
-                    yield Label(parks_list_text(self.parks_copy), id="parks-list")
-                    yield Button(CHECK_FOR_UPDATED, id="check-parks")
+            # Not focusable: Tab goes straight to the settings, scrolling
+            # each into view.
+            with VerticalScroll(id="settings-body", can_focus=False):
+                if self.with_callsign:
+                    yield Label("Station callsign")
+                    yield Input(value=self.settings.station_callsign, id="station-callsign-input")
+                    yield Static(id="settings-problem", classes="settings-problem")
+                with Horizontal(
+                    id="updates-row", classes="-after-callsign" if self.with_callsign else ""
+                ):
+                    yield Label(UPDATES_LABEL, id="updates-label")
+                    yield Select(
+                        [(label, value) for value, label in UPDATES.items()],
+                        value=self.settings.updates,
+                        allow_blank=False,
+                        compact=True,
+                        id="updates",
+                    )
+                for key in SWITCHES:
+                    yield SettingCheckbox(SWITCH_LABELS[key], getattr(self.settings, key), id=key)
+                if not self.with_callsign:
+                    with Vertical(id="parks"):
+                        yield Label(parks_list_text(self.parks_copy), id="parks-list")
+                        yield Button(CHECK_FOR_UPDATED, id="check-parks")
+                yield Label(ADIF_EXPORT_FOLDER, id="folder-label")
+                yield Input(value=self.settings.adif_export_folder, id="folder-input")
+                yield Static(id="folder-problem", classes="settings-problem")
             with Horizontal(id="settings-buttons"):
                 yield Button("Cancel", id="cancel")
                 yield Button("Save", id="save", variant="primary")
+
+    def on_resize(self, event: events.Resize) -> None:
+        # CSS has no way to say "the screen's height less the frame".
+        body = self.query_one("#settings-body", VerticalScroll)
+        body.styles.max_height = max(1, event.size.height - FRAME_ROWS)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.action_save()
@@ -172,7 +218,10 @@ class SettingsScreen(ModalScreen[Settings | None]):
     def saved(self, callsign: str) -> Settings:
         switches = {key: self.query_one(f"#{key}", SettingCheckbox).value for key in SWITCHES}
         folder = self.query_one("#folder-input", Input).value.strip()
-        return Settings(station_callsign=callsign, **switches, adif_export_folder=folder)
+        updates = self.query_one("#updates", Select).value
+        return Settings(
+            station_callsign=callsign, **switches, adif_export_folder=folder, updates=updates
+        )
 
     def folder_refused(self) -> bool:
         """Refuse an ADIF export folder that isn't plain ASCII, or that

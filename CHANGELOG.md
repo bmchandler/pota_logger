@@ -9,6 +9,17 @@ What changed in each release, newest first. Versions are dates
 
 - README.md lists git as needed to install: uv uses it to download the
   app.
+- Settings is laid out anew: Update Option first, then the checkboxes,
+  the parks list with Check for Updated below it, and the export folder.
+  In a short terminal, the settings scroll with the buttons kept in
+  view.
+
+### Added
+
+- **Update Option** in Settings (F2): at start, the app looks for a
+  newer release and says so in a short note with the command to upgrade
+  (Notify, the default), or upgrades itself when you quit (Automatic on
+  Quit), or doesn't look (No notification).
 
 ## 2026.10.12.2
 

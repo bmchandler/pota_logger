@@ -278,10 +278,10 @@ async def test_edited_comment_left_alone_with_the_edit_setting_off(settings_path
 async def test_setting_turned_on_or_off_mid_entry(app):
     async with app.run_test() as pilot:
         await type_and_leave(app, pilot, "PARK", "1234")
-        await pilot.press("f2", "space")
+        await pilot.press("f2", "tab", "space")
         await pilot.click("#save")
         assert comment(app) == "POTA US-1234"
-        await pilot.press("f2", "space")
+        await pilot.press("f2", "tab", "space")
         await pilot.click("#save")
         assert comment(app) == ""
 
@@ -291,7 +291,7 @@ async def test_setting_turned_off_keeps_a_comment_typed_on(pota_app):
     async with app.run_test() as pilot:
         await type_and_leave(app, pilot, "PARK", "1234")
         app.query_one("#field-comment", Input).value += " Great signal"
-        await pilot.press("f2", "space")
+        await pilot.press("f2", "tab", "space")
         await pilot.click("#save")
         assert comment(app) == "POTA US-1234 Great signal"
         await type_and_leave(app, pilot, "PARK", "5678")

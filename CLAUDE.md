@@ -120,8 +120,8 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   in settings.py expands `~`, and Settings saves only an existing typed
   folder. Tests use the `export_folder` and `export_app`
   fixtures (an existing folder in the temp dir), or `home` for `~`.
-- parks_list.py downloads POTA's parks list (`download_parks`, the
-  app's only network use; raises `ParksDownloadError` with a message for
+- parks_list.py downloads POTA's parks list (`download_parks`, one of
+  the app's two network uses, with updates.py; raises `ParksDownloadError` with a message for
   the operator) into `parks_folder(data_dir)`; `saved_copy` gives a
   sound copy's `ParksCopy` (`ETag`, `Last-Modified`), or None. The app's
   `apply_settings` offers it at first start (`ParksOfferScreen`, once
@@ -143,6 +143,22 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   local server, setting `app.parks_url` to its `url`, then
   `parks_list_done` to wait (`parks_app` has `APP_LIST` saved): never reach
   pota.app from a test.
+- updates.py checks for a newer release: `installed_source` reads
+  `direct_url.json` into an `InstallSource` (URL, branch/tag/commit
+  asked for; None for a clone), `check_for_release` runs `git
+  ls-remote` (`quiet_git_env`, a timeout, off the terminal; any failure
+  is None), `newer_release` compares the newest release tag. Settings'
+  `updates` (`UPDATES` in settings.py: "none", "notify", "on_quit", a
+  compact `Select` beside its label, first in Settings after any call)
+  picks what the app does: its `check_for_updates` at mount
+  runs in a daemon thread, not a worker (the app waits for workers'
+  threads at Quit), then `newer_version_found` toasts `NEW_VERSION` or
+  notes it for `upgrade_on_quit`, which `main` checks after `run()`
+  returns to call `upgrade`. Tests set `app.install_source` to the
+  `releases` fixture's local repository (tests/conftest.py): never reach
+  GitHub from a test. `run_test` turns toasts off by default (pass
+  `notifications=True` to see them drawn); `app._notifications` still
+  holds them.
 - `entry_form.py` holds `FIELDS` (name, placeholder, longest value) in
   entry order: `ROW_FIELDS` for the top row (`ENTRY_ORDER`), then COMMENT,
   laid out below it. `LOG_FIELDS` (`LOG_ROW_FIELDS`, then COMMENT) is

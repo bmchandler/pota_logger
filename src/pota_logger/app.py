@@ -1,3 +1,4 @@
+import threading
 import tomllib
 from collections import Counter
 from dataclasses import replace
@@ -50,6 +51,7 @@ from pota_logger.settings import (
 from pota_logger.screens.settings_screen import SettingsScreen
 from pota_logger.screens.status_bar import StatusBar
 from pota_logger.theme import POTA_THEME
+from pota_logger.updates import NEW_VERSION, can_upgrade, check_for_release, installed_source, upgrade
 from pota_logger.screens.warning_screen import WarningScreen
 
 
@@ -388,6 +390,11 @@ class PotaLoggerApp(App):
         # Each park by its reference, once loaded from the list (none
         # without one).
         self.parks: dict[str, Park] = {}
+        # Where the app was installed from, for the check for a newer
+        # release (None, not checked: a clone, or not from git; tests set
+        # a local repository), and the release found.
+        self.install_source = installed_source()
+        self.newer_version: str | None = None
         self.settings_error: str | None = None
         # A refused station callsign from the file, shown in Settings to
         # correct (most likely a slip) until a call is saved.
@@ -470,6 +477,7 @@ class PotaLoggerApp(App):
         # long or short form follows their width.
         table.screen.screen_layout_refresh_signal.subscribe(self, lambda _: self.fit_log(table))
         self.load_parks()
+        self.check_for_updates()
         self.query_one("#field-freq").focus()
         # Filled by load_log once there's a station callsign to check the
         # rows against.
@@ -1114,6 +1122,41 @@ class PotaLoggerApp(App):
         self.parks_downloading = False
         self.notify(message, severity="error", timeout=30)
 
+    def check_for_updates(self) -> None:
+        """Look for a newer release, unless Updates is No notification. In
+        a thread of its own, not a worker: the app waits for its workers'
+        threads at Quit, and this one may be waiting on the network.
+        """
+        if self.settings.updates == "none" or self.install_source is None:
+            return
+        threading.Thread(target=self.fetch_newer_version, daemon=True).start()
+
+    def fetch_newer_version(self) -> None:
+        version = check_for_release(self.install_source)
+        if version is None:
+            return
+        try:
+            self.call_from_thread(self.newer_version_found, version)
+        except RuntimeError:
+            # The app quit meanwhile.
+            pass
+
+    def newer_version_found(self, version: str) -> None:
+        """Note a newer release, for Automatic on Quit; tell the operator
+        otherwise (or without uv to upgrade with).
+        """
+        self.newer_version = version
+        if self.settings.updates == "notify" or not can_upgrade():
+            self.notify(NEW_VERSION.format(version=version))
+
+    def upgrade_on_quit(self) -> bool:
+        """Whether to upgrade once the app has closed: Updates is
+        Automatic on Quit (as last saved), and a newer release was found.
+        """
+        return (
+            self.settings.updates == "on_quit" and self.newer_version is not None and can_upgrade()
+        )
+
     def parks_list_checked(self, copy: ParksCopy | None) -> None:
         self.parks_downloading = False
         if copy is None:
@@ -1129,4 +1172,7 @@ class PotaLoggerApp(App):
 def main() -> None:
     if not from_source():
         write_readme(DATA_DIR.parent)
-    PotaLoggerApp().run()
+    app = PotaLoggerApp()
+    app.run()
+    if app.upgrade_on_quit():
+        upgrade()
