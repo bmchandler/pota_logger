@@ -6,6 +6,7 @@ from pota_logger.settings import (
     Settings,
     StationCallsignError,
     default_export_folder,
+    home_relative,
     load_settings,
     save_settings,
 )
@@ -209,3 +210,13 @@ def test_default_export_folder_in_home_is_written_with_tilde(tmp_path, monkeypat
     monkeypatch.setenv("HOME", str(tmp_path))
     data = tmp_path / ".local/share/pota-logger/data"
     assert default_export_folder(data) == "~/.local/share/pota-logger/exports"
+
+
+def test_home_relative_writes_the_home_folder_as_tilde(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert home_relative(tmp_path / "a" / "data") == "~/a/data"
+
+
+def test_home_relative_leaves_a_path_outside_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    assert home_relative(tmp_path / "data") == str(tmp_path / "data")

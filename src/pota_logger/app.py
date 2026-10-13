@@ -19,6 +19,7 @@ from pota_logger.screens.delete_screen import DeleteScreen
 from pota_logger.dupes import dupe_key
 from pota_logger.entry_form import LOG_FIELDS, EntryForm
 from pota_logger.screens.export_screen import ExportScreen
+from pota_logger.screens.info_screen import InfoScreen
 from pota_logger.fields.freq import format_freq
 from pota_logger.logbook import COLUMNS, FIX_BY_HAND, Logbook, LogWriteError, refused_texts
 from pota_logger.fields.parks import MAX_LENGTH as PARK_MAX_LENGTH
@@ -42,6 +43,7 @@ from pota_logger.settings import (
     StationCallsignError,
     default_export_folder,
     folder_path,
+    home_relative,
     load_settings,
     save_settings,
 )
@@ -354,6 +356,7 @@ class PotaLoggerApp(App):
     # Redeclares Textual's built-in ctrl+q so it shows in the footer.
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
+        Binding("f1", "show_info", "Info"),
         Binding("f2", "open_settings", "Settings"),
         Binding("f3", "edit_entry", "Edit"),
         Binding("f4", "delete_entry", "Delete"),
@@ -979,6 +982,14 @@ class PotaLoggerApp(App):
         # Textual's own screenshot: an SVG saved to the Downloads folder,
         # with a notification.
         self.deliver_screenshot()
+
+    def action_show_info(self) -> None:
+        self.push_screen(
+            InfoScreen(
+                home_relative(self.settings_path.parent),
+                self.settings.adif_export_folder,
+            )
+        )
 
     def action_open_settings(self) -> None:
         # App bindings stay live under a modal, so don't stack a second one,

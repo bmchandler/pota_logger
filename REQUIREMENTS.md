@@ -131,6 +131,10 @@ their own folder, with exports defaulting to that folder's `exports/`,
 and the dev build's export reporting `2026.10.11+dev.7601686b`, the
 installed commit.
 
+The Info modal is built (2026-10-12; see Theme and keys), and the
+project is mirrored to GitHub (https://github.com/bmchandler/pota_logger),
+where README.md's install commands point.
+
 Installing with `uv tool install` is built (2026-10-10; see Storage):
 installed, the app keeps its files in `~/.local/share/pota-logger/data/`,
 with a `README.txt` beside it; a clone keeps using its own `data/`.
@@ -373,9 +377,16 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 
 - The app always uses its own light outdoors theme; there's no theme
   switching.
-- The footer shows `^q Quit`, `f2 Settings`, `f3 Edit` and `f4 Delete`
-  (see Editing), `f5 Sort` (see Log view), and `^s Screenshot` (saves an SVG of the screen to the Downloads
-  folder).
+- The footer shows `^q Quit`, `f1 Info`, `f2 Settings`, `f3 Edit` and
+  `f4 Delete` (see Editing), `f5 Sort` (see Log view), and
+  `^s Screenshot` (saves an SVG of the screen to the Downloads folder).
+- `f1` (footer `Info`, decided 2026-10-12) opens the Info modal: the
+  app's name, pyproject.toml's description, the credit (`CREDIT`, as in
+  README.md: the operator's call's only place in the code), the version (`app_version()`), `MIT License`, the GitHub URL,
+  and this install's data folder and ADIF export folder (as set, or
+  `none set`), with `~` for the home folder. One `Roger Roger` button,
+  as on the dupe block; Esc or Enter closes it. Like the app's other
+  keys, it doesn't open over a modal.
 - The footer's right end shows the terminal size as columns x rows
   (`120x30`), updated live as the window is resized.
 - No command palette (Textual's ctrl+p): "palette" is unfamiliar to most

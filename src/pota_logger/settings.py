@@ -115,15 +115,19 @@ def load_folder(value, problems: list[str]) -> tuple[str, bool]:
     return folder, folder != value
 
 
+def home_relative(path: Path) -> str:
+    """`path`, written with `~` when it's in the home folder."""
+    try:
+        return "~/" + path.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def default_export_folder(data: Path) -> str:
     """The ADIF export folder set when none is: exports/ beside `data`
     (the data folder), written with `~` when it's in the home folder.
     """
-    folder = data.parent / "exports"
-    try:
-        return "~/" + folder.relative_to(Path.home()).as_posix()
-    except ValueError:
-        return str(folder)
+    return home_relative(data.parent / "exports")
 
 
 def folder_path(folder: str) -> Path:

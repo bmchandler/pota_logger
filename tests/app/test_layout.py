@@ -21,9 +21,9 @@ async def test_uses_pota_theme(app):
         assert app.theme == "pota"
 
 
-async def test_footer_shows_quit_settings_edit_delete_sort_export_and_screenshot(app):
+async def test_footer_shows_quit_info_settings_edit_delete_sort_export_and_screenshot(app):
     async with app.run_test():
-        assert footer_keys(app) == ["ctrl+q", "f2", "f3", "f4", "f5", "f6", "ctrl+s"]
+        assert footer_keys(app) == ["ctrl+q", "f1", "f2", "f3", "f4", "f5", "f6", "ctrl+s"]
 
 
 async def test_footer_shows_terminal_size_and_follows_resize(app):

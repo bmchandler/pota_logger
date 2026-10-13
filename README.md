@@ -24,8 +24,22 @@ untested: it will likely run on macOS (where the F keys may need **Fn**
 held down), and may run on Windows (in Windows Terminal), but your
 mileage may vary.
 
-You need [uv](https://docs.astral.sh/uv/); it fetches Python 3.13 and
-the dependencies itself.
+POTA Logger is installed with [uv](https://docs.astral.sh/uv/), a tool
+that installs Python apps like this one. It fetches Python 3.13 and
+everything else the app needs by itself.
+
+1. Install uv by following the steps on its
+   [installation page](https://docs.astral.sh/uv/getting-started/installation/).
+2. Check that it's found. In a terminal, run:
+
+   ```bash
+   uv -V
+   ```
+
+   It prints uv's version, like `uv 0.12.17`. If it says `uv` isn't
+   found instead, close the terminal, open a new one, and try again:
+   the installer's changes may only reach terminals opened after it.
+3. Then install POTA Logger, below.
 
 Install the newest release, then run it:
 
@@ -213,6 +227,9 @@ logged contact, edit that record's COMMENT.
     `exports/`.
   - `POTA parks list:` your copy's date (or `none`), with **Check for
     Updated** to download it or refresh it (see [POTA's parks list](#potas-parks-list)).
+- **F1** shows Info: the app's version, license, and where it is on
+  GitHub, and where it keeps your log and exports. Esc or Enter closes
+  it.
 - **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
 - **Ctrl+Q** quits.
 

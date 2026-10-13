@@ -3,6 +3,18 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- README.md walks through installing uv first, with a check that it's
+  found.
+
+### Added
+
+- **F1** (Info) shows the app's version, license, and GitHub address,
+  and where it keeps your log and exports.
+
 ## 2026.10.12.1
 
 ### Changed

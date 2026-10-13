@@ -102,6 +102,12 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 - Git hooks: branch_guard.py (beside tag_new_version.py, which it
   imports `MAIN` and `VERSION` from) adds its own marked line to the
   hook files (git_hooks.py's `add_hook_line`), leaving others' alone.
+- info_screen.py holds `InfoScreen` (`f1`, the app's `action_show_info`,
+  given the data folder by `home_relative` and the export folder as
+  set): a `WarningScreen` with one button, so Esc and Enter close it.
+  `info_message` builds its text; the description is pyproject.toml's,
+  read from the package metadata, and `CREDIT` is the one place the
+  operator's call goes in code (tests import it, never spell it out).
 - export_screen.py holds `ExportScreen` (`f6`, or the ADIF button; the
   app's `action_export` gives it the log's entries, refused rows left
   out, whether the log is clean of `CLEAN_LOG_MARKERS`, and
