@@ -3,6 +3,13 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- README.md lists git as needed to install: uv uses it to download the
+  app.
+
 ## 2026.10.12.2
 
 ### Changed
