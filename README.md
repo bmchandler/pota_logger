@@ -3,6 +3,8 @@
 A streamlined paper to digital POTA logger with ADIF export support.
 Created by Brian M. Chandler, KL4E.
 
+![POTA Logger: the entry form above the log, newest contacts first](docs/images/screenshot.png)
+
 A terminal logbook for **hunting** [Parks on the Air](https://docs.pota.app/)
 contacts. It's built for copying a paper log into the computer quickly and
 accurately: type each line as it's written, and the app checks it as you go.
@@ -11,8 +13,10 @@ The intended workflow is paper log → POTA Logger → ADIF export → QRZ.com i
 
 It runs in a terminal (built with [Textual](https://textual.textualize.io/)),
 stores everything in plain CSV files you can open in a text editor or
-spreadsheet, and needs no internet connection. Its one optional download is
-POTA's parks list, only when you choose.
+spreadsheet, and works without an internet connection. It goes online only
+to download [POTA's parks list](#potas-parks-list), when you choose, and to
+check for a newer app release at start, which you can turn off (see
+[Settings and keys](#settings-and-keys)).
 
 Scope: hunter contacts only (not activating), voice (SSB, USB, LSB) and CW, on
 US amateur bands from 80m to 10m, WARC bands included.

@@ -69,7 +69,8 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   nowhere in the repo, instead of the real one. Never name the
   placeholder in tracked files, and don't use it as a test call.
 - The operator's real call goes only where it credits them as the
-  app's maker. Check staged changes and commit messages by hand for any
+  app's maker, and with `/TEST` as the station call in README.md's
+  screenshot (`docs/images/`). Check staged changes and commit messages by hand for any
   other real call (one from a log in `data/`, above all): no hook
   checks them.
 

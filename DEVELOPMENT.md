@@ -284,7 +284,8 @@ some domain names are, so any call that passes the app's callsign
 checks may belong to someone. So:
 
 - The maintainer's own call appears only to credit who made the app
-  (README.md, and the app's own about information).
+  (README.md, and the app's own about information), and with `/TEST`
+  added as the station call in README.md's screenshot.
 - Everywhere else (tests, examples, the app's messages and
   placeholders, commit messages), use calls chosen to look made up,
   like `W1TST` or `W1ABC`. Never one copied from a real log.
