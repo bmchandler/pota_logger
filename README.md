@@ -26,11 +26,20 @@ mileage may vary.
 
 POTA Logger is installed with [uv](https://docs.astral.sh/uv/), a tool
 that installs Python apps like this one. It fetches Python 3.13 and
-everything else the app needs by itself.
+everything else the app needs by itself, except git, which uv uses to
+download the app's code.
 
-1. Install uv by following the steps on its
+1. Install git, if it isn't already. On Debian or Ubuntu:
+
+   ```bash
+   sudo apt install git
+   ```
+
+   On other systems, use their package manager, or see git's
+   [download page](https://git-scm.com/downloads).
+2. Install uv by following the steps on its
    [installation page](https://docs.astral.sh/uv/getting-started/installation/).
-2. Check that it's found. In a terminal, run:
+3. Check that it's found. In a terminal, run:
 
    ```bash
    uv -V
@@ -39,7 +48,7 @@ everything else the app needs by itself.
    It prints uv's version, like `uv 0.12.17`. If it says `uv` isn't
    found instead, close the terminal, open a new one, and try again:
    the installer's changes may only reach terminals opened after it.
-3. Then install POTA Logger, below.
+4. Then install POTA Logger, below.
 
 Install the newest release, then run it:
 
