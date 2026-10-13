@@ -264,7 +264,10 @@ logged contact, edit that record's COMMENT.
 - **F1** shows Info: the app's version, license, and where it is on
   GitHub, and where it keeps your log and exports. Esc or Enter closes
   it.
-- **Ctrl+S** saves a screenshot (SVG) to your Downloads folder.
+- **Ctrl+S** saves a screenshot (SVG) of the app. It asks where: pick a
+  folder in the list (it starts at your home folder), or type the path,
+  then Enter saves. A file already there is replaced only once you
+  confirm.
 - **Ctrl+Q** quits.
 
 ## Your data

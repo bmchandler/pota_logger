@@ -48,6 +48,7 @@ from pota_logger.settings import (
     load_settings,
     save_settings,
 )
+from pota_logger.screens.screenshot_screen import ScreenshotScreen, screenshot_name
 from pota_logger.screens.settings_screen import SettingsScreen
 from pota_logger.screens.status_bar import StatusBar
 from pota_logger.theme import POTA_THEME
@@ -987,9 +988,8 @@ class PotaLoggerApp(App):
             self.action_export()
 
     def action_screenshot(self) -> None:
-        # Textual's own screenshot: an SVG saved to the Downloads folder,
-        # with a notification.
-        self.deliver_screenshot()
+        # Taken now, so it shows the app, not the Save As modal.
+        self.push_screen(ScreenshotScreen(self.export_screenshot(), screenshot_name(datetime.now())))
 
     def action_show_info(self) -> None:
         self.push_screen(

@@ -189,9 +189,6 @@ Ideas considered and deferred:
 - Defaulting DATE to "UTC now minus a few hours", which would suit
   operators in any time zone. The local-date default fits the current
   operator (US Eastern).
-- A setting for the screenshot folder (Downloads now). Textual takes a
-  folder per screenshot but doesn't expand `~` or `$HOME` and doesn't
-  create missing folders, so the setting would need all of that built.
 - A Keys help panel (Textual's, from the command palette). Textual's
   input fields already use ctrl+k (delete to the end), and overriding
   stock bindings is avoided, so it was dropped with the palette.
@@ -451,7 +448,26 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   switching.
 - The footer shows `^q Quit`, `f1 Info`, `f2 Settings`, `f3 Edit` and
   `f4 Delete` (see Editing), `f5 Sort` (see Log view), and
-  `^s Screenshot` (saves an SVG of the screen to the Downloads folder).
+  `^s Screenshot` (saves an SVG of the screen where the operator picks).
+- `ctrl+s` (decided 2026-10-13, built the same day, replacing Textual's
+  save straight to Downloads, and the idea of a screenshot folder
+  setting) takes the screenshot, so it shows the app and not the
+  dialog, then opens a Save As modal: a folder tree (stock
+  `DirectoryTree`, folders only, dot-folders too) from the home folder,
+  then `Save as`, a path filled in with `~/pota-logger_<date>_<time>.svg`
+  and focused, so Enter saves it. Picking a folder in the tree fills in
+  the path's folder part, keeping the file name. Home suits Linux,
+  macOS, and Windows alike; Downloads and Pictures were turned down, as
+  an operator may rename them. A path typed not from `~` or `/` is in
+  the home folder. No folder is made: a missing one is refused, as is a
+  path naming no file or a failed write, with why below the path. A
+  file already there is overwritten only after a confirm (`Overwrite`;
+  Esc goes back to rename). Below the path, as dictated: `SVG images
+  may appear to have errors when viewed on some systems.` (an SVG is
+  drawn by the viewer, so without the Fira Code font Textual names,
+  some lines show wrong; README.md's image is a PNG taken by hand for
+  that reason); only here, not in README.md or the toast. The tree
+  shrinks to fit a short terminal. A toast says where it was saved.
 - `f1` (footer `Info`, decided 2026-10-12) opens the Info modal: the
   app's name, pyproject.toml's description, the credit (`CREDIT`, as in
   README.md: the operator's call's only place in the code), the version (`app_version()`), `MIT License`, the GitHub URL,
@@ -1064,8 +1080,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
     goes; `f2` stays, and the footer's keys are clickable, so Settings
     is still a click away.
   - A setting for the default ADIF export folder (decided 2026-10-09),
-    in Settings. Like the screenshot-folder idea (see Status and plan),
-    it needs `~` expanded; a typed one must exist (none is made). It
+    in Settings. It needs `~` expanded; a typed one must exist (none is made). It
     defaults to `exports/` beside `data/`, made by the app (decided
     2026-10-11; see Settings). With none set (the default couldn't be
     made), ADIF export is refused until one is set in Settings. The Export

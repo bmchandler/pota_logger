@@ -103,6 +103,12 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 - Git hooks: branch_guard.py (beside tag_new_version.py, which it
   imports `MAIN` and `VERSION` from) adds its own marked line to the
   hook files (git_hooks.py's `add_hook_line`), leaving others' alone.
+- screenshot_screen.py holds `ScreenshotScreen` (`ctrl+s`: the app's
+  `action_screenshot` takes `export_screenshot()` first, so the picture
+  is the app's, and `screenshot_name`), a Save As with `FolderTree` (a
+  folders-only `DirectoryTree` from home) above the path field
+  (`typed_path`: `~` expanded, relative means home). Tests use the
+  `home` fixture and patch `pota_logger.app.screenshot_name`.
 - info_screen.py holds `InfoScreen` (`f1`, the app's `action_show_info`,
   given the data folder by `home_relative` and the export folder as
   set): a `WarningScreen` with one button, so Esc and Enter close it.

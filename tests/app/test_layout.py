@@ -43,15 +43,6 @@ async def test_ctrl_p_opens_no_command_palette(app):
         assert not isinstance(app.screen, CommandPalette)
 
 
-async def test_ctrl_s_delivers_a_screenshot(app, monkeypatch):
-    delivered = []
-    # Stubbed so the test doesn't save into the real Downloads folder.
-    monkeypatch.setattr(app, "deliver_screenshot", lambda: delivered.append(True))
-    async with app.run_test() as pilot:
-        await pilot.press("ctrl+s")
-        assert delivered == [True]
-
-
 async def test_date_defaults_to_todays_local_date(app, monkeypatch):
     class FixedDate(date):
         @classmethod

@@ -3,6 +3,13 @@
 What changed in each release, newest first. Versions are dates
 (`YYYY.M.D`). Changes not released yet are under Unreleased.
 
+## Unreleased
+
+### Changed
+
+- Ctrl+S asks where to save the screenshot, starting at your home
+  folder, instead of saving it to Downloads.
+
 ## 2026.10.13.2
 
 ### Added
