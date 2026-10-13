@@ -113,7 +113,11 @@ made. README.md's install commands use the GitHub repository
 
 The check for a newer release is built (2026-10-12; see Settings,
 Updates): a toast at start, or an upgrade once the app quits, chosen
-in Settings.
+in Settings. Hand-tested by the operator (2026-10-13), with 2026.10.13
+installed and 2026.10.13.1 on GitHub: Notify showed the toast, No
+notification showed none, Notify again showed it, Automatic on Quit
+upgraded cleanly, and Notify on the new release showed none. Not yet
+tried by hand: a start with no network.
 
 Next, after the first release: real use. QRZ.com API integration (see
 Export, QRZ.com API) is on hold until the operator has used the ADIF
