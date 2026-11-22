@@ -1389,7 +1389,12 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   commit (`@<commit>`, which it doesn't). README.md shows `main`'s
   code, so it can lag `dev`; a fix to docs about released behavior
   that users need goes out as a release of its own, noted in the
-  changelog.
+  changelog. The converse (settled 2026-11-22): a change nothing in a
+  release would reflect — developer docs (REQUIREMENTS.md, DEVELOPMENT.md,
+  CLAUDE.md), tests, release tooling — is not a release. There's no
+  honest changelog line for it (the changelog is user-facing only), so
+  it rides `dev` to both remotes and `main` stays put. Only a change a
+  user would notice earns a version bump.
 - `branch_guard.py` (beside `tag_new_version.py`, for developers, not
   in the package) installs git hooks that refuse a commit on `main`, and
   a push that would set the remote's `main` to a commit no release tag

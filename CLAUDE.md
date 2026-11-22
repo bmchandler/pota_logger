@@ -28,6 +28,11 @@ developer are in DEVELOPMENT.md, imported here:
   that commit, always all together (see REQUIREMENTS.md Versioning for
   why), then moves `main` to it and commits `<YYYY.M.D>+dev` on `dev`. It asks before changing anything: get the user's go-ahead first,
   as for any commit.
+- Only a change a user would notice earns a release. Developer-doc-only
+  changes (REQUIREMENTS.md, DEVELOPMENT.md, CLAUDE.md), tests, and
+  release tooling ride `dev` to both remotes with no version bump:
+  there's no honest changelog line for them (see REQUIREMENTS.md
+  Versioning).
 - Note each change a user would notice in CHANGELOG.md, under
   `## Unreleased` (add the heading if a release removed it), in the same
   commit: terse, for users, not a commit log.
