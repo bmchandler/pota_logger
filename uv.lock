@@ -105,7 +105,7 @@ wheels = [
 
 [[package]]
 name = "pota-logger"
-version = "2026.11.22"
+version = "2026.11.22+dev"
 source = { editable = "." }
 dependencies = [
     { name = "linkify-it-py" },
