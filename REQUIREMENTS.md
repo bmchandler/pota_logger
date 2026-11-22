@@ -1412,3 +1412,19 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   (`pins_match`), so an upgraded lock can't ship without re-pinning.
   The loop: on `dev`, `uv lock --upgrade`, test, `regen_release_deps.py`,
   commit, release (see RELEASING.md, Frozen dependencies).
+- Branch model: fast-forward only, no merge commits (settled
+  2026-11-22). `main` is a bookmark on `dev`'s linear history, moved
+  forward to each release's commit (`tag_new_version.py`, `update-ref`),
+  never merged into, so `main` stays an ancestor of `dev` and a push of
+  `main` is always a fast-forward. This keeps one linear history, keeps
+  `branch_guard.py` meaningful (a merge commit would itself be a commit
+  on `main`, which it refuses), and keeps the version-to-commit mapping
+  exact (`main` points *at* the tagged commit, not a merge above it).
+  A merge commit buys nothing here: the release spine is the tags
+  (`git tag --sort=-creatordate`, `git diff <old-tag> <new-tag>`), not
+  `main`'s own history. Revisit only if the project gains multiple
+  contributors integrating through reviewed PRs (where `main` as a
+  protected integration branch with a first-parent release history
+  earns its keep), or needs to maintain an old release apart from `dev`
+  (a hotfix branch from a tag); both are deliberate changes, not the
+  default.
