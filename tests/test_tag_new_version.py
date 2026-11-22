@@ -133,6 +133,24 @@ def test_changes_or_another_branch_refused(repo):
     ]
 
 
+def test_pins_out_of_sync_refused(repo, monkeypatch):
+    monkeypatch.setattr(tnv, "pins_match", lambda cwd: False)
+    assert tnv.repo_problems(repo) == [
+        "[project.dependencies] doesn't match uv.lock; "
+        "run `uv run regen_release_deps.py` and commit first."
+    ]
+
+
+def test_unreadable_lock_deps_refused(repo, monkeypatch):
+    def raise_export(cwd):
+        raise subprocess.CalledProcessError(1, "uv export")
+
+    monkeypatch.setattr(tnv, "pins_match", raise_export)
+    assert tnv.repo_problems(repo) == [
+        "Couldn't read uv.lock's dependencies (uv export failed); run `uv lock` first."
+    ]
+
+
 def test_main_moved_or_off_on_its_own_refused(repo):
     git(repo, "switch", "-q", "main")
     (repo / "notes.txt").write_text("x")

@@ -103,6 +103,14 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 - Git hooks: branch_guard.py (beside tag_new_version.py, which it
   imports `MAIN` and `VERSION` from) adds its own marked line to the
   hook files (git_hooks.py's `add_hook_line`), leaving others' alone.
+- regen_release_deps.py (beside tag_new_version.py, which imports
+  `pins_match` from it) pins `[project.dependencies]` to the full
+  runtime closure from `uv.lock` (`uv tool install` from git ignores
+  `uv.lock`). `write_dependencies` rewrites the `==` pins and reconciles
+  the lock; `exported_pins` is `uv export --frozen --no-dev
+  --no-emit-project`; `--check` and `pins_match` compare. The release
+  script refuses when they disagree. After `uv lock --upgrade`: test,
+  run it, commit (see REQUIREMENTS.md Versioning, RELEASING.md).
 - screenshot_screen.py holds `ScreenshotScreen` (`ctrl+s`: the app's
   `action_screenshot` takes `export_screenshot()` first, so the picture
   is the app's, and `screenshot_name`), a Save As with `FolderTree` (a

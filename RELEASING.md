@@ -11,17 +11,22 @@ made there; the release script moves `main` forward. Never commit on
 
 ## Make a release
 
-1. Note the release's changes in [CHANGELOG.md](CHANGELOG.md), under
+1. If the dependencies changed since the last release (e.g. you ran
+   `uv lock --upgrade`), freeze them for end users once the tests pass
+   on the new lock: `uv run regen_release_deps.py`. It pins the full
+   runtime closure into `[project.dependencies]` from `uv.lock` (see
+   [Frozen dependencies](#frozen-dependencies)).
+2. Note the release's changes in [CHANGELOG.md](CHANGELOG.md), under
    `## Unreleased`, and commit everything for the release, on `dev`.
-2. Run:
+3. Run:
 
    ```bash
    uv run tag_new_version.py
    ```
 
    or give the version (`uv run tag_new_version.py 2026.10.10.1`).
-3. Check the version it shows, and answer `y` to `Tag <version>? [y/N]`.
-4. When it says `Committed and tagged <version>, and moved main to it.`,
+4. Check the version it shows, and answer `y` to `Tag <version>? [y/N]`.
+5. When it says `Committed and tagged <version>, and moved main to it.`,
    push with the command it prints:
 
    ```bash
@@ -34,8 +39,10 @@ don't tag by hand.
 ## What the script does
 
 - Refuses a tree with changes, a branch other than `dev`, a `main` that
-  `dev` doesn't lead on from (something committed on `main`), or
-  nothing under `## Unreleased` in CHANGELOG.md.
+  `dev` doesn't lead on from (something committed on `main`), nothing
+  under `## Unreleased` in CHANGELOG.md, or `[project.dependencies]`
+  out of sync with `uv.lock` (see
+  [Frozen dependencies](#frozen-dependencies)).
 - Takes today's date (local), with `.1`, `.2` if that's tagged already;
   a version you give is refused if it's malformed, already tagged, or
   older than the newest tag.
@@ -65,6 +72,31 @@ version; a version change without a tag names a release no commit can
 be found by. Done together, in this order, a version in an exported
 file points at exactly one tagged commit. See REQUIREMENTS.md,
 Versioning, for the full reasoning.
+
+## Frozen dependencies
+
+End users install with `uv tool install`/`upgrade` from git. That path
+**ignores `uv.lock`** and re-resolves dependencies from the version
+specifiers in `[project.dependencies]`, so a bare `textual>=...` lets
+every transitive dependency float and `uv tool upgrade` pulls whatever
+is newest. To give a reproducible install, `[project.dependencies]`
+pins the whole runtime closure to exact `==` versions.
+
+Those pins are generated from `uv.lock`, so the frozen set is always
+one the tests ran against:
+
+```bash
+uv run regen_release_deps.py
+```
+
+It rewrites `[project.dependencies]` from the lock and reconciles the
+lock, as its own reviewed commit. `--check` reports whether they agree
+without changing anything. `tag_new_version.py` runs the same check and
+refuses a release when they disagree, so an upgraded lock can't ship
+without re-pinning.
+
+The loop: on `dev`, `uv lock --upgrade`, run the tests, then
+`uv run regen_release_deps.py`, commit, and release.
 
 ## Undo, before pushing
 

@@ -1335,8 +1335,9 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
   it's malformed, already tagged, or older than the newest tag. It
   refuses a tree with changes, a branch other than `dev`, a `main` that
-  `dev` doesn't lead on from, or nothing under `## Unreleased` in
-  CHANGELOG.md, and asks
+  `dev` doesn't lead on from, nothing under `## Unreleased` in
+  CHANGELOG.md, or `[project.dependencies]` out of sync with `uv.lock`
+  (see Frozen dependencies below), and asks
   `Tag <version>? [y/N]` before changing anything; on `y` it runs the
   tests (asked first, as they take a while, so a run by mistake or a
   mistyped version stops at once). Then it takes these steps, always together and in this order:
@@ -1396,3 +1397,18 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   each hook file (git_hooks.py). A checkout from before the guard (a
   branch from an older release) has no script, so its line does
   nothing there.
+- Frozen dependencies (decided 2026-11-22): end users install with
+  `uv tool install`/`upgrade` from git, which ignores `uv.lock` and
+  re-resolves from the version specifiers in `[project.dependencies]`.
+  A bare `textual>=...` there leaves every transitive dependency to
+  float, so `uv tool upgrade` pulls whatever is newest (it did, on
+  2026-11-21: `markdown-it-py`, `mdit-py-plugins`, and `platformdirs`
+  all moved). So `[project.dependencies]` pins the whole runtime
+  closure to exact `==` versions, for a reproducible install. The pins
+  are generated from `uv.lock` (`regen_release_deps.py`, beside
+  `tag_new_version.py`, for developers, not in the package), so the
+  frozen set is one the tests ran against; `tag_new_version.py` refuses
+  a release whose `[project.dependencies]` don't match the lock
+  (`pins_match`), so an upgraded lock can't ship without re-pinning.
+  The loop: on `dev`, `uv lock --upgrade`, test, `regen_release_deps.py`,
+  commit, release (see RELEASING.md, Frozen dependencies).

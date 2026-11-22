@@ -25,8 +25,10 @@ becomes the release's plus `+dev` in a second commit, so a dev build
 never reports a release's version (src/pota_logger/app_version.py).
 
 It refuses a tree with changes, a branch other than dev, a main that
-dev doesn't lead on from, or a CHANGELOG.md with nothing under
-`## Unreleased`, asks before changing anything, then runs the tests. It
+dev doesn't lead on from, a CHANGELOG.md with nothing under
+`## Unreleased`, or `[project.dependencies]` out of sync with uv.lock
+(regen_release_deps.py), asks before changing anything, then runs the
+tests. It
 never pushes; it prints the push command. RELEASING.md has the steps, how to undo a
 release before it's pushed, and how to do it by hand.
 """
@@ -37,6 +39,8 @@ import sys
 import tomllib
 from datetime import date
 from pathlib import Path
+
+from regen_release_deps import pins_match
 
 ROOT = Path(__file__).resolve().parent
 BRANCH = "dev"
@@ -123,6 +127,14 @@ def repo_problems(cwd: Path) -> list[str]:
     changelog = cwd / CHANGELOG
     if not (changelog.is_file() and unreleased_changes(changelog.read_text())):
         problems.append(f"Nothing under {UNRELEASED} in {CHANGELOG}; note the release's changes there first.")
+    try:
+        if not pins_match(cwd):
+            problems.append(
+                "[project.dependencies] doesn't match uv.lock; "
+                "run `uv run regen_release_deps.py` and commit first."
+            )
+    except subprocess.CalledProcessError:
+        problems.append("Couldn't read uv.lock's dependencies (uv export failed); run `uv lock` first.")
     return problems
 
 

@@ -216,6 +216,10 @@ uv run pytest -n0 tests/fields/test_freq.py
   - `git_hooks.py`: the git hook files the branch guard writes its
     lines into.
 - `tag_new_version.py`: makes a release (see RELEASING.md).
+- `regen_release_deps.py`: pins `[project.dependencies]` to the full
+  runtime closure from `uv.lock`, so an `uv tool install` from git
+  gets a reproducible set (see RELEASING.md,
+  [Frozen dependencies](RELEASING.md#frozen-dependencies)).
 - `branch_guard.py`: the branch guard's git hooks (see Branches).
 
 ## Conventions
