@@ -313,11 +313,6 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
 
 ## Testing notes
 
-- Hand-test data in `data/` (made only when asked): a COMMENT saying how
-  a record came about is marked when that didn't literally happen, so it
-  can't be taken for the real thing: `Simulated hand-added in Calc`, or
-  `$Hand-added in Calc` when short of room (`$`: S for simulated, and
-  ASCII), or `SIM Hand-added in Calc` where `$` might clash with
-  something. A row really made that way (e.g. in Vim, run from the
-  terminal) reads plainly. A plain fact about the row as written (`ID in
-  uppercase`) needs no mark.
+- Making hand-test data in `data/` (only when asked): see the
+  `hand-test-data` skill (`.claude/skills/hand-test-data/SKILL.md`) for
+  the simulated-vs-real marking rules.
