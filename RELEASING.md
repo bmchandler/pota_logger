@@ -65,13 +65,14 @@ don't tag by hand.
 
 ## Why these go together
 
-The version the app reports (the ADIF export's `PROGRAMVERSION`, the
-user agent on downloads) comes from `pyproject.toml`, not from the tag.
-A tag without the version change leaves exports carrying the old
-version; a version change without a tag names a release no commit can
-be found by. Done together, in this order, a version in an exported
-file points at exactly one tagged commit. See REQUIREMENTS.md,
-Versioning, for the full reasoning.
+What the app reports as its version comes from `pyproject.toml` (through
+the installed package's metadata), never from the tag. It's the ADIF
+export's `PROGRAMVERSION` and the `pota-logger/<version>` user agent on
+the parks list download (and on the QRZ.com API, when built). A tag
+alone changes nothing the app reports, so exports would carry the last
+release's version; a version set without a tag names a release no commit
+can be found by. Done together, a version in an exported file points at
+exactly one tagged commit.
 
 ## Frozen dependencies
 
@@ -79,7 +80,9 @@ End users install with `uv tool install`/`upgrade` from git. That path
 **ignores `uv.lock`** and re-resolves dependencies from the version
 specifiers in `[project.dependencies]`, so a bare `textual>=...` lets
 every transitive dependency float and `uv tool upgrade` pulls whatever
-is newest. To give a reproducible install, `[project.dependencies]`
+is newest (it did, on 2026-11-21: `markdown-it-py`, `mdit-py-plugins`,
+and `platformdirs` all moved). To give a reproducible install,
+`[project.dependencies]`
 pins the whole runtime closure to exact `==` versions.
 
 Those pins are generated from `uv.lock`, so the frozen set is always
@@ -97,6 +100,80 @@ without re-pinning.
 
 The loop: on `dev`, `uv lock --upgrade`, run the tests, then
 `uv run regen_release_deps.py`, commit, and release.
+
+## Design rationale
+
+Why releases are built this way. The steps themselves are above
+([Make a release](#make-a-release), [What the script does](#what-the-script-does)).
+
+- **Calendar versioning** (decided 2026-10-10): a release is named for
+  the date it's made, as `YYYY.M.D` (`2026.10.10`), with `.1`, `.2` and
+  so on for a second or third release the same day (`2026.10.10.1`). The
+  app isn't a library: no code depends on it, so semantic versioning's
+  "is this change breaking?" has no one to answer to, and the date needs
+  no judgment call. The log file's format has its own "version", apart
+  from the app's: its header row (see
+  [REQUIREMENTS.md, Storage](REQUIREMENTS.md#storage)).
+- **No leading zeros** (`2026.1.5`, not `2026.01.05`): Python's version
+  rules (PEP 440) drop them, so `uv version 2026.01.05` writes
+  `2026.1.5`, and the tag must read the same as `pyproject.toml`.
+- **Releases only when the operator asks.** The first tag, `MVP`
+  (e1ad0e4), stays as it is. The script is the only way to bump the
+  version, for every release, whether an agent or a person makes it; an
+  agent still pauses for the operator's go-ahead before running it, as
+  before any commit.
+- **Between releases**, `dev`'s version is the last release's plus
+  `+dev` (`2026.10.12+dev`, a PEP 440 local version), and a dev build
+  installed from git reports the commit it was built from too:
+  `2026.10.12+dev.5f820a58`, the first 8 characters of the commit,
+  wherever the app reports its version (app_version.py). The commit
+  can't be written in `pyproject.toml` (a commit can't contain its own
+  hash), and reading it from git when the package is built needs a
+  backend that does that (`hatchling` with `hatch-vcs`), set aside to
+  stay with uv's own. So it's read when the app runs, from the
+  `direct_url.json` an installer writes for an install from git (PEP
+  610, which requires the commit; uv 0.12.17 checked writing it, for
+  `uv tool install` and `uvx`). A clone run (`uv run`) or an install
+  from a package index has no commit there, so its version is reported
+  as written. PyPI refuses local versions, which never reach it: only
+  releases would be published there.
+- **Branches** (decided 2026-10-11): `main` only ever points at the
+  newest release's tag, so an install from git without a branch or tag
+  (`uv tool install git+<repo-url>`) gets the newest release, and
+  `uv tool upgrade` the next one. Work goes on `dev`, and releases are
+  made there; `main` is never committed to, only moved forward by
+  `tag_new_version.py`. Tags are for releases only: a dev build is
+  installed by branch (`@dev`, which `uv tool upgrade` follows) or by
+  commit (`@<commit>`, which it doesn't). README.md shows `main`'s code,
+  so it can lag `dev`; a fix to docs about released behavior that users
+  need goes out as a release of its own, noted in the changelog. The
+  converse (settled 2026-11-22): a change nothing in a release would
+  reflect — developer docs (REQUIREMENTS.md, DEVELOPMENT.md, CLAUDE.md),
+  tests, release tooling — is not a release. There's no honest changelog
+  line for it (the changelog is user-facing only), so it rides `dev` to
+  both remotes and `main` stays put. Only a change a user would notice
+  earns a version bump.
+- **`branch_guard.py`** (beside `tag_new_version.py`, for developers,
+  not in the package) installs git hooks that refuse a commit on `main`,
+  and a push that would set the remote's `main` to a commit no release
+  tag points at, or delete it. Its install changes only its own line in
+  each hook file (git_hooks.py). A checkout from before the guard (a
+  branch from an older release) has no script, so its line does nothing
+  there.
+- **Fast-forward only, no merge commits** (settled 2026-11-22). `main`
+  is a bookmark on `dev`'s linear history, moved forward to each
+  release's commit (`tag_new_version.py`, `update-ref`), never merged
+  into, so `main` stays an ancestor of `dev` and a push of `main` is
+  always a fast-forward. This keeps one linear history, keeps
+  `branch_guard.py` meaningful (a merge commit would itself be a commit
+  on `main`, which it refuses), and keeps the version-to-commit mapping
+  exact (`main` points *at* the tagged commit, not a merge above it). A
+  merge commit buys nothing here: the release spine is the tags
+  (`git tag --sort=-creatordate`, `git diff <old-tag> <new-tag>`), not
+  `main`'s own history. Revisit only if the project gains multiple
+  contributors integrating through reviewed PRs, or needs to maintain an
+  old release apart from `dev` (a hotfix branch from a tag); both are
+  deliberate changes, not the default.
 
 ## Undo, before pushing
 

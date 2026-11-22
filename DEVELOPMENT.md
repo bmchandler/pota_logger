@@ -171,15 +171,18 @@ uv run pytest -n0 tests/fields/test_freq.py
   `CW_ENTRY`. A test that saves several entries needs a different
   CALL on each, or the dupe block stops it. Use past dates, or `991231`
   for a future one.
-- REQUIREMENTS.md's "Status and plan" has the test-speed history and
-  why the slow tests are kept as they are.
+- [tests/TESTS.md](tests/TESTS.md) has the test-speed history and why
+  the slow tests are kept as they are.
 
 ## Where things are
 
-- [REQUIREMENTS.md](REQUIREMENTS.md) is the source of truth for scope,
-  field rules, and what's built and planned. A change to a rule updates
-  it in the same commit.
-- [RELEASING.md](RELEASING.md): how to make a release.
+- [REQUIREMENTS.md](REQUIREMENTS.md) is the source of truth for scope
+  and field rules. A change to a rule updates it in the same commit.
+- [ROADMAP.md](ROADMAP.md): what's built and what's next.
+- [DECISIONS.md](DECISIONS.md): ideas considered, deferred, or decided
+  against.
+- [RELEASING.md](RELEASING.md): how to make a release, and why releases
+  are built the way they are.
 - [CLAUDE.md](CLAUDE.md): instructions for the AI coding agent used on
   this project (Claude Code), with detailed notes on how the code fits
   together. Worth a read for the same reason.

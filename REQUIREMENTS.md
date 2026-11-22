@@ -45,186 +45,14 @@ Out of scope:
 Future (not now):
 
 - QRZ.com API integration, if pursued: on hold until the ADIF export
-  has seen some real use (see Status and plan).
+  has seen some real use (see [ROADMAP.md](ROADMAP.md)).
 
-## Status and plan
+## Status, roadmap, and decisions
 
-Built: the entry form with every planned field (COMMENT included), its
-field rules, blocks, and warnings, all fitting ADIF (see Entry behavior);
-the log table (this session's entries as typed, marked `•`, above the
-saved ones newest first, with a divider between, and saved ones edited
-this session marked `✎`; see Log view); CSV
-storage (see Storage), with each log row and the settings file's
-station callsign checked at start against the entry rules that refuse a
-value, each held to what the app writes (how a value is written fixed
-on load), and hand-tested in Vim
-and LibreOffice Calc (see Storage and Settings), and kept by the app as its own copy
-while it runs, the only source of truth for the log files; deleting an entry (see Editing); fixing or deleting a row refused on
-load, in the app, with how a value is written fixed on load (see Storage); a record ID on every log row, with rows
-sharing one marked `U` (see Storage); definite dupes, blocked on Enter and
-marked `=` at start (see Entry behavior); the status bar; the
-settings modal, opened to set the station callsign at first start,
-checked like CALL and required before any entry is saved, with every
-log row held to it (see Session-level value);
-the counts of rows marked `!`, `U`, and `=` beside the Quit button
-(see Log view); a block at start, with the errors in `file_errors.txt`,
-while log files need fixing by hand (see Storage); notifications stacked
-at the bottom right of the log
-area, a row above the Quit button rather than over it,
-and a row above the log's sideways scrollbar while it shows (Textual's ToastRack raised by
-CSS, a small override of stock looks); a light
-outdoors color theme (leaf and grass greens with orange warnings, in
-theme.py); the footer keys and terminal size; sideways scrolling of the
-form in a narrow window; selecting a log row and editing its entry in
-the form (see Editing); the log's COMMENT column filling the log's
-width, or as wide as the longest COMMENT shown, apart from the form's
-100-character limit, so the divider reaches the right edge (see Entry
-fields); the Sort action, `f5` or a header click (see Log view); COMMENT's
-POTA info, two settings in a Settings modal now open after setup (see
-COMMENT's POTA info); the form's
-fields in entry order, apart from the log's paper-log order (see Entry
-fields); Tab between a modal's two buttons (see Entry behavior); an
-unchanged edit saving nothing and left unmarked (see Editing). The visual layout is settled; wording tweaks
-can still come up as they're noticed.
-
-ADIF file export is built (2026-10-09; see Export): the ADIF record
-module (each entry as one ADIF record, for both the file export and
-the API), the export folder setting, and the Export modal (`f6`, or
-the ADIF button, which replaced the Settings button). The export folder
-defaults to `exports/` beside `data/`, made by the app (2026-10-11; see
-Settings).
-
-Support for POTA's parks list is built (2026-10-10; see Export,
-POTA's parks list), taken before the QRZ.com API (decided 2026-10-09,
-as the more straightforward): the download, offered at first start and
-checked for updates from Settings; the park's name on COMMENT's label
-row (with a multi-state park's states while typing or editing, built
-2026-10-13), ST filled from the park, warnings on an unlisted or inactive park
-and on an ST not the park's, and DXCC (and a multi-state park's
-location) in the export.
-
-The loose ends before a first release are done (2026-10-10): calendar
-versioning and the release script, a changelog (CHANGELOG.md, which the
-release script dates), installing with `uv tool install`, the MIT
-license, DEVELOPMENT.md and RELEASING.md, a checked test suite, and the
-code and tests grouped into folders (`fields/`, `screens/`, the app in
-`app.py`; `tests/` mirroring them). The first release, 2026.10.10, is
-made. README.md's install commands use the GitHub repository
-(https://github.com/bmchandler/pota_logger, 2026-10-12).
-
-The check for a newer release is built (2026-10-12; see Settings,
-Updates): a toast at start, or an upgrade once the app quits, chosen
-in Settings. Hand-tested by the operator (2026-10-13), with 2026.10.13
-installed and 2026.10.13.1 on GitHub: Notify showed the toast, No
-notification showed none, Notify again showed it, Automatic on Quit
-upgraded cleanly, and Notify on the new release showed none. Not yet
-tried by hand: a start with no network.
-
-Next, after the first release: real use. QRZ.com API integration (see
-Export, QRZ.com API) is on hold until the operator has used the ADIF
-export in a few real sessions, outside the development VM, importing
-the files into QRZ.com. Known issues that won't be fixed are listed in
-README.md's Noted issues.
-
-Versioning is decided (2026-10-10; see Versioning): calendar versions,
-set with `uv version` and tagged together by `tag_new_version.py`
-(built 2026-10-10), when the operator asks for a release.
-
-The branch model is built (2026-10-11; see Versioning, Branches):
-`main` at the newest release, work and releases on `dev`, the release
-script moving `main` forward, dev builds reporting `+dev.<commit>` and
-keeping their files in `~/.local/share/pota-logger-dev/`, and
-`branch_guard.py`'s hooks. Hand-tested by the operator outside the VM
-(2026-10-11): a release install and an `@dev` install each set up in
-their own folder, with exports defaulting to that folder's `exports/`,
-and the dev build's export reporting `2026.10.11+dev.7601686b`, the
-installed commit.
-
-The Info modal is built (2026-10-12; see Theme and keys), and the
-project is mirrored to GitHub (https://github.com/bmchandler/pota_logger),
-where README.md's install commands point.
-
-Installing with `uv tool install` is built (2026-10-10; see Storage):
-installed, the app keeps its files in `~/.local/share/pota-logger/data/`,
-with a `README.txt` beside it; a clone keeps using its own `data/`.
-
-The test suite was sped up 2026-10-05, from about 4 minutes (699 tests)
-to about 40 seconds: tests run in parallel with pytest-xdist (`-n auto`
-by default, in pyproject.toml), and the COMMENT limit test fills the
-field to near its limit instead of typing 103 keys. Profiling an app
-start (about 0.35 seconds, plus about 0.25 seconds settling before the
-first key) found it almost all in Textual's own styling and layout; the
-one cost of ours, the notifications' class (see above) set on the
-screen, which restyled every widget, now goes on the ToastRack alone.
-`test_typed_entry_with_tab_between_fields` and
-`test_rows_drawn_in_full_without_redraw` (about 7 seconds each) type key
-by key on purpose (key-by-key entry, and a redraw bug that needed it).
-Each field's "blocks entry" app test stays, though its parser's unit
-tests check the same message (decided 2026-10-05): it's what proves the
-field is wired into the form's checks (`PARSERS`, `REPORTS`, focus), which
-a unit test can't. Full coverage is preferred over speed; with tests in
-parallel they cost about 1 to 2 seconds.
-
-Checked again 2026-10-10: 935 tests took about 100 seconds. The
-2026-10-05 suite (699 tests) still runs in about 46 seconds on the same
-machine, and the cost of a key press or an app start hasn't changed, so
-the rise is growth: app tests went from 172 to 278 and run somewhat
-longer each. The rest was workers left idle at the end: xdist's default
-`load` scheduling hands out tests in advance, so slow ones bunch up on a
-few workers. `--dist worksteal` (idle workers take tests from busy ones)
-brought it to about 72 seconds. Splitting `tests/test_app.py` into
-`tests/app/`, a file per area (2026-10-10, for readability), brought it
-to about 55, likely as smaller files spread more evenly across the workers.
-
-The editing plan (decided 2026-10-04) is built: the log is where records
-are checked and fixed, with no need to open a CSV. Its status column shows
-each row's state, the form makes every change, and only the operator
-changes a record.
-
-Ideas considered and deferred:
-
-- A CW warning within about 1 kHz of a band edge. Left out for now: a CW
-  signal is narrow, and radios differ on whether the dial shows the
-  transmit frequency or is offset by the CW pitch.
-- Defaulting DATE to "UTC now minus a few hours", which would suit
-  operators in any time zone. The local-date default fits the current
-  operator (US Eastern).
-- A Keys help panel (Textual's, from the command palette). Textual's
-  input fields already use ctrl+k (delete to the end), and overriding
-  stock bindings is avoided, so it was dropped with the palette.
-- Lining the narrow form's scrollbar up exactly with the input boxes.
-  Textual's input borders put the visible edge partway into a cell, so
-  it would take non-stock input borders; the stock look was kept.
-- Dates before 2000 (or after 2099). The entry form's YYMMDD covers
-  2000 to 2099, and log rows outside it are refused on load, so an edit
-  can't change their year. Decided 2026-10-10 to leave it so: importing
-  older logs isn't planned, and nothing before 2000 needs logging.
-- Bulk edits (e.g. PWR across a session) and undo: not planned. Entries
-  are copied from paper one at a time, so bulk edits add little and
-  raise the risk of mistakes; an entry is fixed by editing or deleting
-  it. Revisit only if real use calls for them.
-- A limit on digits in a callsign. ADIF sets none, and special-event
-  calls use years and anniversaries (`W100AW`); the unusual-callsign
-  warning covers typos like `W111111AB`.
-- A full ADIF export (every entry) in the Export modal, as a backup
-  or for another logging program. Meanwhile a date range from the
-  oldest DATE does the same.
-
-Ideas decided against:
-
-- PARK as a comma list of parks (`1234,2345,3456`), mirroring ADIF's
-  `POTA_REF`, for a 2-fer or more in one entry. Kept as an idea when the
-  ADIF export was planned (2026-10-09), since `POTA_REF` takes a list;
-  dropped 2026-10-13. A hunter's park credit comes from the activator's
-  log, so the list would only tidy the operator's own export, and the
-  other parks already go in COMMENT (see Entry behavior, multi-park
-  activations). It would have changed the log column, the load checks,
-  the dupe check, sorting, COMMENT's POTA info, and ST (parks in
-  different states). A separate field for extra parks was set aside
-  earlier: it needs room in the form, and a fixed number of fields would
-  cap the parks.
-- `f1` opening Info over a modal or block (decided 2026-10-13): extra
-  code for little value; like the app's other keys, it doesn't.
+This document is the product requirements. What's built and what's next
+is in [ROADMAP.md](ROADMAP.md); design decisions considered, deferred,
+or decided against are in [DECISIONS.md](DECISIONS.md); test-suite
+history is in [tests/TESTS.md](tests/TESTS.md).
 
 ## Entry fields
 
@@ -521,7 +349,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   entry per park isn't an option: QRZ.com takes entries with the same
   CALL, BAND, MODE, DATE, and TIME as dupes and keeps only one. Hunters
   get park credit from the activator's log, not their own. PARK as a
-  list was decided against (see Status and plan).
+  list was decided against (see [DECISIONS.md](DECISIONS.md)).
 - Entries may be typed in any time order, with no warning. The paper log
   isn't always in time order (an entry is sometimes finished after later
   ones), and typing it 1:1 keeps it easy to double-check.
@@ -779,7 +607,7 @@ an entry's COMMENT with it, which Settings can have the app fill in.
   Your data, summed up), for reading at a terminal. It's the app's own
   file, so edits to it aren't kept. A PyPI package is set aside for now;
   the install is from the git repository.
-- A dev build installed (its version ends `+dev`; see Versioning) keeps
+- A dev build installed (its version ends `+dev`; see [RELEASING.md](RELEASING.md)) keeps
   its files in `~/.local/share/pota-logger-dev/` instead (decided
   2026-10-11), its `data/`, `exports/`, and `README.txt` apart from a
   release's, so testing one never touches the real log. Every dev build
@@ -1316,120 +1144,10 @@ an entry's COMMENT with it, which Settings can have the app fill in.
 
 ## Versioning
 
-- Calendar versioning (decided 2026-10-10): a release is named for the
-  date it's made, as `YYYY.M.D` (`2026.10.10`), with `.1`, `.2` and so
-  on for a second or third release the same day (`2026.10.10.1`). The
-  app isn't a library: no code depends on it, so semantic versioning's
-  "is this change breaking?" has no one to answer to, and the date
-  needs no judgment call. The log file's format has its own "version",
-  apart from the app's: its header row (see Storage).
-- No leading zeros (`2026.1.5`, not `2026.01.05`): Python's version
-  rules (PEP 440) drop them, so `uv version 2026.01.05` writes
-  `2026.1.5`, and the tag must read the same as `pyproject.toml`.
-- Releases are made only when the operator asks. The first tag, `MVP`
-  (e1ad0e4), stays as it is; the version stays `0.1.0` until the first
-  dated release.
-- A release is made with `uv run tag_new_version.py` (built
-  2026-10-10; the steps for a person are in RELEASING.md), whether an agent or a person makes it, for every version
-  bump. It takes today's date, with `.1`, `.2` when that's tagged, or a
-  version given (`uv run tag_new_version.py 2026.10.10.1`), refused if
-  it's malformed, already tagged, or older than the newest tag. It
-  refuses a tree with changes, a branch other than `dev`, a `main` that
-  `dev` doesn't lead on from, nothing under `## Unreleased` in
-  CHANGELOG.md, or `[project.dependencies]` out of sync with `uv.lock`
-  (see Frozen dependencies below), and asks
-  `Tag <version>? [y/N]` before changing anything; on `y` it runs the
-  tests (asked first, as they take a while, so a run by mistake or a
-  mistyped version stops at once). Then it takes these steps, always together and in this order:
-  1. `uv version <date>`, which sets the version in `pyproject.toml`
-     and `uv.lock` (checked to read exactly `<date>`).
-  2. Rename CHANGELOG.md's `## Unreleased` heading to `## <date>`, and
-     commit the three files, as `Version <date>`.
-  3. Tag that commit with the same `<date>` (no `v` before it; a plain
-     tag, like `MVP`).
-  4. Move `main` to that commit, only forward (see Branches below).
-  5. `uv version <date>+dev`, committed (`pyproject.toml`, `uv.lock`)
-     on `dev` as `Version <date>+dev`, so dev builds don't report the
-     release's version.
+The app reports a calendar version (`YYYY.M.D`): in the ADIF export's
+`PROGRAMVERSION` and the `pota-logger/<version>` user agent on the parks
+list download (and on the QRZ.com API, when built). The log file's
+format has its own "version", its header row (see [Storage](#storage)).
 
-  It never pushes; it prints `git push origin dev main <date>`. An agent
-  making a release still pauses for the operator's go-ahead before
-  running it, as before any commit.
-- Why together: what the app reports as its version comes from
-  `pyproject.toml` (through the installed package's metadata), never
-  from the tag. It's the ADIF export's `PROGRAMVERSION` and the
-  `pota-logger/<version>` user agent on the parks list download (and
-  on the QRZ.com API, when built). A tag alone changes nothing the app
-  reports, so exports would carry the last release's version; a version
-  set without a tag names a release no commit can be found by. Done
-  together, a version in an exported file points at exactly one tagged
-  commit.
-- Between releases (decided 2026-10-11), `dev`'s version is the last
-  release's plus `+dev` (`2026.10.12+dev`, a PEP 440 local version),
-  and a dev build installed from git reports the commit it was built
-  from too: `2026.10.12+dev.5f820a58`, the first 8 characters of the
-  commit, wherever the app reports its version (app_version.py). The
-  commit can't be written in `pyproject.toml` (a commit can't contain
-  its own hash), and reading it from git when the package is built
-  needs a backend that does that (`hatchling` with `hatch-vcs`), set
-  aside to stay with uv's own. So it's read when the app runs, from
-  the `direct_url.json` an installer writes for an install from git
-  (PEP 610, which requires the commit; uv 0.12.17 checked writing it,
-  for `uv tool install` and `uvx`). A clone run (`uv run`) or an
-  install from a package index has no commit there, so its version is
-  reported as written. PyPI refuses local versions, which never reach
-  it: only releases would be published there.
-- Branches (decided 2026-10-11): `main` only ever points at the newest
-  release's tag, so an install from git without a branch or tag
-  (`uv tool install git+<repo-url>`) gets the newest release, and
-  `uv tool upgrade` the next one. Work goes on `dev`, and releases are
-  made there; `main` is never committed to, only moved forward by
-  `tag_new_version.py`. Tags are for releases only: a dev build is
-  installed by branch (`@dev`, which `uv tool upgrade` follows) or by
-  commit (`@<commit>`, which it doesn't). README.md shows `main`'s
-  code, so it can lag `dev`; a fix to docs about released behavior
-  that users need goes out as a release of its own, noted in the
-  changelog. The converse (settled 2026-11-22): a change nothing in a
-  release would reflect — developer docs (REQUIREMENTS.md, DEVELOPMENT.md,
-  CLAUDE.md), tests, release tooling — is not a release. There's no
-  honest changelog line for it (the changelog is user-facing only), so
-  it rides `dev` to both remotes and `main` stays put. Only a change a
-  user would notice earns a version bump.
-- `branch_guard.py` (beside `tag_new_version.py`, for developers, not
-  in the package) installs git hooks that refuse a commit on `main`, and
-  a push that would set the remote's `main` to a commit no release tag
-  points at, or delete it. Its install changes only its own line in
-  each hook file (git_hooks.py). A checkout from before the guard (a
-  branch from an older release) has no script, so its line does
-  nothing there.
-- Frozen dependencies (decided 2026-11-22): end users install with
-  `uv tool install`/`upgrade` from git, which ignores `uv.lock` and
-  re-resolves from the version specifiers in `[project.dependencies]`.
-  A bare `textual>=...` there leaves every transitive dependency to
-  float, so `uv tool upgrade` pulls whatever is newest (it did, on
-  2026-11-21: `markdown-it-py`, `mdit-py-plugins`, and `platformdirs`
-  all moved). So `[project.dependencies]` pins the whole runtime
-  closure to exact `==` versions, for a reproducible install. The pins
-  are generated from `uv.lock` (`regen_release_deps.py`, beside
-  `tag_new_version.py`, for developers, not in the package), so the
-  frozen set is one the tests ran against; `tag_new_version.py` refuses
-  a release whose `[project.dependencies]` don't match the lock
-  (`pins_match`), so an upgraded lock can't ship without re-pinning.
-  The loop: on `dev`, `uv lock --upgrade`, test, `regen_release_deps.py`,
-  commit, release (see RELEASING.md, Frozen dependencies).
-- Branch model: fast-forward only, no merge commits (settled
-  2026-11-22). `main` is a bookmark on `dev`'s linear history, moved
-  forward to each release's commit (`tag_new_version.py`, `update-ref`),
-  never merged into, so `main` stays an ancestor of `dev` and a push of
-  `main` is always a fast-forward. This keeps one linear history, keeps
-  `branch_guard.py` meaningful (a merge commit would itself be a commit
-  on `main`, which it refuses), and keeps the version-to-commit mapping
-  exact (`main` points *at* the tagged commit, not a merge above it).
-  A merge commit buys nothing here: the release spine is the tags
-  (`git tag --sort=-creatordate`, `git diff <old-tag> <new-tag>`), not
-  `main`'s own history. Revisit only if the project gains multiple
-  contributors integrating through reviewed PRs (where `main` as a
-  protected integration branch with a first-parent release history
-  earns its keep), or needs to maintain an old release apart from `dev`
-  (a hotfix branch from a tag); both are deliberate changes, not the
-  default.
+How releases are versioned, tagged, branched, and frozen is release
+engineering, not product behavior: see [RELEASING.md](RELEASING.md).

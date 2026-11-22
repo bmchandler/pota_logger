@@ -13,12 +13,12 @@ description: >
 
 # Release
 
-This is the triggerable checklist. The full step mechanics live in
-[RELEASING.md](../../../RELEASING.md); the reasoning lives in
-REQUIREMENTS.md → Versioning. This skill does not restate either — it
-makes the procedure fire at the right moment and holds the guard rails
-in one place. When a step here and RELEASING.md ever disagree, RELEASING.md
-is canonical: fix it, and fix this.
+This is the triggerable checklist. The full step mechanics and the
+design rationale both live in [RELEASING.md](../../../RELEASING.md). This
+skill does not restate them — it makes the procedure fire at the right
+moment and holds the guard rails in one place. When a step here and
+RELEASING.md ever disagree, RELEASING.md is canonical: fix it, and fix
+this.
 
 ## Before you touch anything — preconditions
 
@@ -82,8 +82,9 @@ A version a build embeds in its output must trace to exactly one commit.
 A tag without the bump leaves exports carrying the old version; a bump
 without the tag names a release no commit answers to. Done together, in
 the script's order, an embedded version points at exactly one tagged
-commit. Full reasoning: REQUIREMENTS.md → Versioning. Why the frozen-dep
-pins go with it: [RELEASING.md → Frozen dependencies](../../../RELEASING.md).
+commit. Full reasoning: [RELEASING.md → Design rationale](../../../RELEASING.md).
+Why the frozen-dep pins go with it:
+[RELEASING.md → Frozen dependencies](../../../RELEASING.md).
 
 ## When something is wrong
 

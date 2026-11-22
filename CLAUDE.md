@@ -25,14 +25,13 @@ developer are in DEVELOPMENT.md, imported here:
 - Releases (only when the user asks; steps in RELEASING.md), on `dev`:
   `uv run tag_new_version.py`, the only way to bump the version. It sets a calendar version (`uv
   version <YYYY.M.D>`), commits `pyproject.toml` and `uv.lock`, and tags
-  that commit, always all together (see REQUIREMENTS.md Versioning for
+  that commit, always all together (see RELEASING.md for
   why), then moves `main` to it and commits `<YYYY.M.D>+dev` on `dev`. It asks before changing anything: get the user's go-ahead first,
   as for any commit.
 - Only a change a user would notice earns a release. Developer-doc-only
   changes (REQUIREMENTS.md, DEVELOPMENT.md, CLAUDE.md), tests, and
   release tooling ride `dev` to both remotes with no version bump:
-  there's no honest changelog line for them (see REQUIREMENTS.md
-  Versioning).
+  there's no honest changelog line for them (see RELEASING.md).
 - Note each change a user would notice in CHANGELOG.md, under
   `## Unreleased` (add the heading if a release removed it), in the same
   commit: terse, for users, not a commit log.
@@ -49,8 +48,8 @@ developer are in DEVELOPMENT.md, imported here:
   what are the trade-offs, would it override stock framework behavior
   (e.g. a built-in key binding)? Then wait for a clear instruction.
   Avoid overriding framework defaults unless the user decides to.
-- REQUIREMENTS.md's "Status and plan" section says what's built and
-  what's next; update it when a planned item lands.
+- ROADMAP.md says what's built and what's next; update it when a
+  planned item lands.
 - README.md is for users of the release: what it does, installing,
   upgrading, using it, their data. Developer material (development
   builds, running from a clone, tests, releasing, requirements) goes in
@@ -115,7 +114,7 @@ The rules are in DEVELOPMENT.md's Privacy. Beyond them:
   the lock; `exported_pins` is `uv export --frozen --no-dev
   --no-emit-project`; `--check` and `pins_match` compare. The release
   script refuses when they disagree. After `uv lock --upgrade`: test,
-  run it, commit (see REQUIREMENTS.md Versioning, RELEASING.md).
+  run it, commit (see RELEASING.md).
 - screenshot_screen.py holds `ScreenshotScreen` (`ctrl+s`: the app's
   `action_screenshot` takes `export_screenshot()` first, so the picture
   is the app's, and `screenshot_name`), a Save As with `FolderTree` (a
