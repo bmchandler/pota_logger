@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 import branch_guard
-from pota_logger.git_hooks import HEADER
+from git_hooks import HEADER
 
 ZERO = "0" * 40
 

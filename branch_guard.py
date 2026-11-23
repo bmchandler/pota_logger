@@ -10,7 +10,7 @@ release it tags. These hooks catch a slip:
   no release tag points at, or delete it.
 
 Each hook file keeps the guard to its own marked line
-(src/pota_logger/git_hooks.py). Install once per clone:
+(git_hooks.py, beside it). Install once per clone:
 
     uv run branch_guard.py install
 """
@@ -19,7 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from pota_logger.git_hooks import add_hook_line, hooks_dir
+from git_hooks import add_hook_line, hooks_dir
 from tag_new_version import MAIN, VERSION
 
 ROOT = Path(__file__).resolve().parent
